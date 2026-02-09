@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="ChurchTVApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCMTV - Install Prompt Test</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LCMTV">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#6a0dad">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+    <div class="container" style="padding: 20px;">
+        <div class="row">
+            <div class="col-md-12">
+                <h1><i class="fa fa-mobile"></i> LCMTV Mobile Install Prompt Test</h1>
+                <p class="lead">Test the mobile-optimized PWA install prompt functionality</p>
+
+                <div class="alert alert-info">
+                    <h4><i class="fa fa-info-circle"></i> How to Test:</h4>
+                    <ol>
+                        <li><strong>On Mobile Device:</strong> Open this page in Chrome/Safari on your mobile device</li>
+                        <li><strong>On Desktop:</strong> Open Chrome and use DevTools to simulate mobile device</li>
+                        <li><strong>Trigger Prompt:</strong> Scroll, click, or wait a few seconds for the install prompt to appear</li>
+                        <li><strong>Test Features:</strong> Try installing, dismissing, or closing the prompt</li>
+                    </ol>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="panel panel-primary">
+                            <div class="panel-heading">
+                                <h3 class="panel-title"><i class="fa fa-mobile"></i> Mobile Features</h3>
+                            </div>
+                            <div class="panel-body">
+                                <ul class="list-unstyled">
+                                    <li><i class="fa fa-check text-success"></i> Responsive bottom banner design</li>
+                                    <li><i class="fa fa-check text-success"></i> Positioned above bottom navigation</li>
+                                    <li><i class="fa fa-check text-success"></i> Haptic feedback on interaction</li>
+                                    <li><i class="fa fa-check text-success"></i> Feature highlights display</li>
+                                    <li><i class="fa fa-check text-success"></i> Shorter dismissal period (7 days)</li>
+                                    <li><i class="fa fa-check text-success"></i> Touch-optimized button sizes</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="panel panel-info">
+                            <div class="panel-heading">
+                                <h3 class="panel-title"><i class="fa fa-desktop"></i> Desktop Features</h3>
+                            </div>
+                            <div class="panel-body">
+                                <ul class="list-unstyled">
+                                    <li><i class="fa fa-check text-success"></i> Corner banner design</li>
+                                    <li><i class="fa fa-check text-success"></i> Side-by-side button layout</li>
+                                    <li><i class="fa fa-check text-success"></i> Longer dismissal period (30 days)</li>
+                                    <li><i class="fa fa-check text-success"></i> Hover effects and animations</li>
+                                    <li><i class="fa fa-check text-success"></i> Gradient button styling</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel panel-warning">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><i class="fa fa-exclamation-triangle"></i> Debug Information</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div id="debug-info">
+                            <p><strong>Device Type:</strong> <span id="device-type">Detecting...</span></p>
+                            <p><strong>Browser Support:</strong> <span id="browser-support">Checking...</span></p>
+                            <p><strong>Install Prompt Status:</strong> <span id="prompt-status">Waiting...</span></p>
+                            <p><strong>Standalone Mode:</strong> <span id="standalone-mode">Checking...</span></p>
+                            <p><strong>Previous Dismissal:</strong> <span id="dismissal-info">Checking...</span></p>
+                        </div>
+                        <button class="btn btn-default" onclick="updateDebugInfo()">
+                            <i class="fa fa-refresh"></i> Refresh Debug Info
+                        </button>
+                        <button class="btn btn-danger" onclick="clearInstallData()">
+                            <i class="fa fa-trash"></i> Clear Install Data
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel panel-success">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><i class="fa fa-rocket"></i> Manual Test Actions</h3>
+                    </div>
+                    <div class="panel-body">
+                        <p>Use these buttons to manually test the install prompt functionality:</p>
+                        <button class="btn btn-primary" onclick="triggerInstallPrompt()">
+                            <i class="fa fa-download"></i> Trigger Install Prompt
+                        </button>
+                        <button class="btn btn-warning" onclick="simulateDismissal()">
+                            <i class="fa fa-times"></i> Simulate Dismissal
+                        </button>
+                        <button class="btn btn-info" onclick="checkInstallStatus()">
+                            <i class="fa fa-search"></i> Check Install Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AngularJS Dependencies -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-sanitize.min.js"></script>
+
+    <!-- Main Application Scripts -->
+    <script src="app/app.js"></script>
+    <script src="assets/js/main.js"></script>
+
+    <script>
+        // Debug functions for testing
+        function updateDebugInfo() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                            (window.innerWidth <= 768 && window.innerHeight > window.innerWidth);
+
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                               window.navigator.standalone === true ||
+                               document.referrer.includes('android-app://');
+
+            const isSupported = ('serviceWorker' in navigator) &&
+                               ('beforeinstallprompt' in window || isStandalone);
+
+            const dismissedTime = localStorage.getItem('installPromptDismissed');
+            let dismissalInfo = 'Never dismissed';
+            if (dismissedTime) {
+                const daysSince = Math.round((Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60 * 24));
+                const dismissDays = parseInt(localStorage.getItem('installPromptDismissDays')) || 30;
+                dismissalInfo = `${daysSince} days ago (${dismissDays - daysSince} days until next show)`;
+            }
+
+            document.getElementById('device-type').textContent = isMobile ? 'Mobile' : 'Desktop';
+            document.getElementById('browser-support').textContent = isSupported ? 'Supported' : 'Not Supported';
+            document.getElementById('standalone-mode').textContent = isStandalone ? 'Yes (Already Installed)' : 'No';
+            document.getElementById('dismissal-info').textContent = dismissalInfo;
+            document.getElementById('prompt-status').textContent = 'Initialized';
+        }
+
+        function clearInstallData() {
+            localStorage.removeItem('installPromptDismissed');
+            localStorage.removeItem('installPromptDismissDays');
+            alert('Install prompt data cleared. Refresh the page to test again.');
+            updateDebugInfo();
+        }
+
+        function triggerInstallPrompt() {
+            if (window.installPWA) {
+                window.installPWA();
+            } else {
+                alert('Install prompt not available. Make sure you\'re on a supported browser and the page has loaded completely.');
+            }
+        }
+
+        function simulateDismissal() {
+            if (window.dismissInstallPrompt) {
+                window.dismissInstallPrompt();
+                updateDebugInfo();
+            } else {
+                alert('Dismiss function not available.');
+            }
+        }
+
+        function checkInstallStatus() {
+            const prompt = document.getElementById('install-prompt');
+            const status = prompt ? 'Visible' : 'Hidden/Not Created';
+            document.getElementById('prompt-status').textContent = status;
+            alert(`Install prompt status: ${status}`);
+        }
+
+        // Update debug info when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(updateDebugInfo, 1000);
+        });
+    </script>
+</body>
+</html>
