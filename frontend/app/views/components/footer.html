@@ -1,0 +1,58 @@
+<!-- Church TV Footer Component -->
+<footer class="main-footer" ng-controller="FooterController as footerCtrl">
+    <div class="container">
+        <div class="footer-content">
+            <!-- Logo Section -->
+            <div class="footer-section">
+                <div class="footer-logo">
+                    <img src="../../../lctv-logo-dark.png" alt="LCTV Logo" class="footer-logo-image">
+                </div>
+                <p>A modern streaming platform dedicated to sharing church content, sermons, worship music, and inspirational videos with the community.</p>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <div class="footer-links">
+                    <a href="#/">Home</a>
+                    <a href="#/favorites">Favorites</a>
+                    <a href="#/search">Search</a>
+                    <a href="#/category/sermons">Sermons</a>
+                    <a href="#/category/worship">Worship</a>
+                    <a href="#/category/youth">Youth</a>
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="footer-section">
+                <h4>Categories</h4>
+                <div class="footer-links">
+                    <a href="#/category/sermons">Sermons</a>
+                    <a href="#/category/worship">Worship</a>
+                    <a href="#/category/youth">Youth Ministry</a>
+                    <a href="#/category/bible-study">Bible Study</a>
+                    <a href="#/category/special-events">Special Events</a>
+                    <a href="#/category/testimonials">Testimonials</a>
+                </div>
+            </div>
+
+            <!-- Contact Info -->
+            <div class="footer-section">
+                <h4>Connect With Us</h4>
+                <p>
+                    <i class="fa fa-envelope"></i> info@churchtv.org<br>
+                    <i class="fa fa-phone"></i> (555) 123-4567<br>
+                    <i class="fa fa-map-marker"></i> 123 Faith Street, City, State
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer Bottom -->
+        <div class="footer-bottom">
+            <div class="container">
+                <p>&copy; {{footerCtrl.currentYear}} Church TV. All rights reserved.</p>
+                <p>Built with faith and technology for the community.</p>
+            </div>
+        </div>
+    </div>
+</footer>

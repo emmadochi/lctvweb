@@ -1,0 +1,94 @@
+# LCMTV Project - Git Ignore File
+
+# Environment and Configuration
+.env
+.env.local
+.env.production
+.env.staging
+config/database.production.php
+
+# Logs
+*.log
+logs/
+api_errors.log
+ai_services.log
+backend/logs/
+
+# Cache and Temporary Files
+.cache/
+tmp/
+temp/
+
+# Dependencies
+node_modules/
+bower_components/
+vendor/
+composer.lock
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Database Files
+*.sqlite
+*.db
+*.sql.backup
+
+# Upload Directories (if any)
+uploads/
+media/uploads/
+
+# Build and Distribution
+dist/
+build/
+*.min.js
+*.min.css
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PHP
+.phpunit.result.cache
+
+# Temporary backup files
+*.backup
+*.bak
+*.tmp
+
+# Sensitive data
+secrets/
+keys/
+*.key
+*.pem
+*.crt
+
+# Documentation builds
+docs/_build/
+*.pdf
+*.docx

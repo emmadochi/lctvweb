@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="ChurchTVApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church TV - Modern Streaming Platform</title>
+
+    <!-- Meta Tags for SEO and Mobile -->
+    <meta name="description" content="A modern TV-style platform that organizes the best church content into easy-to-watch channels.">
+    <meta name="author" content="Church TV Team">
+    <meta name="keywords" content="church, christian, tv, streaming, sermons, worship, videos">
+
+    <!-- Mobile Web App -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Church TV">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- Favicon -->
+    <link rel="icon" href="assets/images/favicon.ico" sizes="256x256" type="image/x-icon">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/main.css">
+
+    <!-- YouTube API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body class="church-theme">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" ng-show="loading">
+        <div class="loading-spinner">
+            <i class="fa fa-spinner fa-spin fa-3x"></i>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div class="app-container">
+        <!-- Header/Navigation -->
+        <header ng-include="'app/views/components/header.html'" class="main-header"></header>
+
+        <!-- Main Content Area -->
+        <main class="main-content" ng-view></main>
+
+        <!-- Footer -->
+        <footer ng-include="'app/views/components/footer.html'" class="main-footer"></footer>
+    </div>
+
+    <!-- Error Modal -->
+    <div class="modal fade" id="errorModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                    <h4 class="modal-title">Error</h4>
+                </div>
+                <div class="modal-body">
+                    <p>{{errorMessage}}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AngularJS Dependencies -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-animate.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-sanitize.min.js"></script>
+
+    <!-- jQuery and Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"></script>
+
+    <!-- Security Configuration -->
+    <script src="app/config/security.js"></script>
+
+    <!-- Application Files -->
+    <script src="app/app.js"></script>
+
+    <!-- Controllers -->
+    <script src="app/controllers/HomeController.js"></script>
+    <script src="app/controllers/CategoryController.js"></script>
+    <script src="app/controllers/VideoController.js"></script>
+    <script src="app/controllers/LivestreamController.js"></script>
+    <script src="app/controllers/SearchController.js"></script>
+    <script src="app/controllers/FavoritesController.js"></script>
+    <script src="app/controllers/PlaylistController.js"></script>
+    <script src="app/controllers/HeroSliderController.js"></script>
+    <script src="app/controllers/HeaderController.js"></script>
+    <script src="app/controllers/LoginController.js"></script>
+    <script src="app/controllers/ProfileController.js"></script>
+    <script src="app/controllers/FooterController.js"></script>
+    <script src="app/controllers/AdminLoginController.js"></script>
+    <script src="app/controllers/AdminDashboardController.js"></script>
+    <script src="app/controllers/AdminVideosController.js"></script>
+    <script src="app/controllers/AdminCategoriesController.js"></script>
+
+    <!-- Services -->
+    <script src="app/services/VideoService.js"></script>
+    <script src="app/services/LivestreamService.js"></script>
+    <script src="app/services/CategoryService.js"></script>
+    <script src="app/services/SearchService.js"></script>
+    <script src="app/services/UserService.js"></script>
+    <script src="app/services/AuthService.js"></script>
+    <script src="app/services/PlaylistService.js"></script>
+    <script src="app/services/AdminService.js"></script>
+
+    <!-- Directives -->
+    <script src="app/directives/videoThumbnail.js"></script>
+    <script src="app/directives/youtubePlayer.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="assets/js/main.js"></script>
+    <script src="assets/js/performance.js"></script>
+</body>
+</html>

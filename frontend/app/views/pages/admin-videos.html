@@ -1,0 +1,761 @@
+<!-- Admin Videos Management Page -->
+<div class="admin-videos-page" ng-controller="AdminVideosController as vm">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="container-fluid">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="page-title">
+                        <i class="fa fa-video-camera"></i> Video Management
+                    </h1>
+                    <p class="page-subtitle">Manage church videos and content</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-primary" ng-click="vm.openAddModal()">
+                        <i class="fa fa-plus"></i> Add Video
+                    </button>
+                    <button class="btn btn-outline-secondary" ng-click="vm.bulkImport()">
+                        <i class="fa fa-upload"></i> Bulk Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <div class="container-fluid">
+            <div class="filters-content">
+                <div class="filter-group">
+                    <label for="search" class="filter-label">Search</label>
+                    <input type="text"
+                           id="search"
+                           class="form-control"
+                           ng-model="vm.filters.search"
+                           ng-change="vm.applyFilters()"
+                           placeholder="Search by title, description, or YouTube ID...">
+                </div>
+
+                <div class="filter-group">
+                    <label for="category" class="filter-label">Category</label>
+                    <select id="category"
+                            class="form-control"
+                            ng-model="vm.filters.category"
+                            ng-change="vm.applyFilters()">
+                        <option value="">All Categories</option>
+                        <option ng-repeat="category in vm.categories" value="{{category.id}}">
+                            {{category.name}}
+                        </option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="status" class="filter-label">Status</label>
+                    <select id="status"
+                            class="form-control"
+                            ng-model="vm.filters.status"
+                            ng-change="vm.applyFilters()">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+
+                <div class="filter-actions">
+                    <button class="btn btn-outline-secondary btn-sm" ng-click="vm.clearFilters()">
+                        <i class="fa fa-times"></i> Clear Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Videos Table -->
+    <div class="videos-section">
+        <div class="container-fluid">
+            <!-- Results Info -->
+            <div class="results-info" ng-if="!vm.isLoading">
+                <span class="results-count">
+                    Showing {{vm.videos.length}} of {{vm.totalVideos}} videos
+                </span>
+                <span class="results-page" ng-if="vm.totalPages > 1">
+                    (Page {{vm.currentPage}} of {{vm.totalPages}})
+                </span>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-state" ng-if="vm.isLoading">
+                <div class="loading-container">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    <p>Loading videos...</p>
+                </div>
+            </div>
+
+            <!-- Videos Table -->
+            <div class="videos-table-container" ng-if="!vm.isLoading && vm.videos.length > 0">
+                <table class="table table-hover videos-table">
+                    <thead>
+                        <tr>
+                            <th>Video</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Views</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="video in vm.videos">
+                            <td class="video-thumbnail-cell">
+                                <div class="video-thumbnail">
+                                    <img ng-src="{{video.thumbnail_url}}" alt="{{video.title}}" loading="lazy">
+                                    <div class="play-overlay">
+                                        <i class="fa fa-play"></i>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="video-title-cell">
+                                <div class="video-title">{{video.title}}</div>
+                                <div class="video-id">ID: {{video.youtube_id}}</div>
+                            </td>
+                            <td>{{vm.getCategoryName(video.category_id)}}</td>
+                            <td>{{vm.formatViews(video.view_count)}}</td>
+                            <td>
+                                <span class="status-badge" ng-class="video.is_active ? 'active' : 'inactive'">
+                                    {{video.is_active ? 'Active' : 'Inactive'}}
+                                </span>
+                            </td>
+                            <td>{{video.created_at | date:'short'}}</td>
+                            <td class="actions-cell">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            ng-click="vm.previewVideo(video.youtube_id)"
+                                            title="Preview on YouTube">
+                                        <i class="fa fa-external-link"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            ng-click="vm.openEditModal(video)"
+                                            title="Edit video">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm"
+                                            ng-class="video.is_active ? 'btn-outline-warning' : 'btn-outline-success'"
+                                            ng-click="vm.toggleStatus(video)"
+                                            title="{{video.is_active ? 'Deactivate' : 'Activate'}} video">
+                                        <i class="fa" ng-class="video.is_active ? 'fa-eye-slash' : 'fa-eye'"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            ng-click="vm.deleteVideo(video)"
+                                            title="Delete video">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" ng-if="!vm.isLoading && vm.videos.length === 0">
+                <div class="empty-container">
+                    <i class="fa fa-video-camera fa-3x text-muted"></i>
+                    <h3>No videos found</h3>
+                    <p>
+                        <span ng-if="vm.filters.search || vm.filters.category || vm.filters.status !== 'all'">
+                            No videos match your current filters.
+                        </span>
+                        <span ng-if="!vm.filters.search && !vm.filters.category && vm.filters.status === 'all'">
+                            No videos have been added yet.
+                        </span>
+                    </p>
+                    <button class="btn btn-primary" ng-click="vm.openAddModal()">
+                        <i class="fa fa-plus"></i> Add Your First Video
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container" ng-if="!vm.isLoading && vm.totalPages > 1">
+                <nav aria-label="Video pagination">
+                    <ul class="pagination">
+                        <li class="page-item" ng-class="{disabled: vm.currentPage === 1}">
+                            <a class="page-link" href="#" ng-click="vm.changePage(vm.currentPage - 1)">
+                                <i class="fa fa-chevron-left"></i> Previous
+                            </a>
+                        </li>
+
+                        <li class="page-item" ng-repeat="page in vm.getPaginationRange()"
+                            ng-class="{active: vm.isPageActive(page)}">
+                            <a class="page-link" href="#" ng-click="vm.changePage(page)">{{page}}</a>
+                        </li>
+
+                        <li class="page-item" ng-class="{disabled: vm.currentPage === vm.totalPages}">
+                            <a class="page-link" href="#" ng-click="vm.changePage(vm.currentPage + 1)">
+                                Next <i class="fa fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Video Modal -->
+    <div class="modal fade" id="addVideoModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" ng-click="vm.closeAddModal()">
+                        <span>&times;</span>
+                    </button>
+                    <h4 class="modal-title">
+                        <i class="fa fa-plus"></i> Add New Video
+                    </h4>
+                </div>
+                <form ng-submit="vm.addVideo()">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="youtube_id">YouTube URL or Video ID *</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="youtube_id"
+                                           ng-model="vm.newVideo.youtube_id"
+                                           placeholder="https://www.youtube.com/watch?v=VIDEO_ID or just VIDEO_ID"
+                                           required>
+                                    <small class="help-block">
+                                        Enter the full YouTube URL or just the video ID (11 characters)
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="category_id">Category *</label>
+                                    <select class="form-control"
+                                            id="category_id"
+                                            ng-model="vm.newVideo.category_id"
+                                            required>
+                                        <option value="">Select a category</option>
+                                        <option ng-repeat="category in vm.categories" value="{{category.id}}">
+                                            {{category.name}}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="title">Video Title *</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="title"
+                                   ng-model="vm.newVideo.title"
+                                   placeholder="Enter video title"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <textarea class="form-control"
+                                      id="description"
+                                      ng-model="vm.newVideo.description"
+                                      rows="3"
+                                      placeholder="Enter video description (optional)"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tags">Tags</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="tags"
+                                   ng-model="vm.newVideo.tags"
+                                   placeholder="Enter tags separated by commas (optional)">
+                            <small class="help-block">
+                                Example: sermon, faith, christian, worship
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal" ng-click="vm.closeAddModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-plus"></i> Add Video
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Video Modal -->
+    <div class="modal fade" id="editVideoModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" ng-click="vm.closeEditModal()">
+                        <span>&times;</span>
+                    </button>
+                    <h4 class="modal-title">
+                        <i class="fa fa-edit"></i> Edit Video
+                    </h4>
+                </div>
+                <form ng-submit="vm.updateVideo()" ng-if="vm.editingVideo">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_youtube_id">YouTube Video ID</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="edit_youtube_id"
+                                           ng-model="vm.editingVideo.youtube_id"
+                                           readonly>
+                                    <small class="help-block">
+                                        Video ID cannot be changed after creation
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_category_id">Category</label>
+                                    <select class="form-control"
+                                            id="edit_category_id"
+                                            ng-model="vm.editingVideo.category_id">
+                                        <option value="">Select a category</option>
+                                        <option ng-repeat="category in vm.categories" value="{{category.id}}">
+                                            {{category.name}}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_title">Video Title</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="edit_title"
+                                   ng-model="vm.editingVideo.title"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_description">Description</label>
+                            <textarea class="form-control"
+                                      id="edit_description"
+                                      ng-model="vm.editingVideo.description"
+                                      rows="3"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_tags">Tags</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="edit_tags"
+                                   ng-model="vm.editingVideo.tags">
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.editingVideo.is_active">
+                                    Video is active and visible to users
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal" ng-click="vm.closeEditModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-save"></i> Update Video
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Admin Videos Page Styles */
+.admin-videos-page {
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+/* Page Header */
+.page-header {
+    background: linear-gradient(135deg, #6a0dad 0%, #4c1d95 100%);
+    color: white;
+    padding: 20px 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-title {
+    margin: 0 0 5px 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.page-subtitle {
+    margin: 0;
+    opacity: 0.8;
+}
+
+.header-right {
+    display: flex;
+    gap: 10px;
+}
+
+/* Filters Section */
+.filters-section {
+    background: white;
+    border-bottom: 1px solid #e9ecef;
+    padding: 20px 0;
+}
+
+.filters-content {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    min-width: 200px;
+    flex: 1;
+}
+
+.filter-label {
+    display: block;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.filter-actions {
+    display: flex;
+    align-items: end;
+}
+
+/* Results Info */
+.results-info {
+    margin-bottom: 20px;
+    color: #666;
+    font-size: 14px;
+}
+
+.results-count {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Videos Table */
+.videos-table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.videos-table {
+    margin-bottom: 0;
+}
+
+.videos-table th {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #2c3e50;
+    padding: 15px;
+}
+
+.videos-table td {
+    padding: 15px;
+    vertical-align: middle;
+    border-top: 1px solid #f0f0f0;
+}
+
+.video-thumbnail-cell {
+    width: 80px;
+}
+
+.video-thumbnail {
+    position: relative;
+    width: 60px;
+    height: 45px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.video-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.play-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.video-thumbnail:hover .play-overlay {
+    opacity: 1;
+}
+
+.video-title-cell {
+    max-width: 300px;
+}
+
+.video-title {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.video-id {
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.actions-cell {
+    width: 180px;
+}
+
+/* Loading and Empty States */
+.loading-state, .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.loading-container, .empty-container {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-container i {
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.page-item {
+    margin: 0;
+}
+
+.page-link {
+    display: block;
+    padding: 12px 16px;
+    color: #3498db;
+    text-decoration: none;
+    border: 1px solid #dee2e6;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background: #f8f9fa;
+    color: #2980b9;
+}
+
+.page-item.active .page-link {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.page-item.disabled .page-link {
+    color: #6c757d;
+    pointer-events: none;
+    background: #e9ecef;
+}
+
+/* Modal Styles */
+.modal-content {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 8px 8px 0 0;
+}
+
+.modal-title {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.modal-body {
+    padding: 25px;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding: 15px 25px;
+}
+
+/* Form Styles */
+.form-control {
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+}
+
+.help-block {
+    color: #666;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+
+    .filters-content {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .filter-group {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .videos-table {
+        font-size: 14px;
+    }
+
+    .videos-table th,
+    .videos-table td {
+        padding: 8px;
+    }
+
+    .video-title-cell {
+        max-width: 200px;
+    }
+
+    .actions-cell {
+        width: 120px;
+    }
+
+    .actions-cell .btn-group {
+        flex-direction: column;
+    }
+
+    .actions-cell .btn {
+        margin-bottom: 2px;
+    }
+
+    .modal-dialog {
+        margin: 10px;
+        width: auto;
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-title {
+        font-size: 20px;
+    }
+
+    .header-right {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .header-right .btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+
+    .videos-table-container {
+        overflow-x: auto;
+    }
+
+    .videos-table {
+        min-width: 600px;
+    }
+}
+</style>

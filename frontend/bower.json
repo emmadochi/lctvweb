@@ -1,0 +1,27 @@
+{
+  "name": "church-tv-streaming-platform",
+  "version": "1.0.0",
+  "description": "Church TV streaming platform built with AngularJS",
+  "main": "index.html",
+  "authors": [
+    "Church TV Team"
+  ],
+  "license": "MIT",
+  "homepage": "http://localhost/LCMTVWebNew/frontend",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "^1.8.3",
+    "angular-route": "^1.8.3",
+    "angular-animate": "^1.8.3",
+    "angular-sanitize": "^1.8.3",
+    "bootstrap": "^3.4.1",
+    "jquery": "^3.7.1",
+    "font-awesome": "^4.7.0"
+  }
+}

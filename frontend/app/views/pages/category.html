@@ -1,0 +1,409 @@
+<!-- Church TV Category Page -->
+<div class="category-page" ng-controller="CategoryController as vm">
+    <!-- Category Header -->
+    <section class="category-header" ng-if="vm.category">
+        <div class="container">
+            <div class="category-header-content">
+                <div class="category-icon">
+                    <i class="fa {{vm.category.icon}} fa-3x"></i>
+                </div>
+                <div class="category-info">
+                    <h1 class="category-title">{{vm.category.name}}</h1>
+                    <p class="category-description">{{vm.category.description}}</p>
+                    <div class="category-stats" ng-if="vm.categoryStats">
+                        <span class="stat-item">
+                            <i class="fa fa-video-camera"></i>
+                            {{vm.formatVideoCount(vm.categoryStats.video_count)}}
+                        </span>
+                        <span class="stat-item">
+                            <i class="fa fa-eye"></i>
+                            {{vm.categoryStats.total_views | number}} total views
+                        </span>
+                        <span class="stat-item">
+                            <i class="fa fa-clock-o"></i>
+                            Updated {{vm.categoryStats.last_updated | date:'medium'}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Videos Section -->
+    <section class="category-videos">
+        <div class="container">
+            <!-- Filters and Sorting -->
+            <div class="videos-controls">
+                <div class="videos-info">
+                    <span class="videos-count">
+                        {{vm.formatVideoCount(vm.totalVideos)}}
+                    </span>
+                    <span class="videos-found" ng-if="vm.totalVideos > 0">
+                        found in {{vm.category.name}}
+                    </span>
+                </div>
+
+                <div class="videos-filters">
+                    <div class="sort-control">
+                        <label for="sort-select">Sort by:</label>
+                        <select id="sort-select"
+                                ng-model="vm.selectedSort"
+                                ng-change="vm.changeSort(vm.selectedSort)"
+                                class="form-control">
+                            <option ng-repeat="option in vm.sortOptions"
+                                    value="{{option.value}}">
+                                {{option.label}}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Videos Grid -->
+            <div class="videos-grid" ng-if="vm.videos.length > 0">
+                <div class="video-card" ng-repeat="video in vm.videos" ng-click="vm.playVideo(video.id)">
+                    <div class="video-thumbnail">
+                        <img ng-src="{{video.thumbnail_url}}" alt="{{video.title}}" loading="lazy">
+                        <span class="video-duration">{{vm.formatDuration(video.duration)}}</span>
+                        <div class="play-overlay">
+                            <i class="fa fa-play-circle"></i>
+                        </div>
+                    </div>
+                    <button type="button" class="video-favorite-btn" ng-click="vm.toggleFavorite(video, $event); $event.stopPropagation()" title="{{vm.isFavorite(video.id) ? 'Remove from Favourites' : 'Add to Favourites'}}">
+                        <i class="fa fa-heart" ng-class="{'favorited': vm.isFavorite(video.id)}"></i>
+                    </button>
+                    <div class="video-info">
+                        <h3 class="video-title">{{video.title}}</h3>
+                        <div class="video-meta">
+                            <span class="video-views">
+                                <i class="fa fa-eye"></i> {{formatViews(video.view_count)}}
+                            </span>
+                            <span class="video-date">
+                                <i class="fa fa-calendar"></i> {{formatDate(video.published_at)}}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-state" ng-if="vm.isLoading">
+                <div class="loading-container">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    <p>Loading videos...</p>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" ng-if="!vm.isLoading && vm.videos.length === 0">
+                <div class="empty-container">
+                    <i class="fa fa-video-camera fa-3x text-muted"></i>
+                    <h3>No videos found</h3>
+                    <p>There are no videos in the {{vm.category.name}} category yet.</p>
+                    <a href="#/" class="btn btn-primary">Browse Other Categories</a>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container" ng-if="!vm.isLoading && vm.totalPages > 1">
+                <nav aria-label="Video pagination">
+                    <ul class="pagination">
+                        <!-- Previous Button -->
+                        <li class="page-item" ng-class="{disabled: vm.currentPage === 1}">
+                            <a class="page-link" href="#" ng-click="vm.changePage(vm.currentPage - 1)">
+                                <i class="fa fa-chevron-left"></i> Previous
+                            </a>
+                        </li>
+
+                        <!-- Page Numbers -->
+                        <li class="page-item" ng-repeat="page in vm.getPaginationRange()"
+                            ng-class="{active: vm.isPageActive(page)}">
+                            <a class="page-link" href="#" ng-click="vm.changePage(page)">{{page}}</a>
+                        </li>
+
+                        <!-- Next Button -->
+                        <li class="page-item" ng-class="{disabled: vm.currentPage === vm.totalPages}">
+                            <a class="page-link" href="#" ng-click="vm.changePage(vm.currentPage + 1)">
+                                Next <i class="fa fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+
+                <!-- Pagination Info -->
+                <div class="pagination-info">
+                    Page {{vm.currentPage}} of {{vm.totalPages}}
+                    ({{vm.totalVideos}} total videos)
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+/* Category Page Styles */
+.category-page {
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+.category-header {
+    background: linear-gradient(135deg, #6a0dad 0%, #8b5cf6 100%);
+    color: white;
+    padding: 60px 0;
+    margin-bottom: 40px;
+}
+
+.category-header-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 30px;
+}
+
+.category-icon {
+    background: rgba(255,255,255,0.1);
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.category-info h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.category-description {
+    font-size: 1.1rem;
+    color: #f8f9ff;
+    opacity: 0.95;
+    margin-bottom: 20px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.category-stats {
+    display: flex;
+    gap: 25px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Videos Section */
+.category-videos {
+    padding-bottom: 60px;
+}
+
+.videos-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.videos-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.videos-count {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.videos-found {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.videos-filters {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.sort-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sort-control label {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0;
+}
+
+.sort-control select {
+    min-width: 150px;
+}
+
+/* Videos Grid */
+.videos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+/* Loading and Empty States */
+.loading-state, .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.loading-container, .empty-container {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-container i {
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-container h3 {
+    color: #666;
+    margin-bottom: 10px;
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    margin-top: 40px;
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.page-item {
+    margin: 0;
+}
+
+.page-link {
+    display: block;
+    padding: 12px 16px;
+    color: #3498db;
+    text-decoration: none;
+    border: 1px solid #dee2e6;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background: #f8f9fa;
+    color: #2980b9;
+}
+
+.page-item.active .page-link {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.page-item.disabled .page-link {
+    color: #6c757d;
+    pointer-events: none;
+    background: #e9ecef;
+}
+
+.page-item:first-child .page-link {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+.page-item:last-child .page-link {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+.pagination-info {
+    font-size: 0.9rem;
+    color: #666;
+    text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .category-header-content {
+        gap: 20px;
+    }
+
+    .category-icon {
+        margin: 0 auto;
+    }
+
+    .category-stats {
+        justify-content: center;
+    }
+
+    .videos-controls {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+
+    .videos-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+    }
+
+    .page-link {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .videos-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .category-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .videos-filters {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .sort-control {
+        justify-content: center;
+    }
+}
+</style>

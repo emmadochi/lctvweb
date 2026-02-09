@@ -1,0 +1,317 @@
+<!-- Church TV Header Component -->
+<header class="main-header" ng-controller="HeaderController as headerCtrl">
+    <div class="container">
+        <div class="header-content">
+            <!-- Logo/Brand -->
+            <a href="#/" class="logo">
+                <img src="../../../lctv-logo-white.png" alt="LCTV Logo" class="logo-image">
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="nav-links">
+                <a href="#/" ng-class="{active: $location.path() === '/'}">
+                    <i class="fa fa-home"></i> Home
+                </a>
+
+                <!-- Categories Dropdown -->
+                <div class="nav-dropdown" ng-if="headerCtrl.categories.length > 0">
+                    <button class="nav-dropdown-toggle" ng-click="headerCtrl.toggleCategoriesDropdown()">
+                        <i class="fa fa-list"></i> Categories
+                        <i class="fa fa-chevron-down dropdown-arrow" ng-class="{rotated: headerCtrl.showCategoriesDropdown}"></i>
+                    </button>
+                    <div class="nav-dropdown-menu" ng-show="headerCtrl.showCategoriesDropdown">
+                        <a href="#/category/{{category.slug}}"
+                           class="dropdown-item"
+                           ng-repeat="category in headerCtrl.categories"
+                           ng-click="headerCtrl.navigateToCategory(category.slug)">
+                            <i class="fa {{headerCtrl.getCategoryIcon(category.slug)}}"></i>
+                            {{category.name}}
+                        </a>
+                    </div>
+                </div>
+
+                <a href="#/search" ng-class="{active: $location.path() === '/search'}">
+                    <i class="fa fa-search"></i> Search
+                </a>
+
+                <!-- User Authentication -->
+                <div ng-if="!headerCtrl.isAuthenticated()" class="auth-links">
+                    <button ng-click="headerCtrl.goToLogin()" class="btn btn-outline-light btn-sm">
+                        <i class="fa fa-sign-in"></i> Login
+                    </button>
+                </div>
+
+                <!-- User Dropdown (when authenticated) -->
+                <div ng-if="headerCtrl.isAuthenticated()" class="user-dropdown" ng-class="{active: headerCtrl.showUserDropdown}">
+                    <button class="user-dropdown-toggle" ng-click="headerCtrl.toggleUserDropdown()">
+                        <i class="fa fa-user"></i>
+                        <span class="user-name">{{headerCtrl.currentUser.first_name}}</span>
+                        <i class="fa fa-chevron-down dropdown-arrow" ng-class="{rotated: headerCtrl.showUserDropdown}"></i>
+                    </button>
+                    <div class="user-dropdown-menu" ng-show="headerCtrl.showUserDropdown">
+                        <a href="#/profile" class="dropdown-item" ng-click="headerCtrl.navigateTo('/profile'); $event.preventDefault()">
+                            <i class="fa fa-user"></i> Profile
+                        </a>
+                        <a href="#/favorites" class="dropdown-item" ng-click="headerCtrl.navigateTo('/favorites'); $event.preventDefault()">
+                            <i class="fa fa-heart"></i> Favourites
+                        </a>
+                        <a href="#/favorites?tab=history" class="dropdown-item" ng-click="headerCtrl.navigateTo('/favorites', {tab: 'history'}); $event.preventDefault()">
+                            <i class="fa fa-history"></i> Watch History
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item logout-btn" ng-click="headerCtrl.logout()">
+                            <i class="fa fa-sign-out"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Search Bar -->
+            <form class="search-bar" ng-submit="searchQuery && $location.path('/search').search({q: searchQuery})">
+                <input type="text"
+                       ng-model="searchQuery"
+                       placeholder="Search videos..."
+                       autocomplete="off">
+                <button type="submit">
+                    <i class="fa fa-search"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Categories Dropdown Styles -->
+    <style>
+    /* Navigation Dropdown */
+    .nav-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .nav-dropdown-toggle {
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        padding: 10px 15px;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .nav-dropdown-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .dropdown-arrow {
+        transition: transform 0.3s ease;
+        font-size: 12px;
+    }
+
+    .dropdown-arrow.rotated {
+        transform: rotate(180deg);
+    }
+
+    .nav-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        min-width: 200px;
+        z-index: 1000;
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+        transition: all 0.3s ease;
+    }
+
+    /* ng-show only toggles ng-hide; when hidden, Angular adds .ng-hide */
+    .nav-dropdown-menu.ng-hide {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transform: translateY(-10px) !important;
+    }
+
+    .dropdown-item {
+        display: block;
+        padding: 12px 16px;
+        color: #2c3e50;
+        text-decoration: none;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        color: #3498db;
+    }
+
+    .dropdown-item:last-child {
+        border-bottom: none;
+    }
+
+    .dropdown-item i {
+        width: 16px;
+        text-align: center;
+    }
+
+    /* User Authentication Styles */
+    .auth-links {
+        margin-left: 15px;
+    }
+
+    .btn-outline-light {
+        background: transparent;
+        color: #fff;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 6px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-light:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: #fff;
+    }
+
+    /* User Dropdown */
+    .user-dropdown {
+        position: relative;
+        margin-left: 15px;
+    }
+
+    .user-dropdown-toggle {
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 6px;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+
+    .user-dropdown-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .user-name {
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .user-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        min-width: 180px;
+        z-index: 1000;
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+        transition: all 0.3s ease;
+    }
+
+    /* ng-show only toggles ng-hide; when hidden, Angular adds .ng-hide */
+    .user-dropdown-menu.ng-hide {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transform: translateY(-10px) !important;
+    }
+
+    .user-dropdown-menu .dropdown-item {
+        display: block;
+        padding: 12px 16px;
+        color: #2c3e50;
+        text-decoration: none;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .user-dropdown-menu .dropdown-item:hover {
+        background-color: #f8f9fa;
+        color: #3498db;
+    }
+
+    .user-dropdown-menu .dropdown-item:last-child {
+        border-bottom: none;
+    }
+
+    .user-dropdown-menu .dropdown-item i {
+        width: 16px;
+        text-align: center;
+    }
+
+    .dropdown-divider {
+        height: 1px;
+        background-color: #e9ecef;
+        margin: 8px 0;
+    }
+
+    .logout-btn {
+        color: #dc3545 !important;
+    }
+
+    .logout-btn:hover {
+        background-color: #f8d7da !important;
+        color: #c82333 !important;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+        .nav-dropdown-menu {
+            position: static;
+            box-shadow: none;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 0;
+            margin-top: 10px;
+        }
+
+        .dropdown-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .user-dropdown-menu {
+            position: static;
+            box-shadow: none;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 0;
+            margin-top: 10px;
+        }
+
+        .user-dropdown {
+            margin-left: 10px;
+        }
+
+        .auth-links {
+            margin-left: 10px;
+        }
+    }
+    </style>
+</header>

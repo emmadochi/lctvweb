@@ -1,0 +1,575 @@
+<!-- Admin Dashboard Page -->
+<div class="admin-dashboard" ng-controller="AdminDashboardController as vm">
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container-fluid">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="admin-title">
+                        <i class="fa fa-dashboard"></i> Admin Dashboard
+                    </h1>
+                    <div class="admin-info">
+                        Welcome back, <strong>{{vm.currentAdmin?.first_name}} {{vm.currentAdmin?.last_name}}</strong>
+                        <span class="admin-role">{{vm.currentAdmin?.role | titleCase}}</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-outline-light btn-sm" ng-click="vm.refresh()" ng-disabled="vm.isLoading">
+                        <i class="fa fa-refresh" ng-class="{ 'fa-spin': vm.isLoading }"></i> Refresh
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light dropdown-toggle" type="button" data-toggle="dropdown">
+                            <i class="fa fa-user"></i> {{vm.currentAdmin?.first_name}} <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-right">
+                            <li><a href="#" ng-click="vm.navigateTo('settings')"><i class="fa fa-cog"></i> Settings</a></li>
+                            <li class="divider"></li>
+                            <li><a href="#" ng-click="vm.logout()"><i class="fa fa-sign-out"></i> Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+        <div class="container-fluid">
+            <!-- Statistics Cards -->
+            <div class="stats-section">
+                <div class="row">
+                    <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12" ng-repeat="(key, value) in vm.dashboardStats">
+                        <div class="stat-card" ng-style="{ 'border-left-color': vm.getStatColor(key) }">
+                            <div class="stat-icon">
+                                <i class="fa" ng-class="vm.getStatIcon(key)"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value">{{vm.formatNumber(value)}}</div>
+                                <div class="stat-label">{{vm.formatStatLabel(key)}}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Dashboard Grid -->
+            <div class="dashboard-grid">
+                <!-- Quick Actions -->
+                <div class="dashboard-card quick-actions">
+                    <div class="card-header">
+                        <h3><i class="fa fa-bolt"></i> Quick Actions</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="action-buttons">
+                            <button class="action-btn primary" ng-click="vm.navigateTo('videos')">
+                                <i class="fa fa-plus"></i>
+                                <span>Add Video</span>
+                            </button>
+                            <button class="action-btn secondary" ng-click="vm.navigateTo('categories')">
+                                <i class="fa fa-tags"></i>
+                                <span>Manage Categories</span>
+                            </button>
+                            <button class="action-btn info" ng-click="vm.navigateTo('analytics')">
+                                <i class="fa fa-chart-bar"></i>
+                                <span>View Analytics</span>
+                            </button>
+                            <button class="action-btn warning" ng-click="vm.navigateTo('users')">
+                                <i class="fa fa-users"></i>
+                                <span>Manage Users</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="dashboard-card recent-activity">
+                    <div class="card-header">
+                        <h3><i class="fa fa-clock-o"></i> Recent Activity</h3>
+                        <small>Last 10 actions</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="activity-list" ng-if="vm.recentActivity.length > 0">
+                            <div class="activity-item" ng-repeat="activity in vm.recentActivity">
+                                <div class="activity-icon">
+                                    <i class="fa" ng-class="vm.getActivityIcon(activity.action)"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <div class="activity-message">{{activity.details || vm.formatActivityMessage(activity.action)}}</div>
+                                    <div class="activity-meta">
+                                        <span class="activity-user">{{activity.admin_name || 'Admin'}}</span>
+                                        <span class="activity-time">{{vm.formatActivityTime(activity.created_at)}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="empty-state" ng-if="vm.recentActivity.length === 0">
+                            <i class="fa fa-clock-o fa-2x text-muted"></i>
+                            <p>No recent activity</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="dashboard-card system-status">
+                    <div class="card-header">
+                        <h3><i class="fa fa-server"></i> System Status</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="status-indicators">
+                            <div class="status-item">
+                                <span class="status-label">Database:</span>
+                                <span class="status-value online">
+                                    <i class="fa fa-check-circle"></i> Online
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">API:</span>
+                                <span class="status-value online">
+                                    <i class="fa fa-check-circle"></i> Operational
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">YouTube API:</span>
+                                <span class="status-value" ng-class="vm.dashboardStats.youtube_api_status || 'online'">
+                                    <i class="fa" ng-class="vm.dashboardStats.youtube_api_status === 'error' ? 'fa-exclamation-triangle' : 'fa-check-circle'"></i>
+                                    {{vm.dashboardStats.youtube_api_status === 'error' ? 'Issues' : 'Connected'}}
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Last Backup:</span>
+                                <span class="status-value">
+                                    {{vm.dashboardStats.last_backup || 'Never'}}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Overview -->
+                <div class="dashboard-card content-overview">
+                    <div class="card-header">
+                        <h3><i class="fa fa-bar-chart"></i> Content Overview</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="content-stats">
+                            <div class="content-stat">
+                                <div class="stat-number">{{vm.dashboardStats.videos_this_week || 0}}</div>
+                                <div class="stat-label">Videos This Week</div>
+                            </div>
+                            <div class="content-stat">
+                                <div class="stat-number">{{vm.dashboardStats.views_this_week || 0}}</div>
+                                <div class="stat-label">Views This Week</div>
+                            </div>
+                            <div class="content-stat">
+                                <div class="stat-number">{{vm.dashboardStats.popular_category || 'N/A'}}</div>
+                                <div class="stat-label">Top Category</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Admin Dashboard Styles */
+.admin-dashboard {
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+/* Admin Header */
+.admin-header {
+    background: linear-gradient(135deg, #6a0dad 0%, #4c1d95 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+}
+
+.header-left h1 {
+    margin: 0 0 5px 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.admin-info {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.admin-role {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Statistics Cards */
+.stats-section {
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-left: 4px solid #3498db;
+    transition: transform 0.3s ease;
+    text-align: center;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    font-size: 32px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.stat-content .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.stat-content .stat-label {
+    font-size: 14px;
+    color: #666;
+    text-transform: capitalize;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    padding: 20px 25px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+    border-radius: 10px 10px 0 0;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.card-header small {
+    color: #666;
+    font-size: 12px;
+}
+
+.card-body {
+    padding: 25px;
+}
+
+/* Quick Actions */
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    background: white;
+    color: #666;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    text-decoration: none;
+    color: inherit;
+}
+
+.action-btn.primary:hover { border-color: #3498db; color: #3498db; }
+.action-btn.secondary:hover { border-color: #2ecc71; color: #2ecc71; }
+.action-btn.info:hover { border-color: #17a2b8; color: #17a2b8; }
+.action-btn.warning:hover { border-color: #f39c12; color: #f39c12; }
+
+.action-btn i {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+/* Recent Activity */
+.activity-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    background: #f8f9fa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-message {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.activity-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+}
+
+/* System Status */
+.status-indicators {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-label {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.status-value {
+    font-weight: 600;
+}
+
+.status-value.online {
+    color: #27ae60;
+}
+
+.status-value.offline {
+    color: #e74c3c;
+}
+
+.status-value.warning {
+    color: #f39c12;
+}
+
+/* Content Overview */
+.content-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    text-align: center;
+}
+
+.content-stat {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.content-stat .stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.content-stat .stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.empty-state i {
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+
+    .stats-section .row > div {
+        margin-bottom: 20px;
+    }
+
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .content-stats {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .activity-meta {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-title {
+        font-size: 20px;
+    }
+
+    .header-right {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .header-right .btn {
+        width: 100%;
+    }
+
+    .stat-card {
+        padding: 15px;
+    }
+
+    .stat-content .stat-value {
+        font-size: 24px;
+    }
+}
+
+/* Loading States */
+.dashboard-card .fa-spin {
+    animation: fa-spin 1s infinite linear;
+}
+
+/* Custom scrollbar for activity list */
+.activity-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.activity-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.activity-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.activity-list::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+</style>
+
+<script>
+// Helper functions for the dashboard
+angular.module('ChurchTVApp')
+    .filter('titleCase', function() {
+        return function(input) {
+            if (!input) return '';
+            return input.replace(/\w\S*/g, function(txt) {
+                return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+            });
+        };
+    })
+    .run(['$rootScope', function($rootScope) {
+        $rootScope.formatStatLabel = function(key) {
+            var labels = {
+                total_videos: 'Total Videos',
+                total_views: 'Total Views',
+                total_users: 'Total Users',
+                active_users: 'Active Users',
+                total_categories: 'Categories'
+            };
+            return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        };
+
+        $rootScope.getStatIcon = function(key) {
+            var icons = {
+                total_videos: 'fa-video-camera',
+                total_views: 'fa-eye',
+                total_users: 'fa-users',
+                active_users: 'fa-user-circle',
+                total_categories: 'fa-tags'
+            };
+            return icons[key] || 'fa-chart-bar';
+        };
+    }]);
+</script>

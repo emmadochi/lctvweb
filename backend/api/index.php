@@ -1,0 +1,714 @@
+<?php
+/**
+ * LCMTV API Entry Point
+ * Main API router and initialization
+ */
+
+// Set error handling BEFORE any output
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
+// Set headers immediately to ensure JSON response
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Include configuration
+require_once __DIR__ . '/../utils/EnvLoader.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/Auth.php';
+require_once __DIR__ . '/../controllers/AnalyticsController.php'; // Added for direct access to static methods
+
+// Enable error logging but don't display errors (they break JSON responses)
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+ini_set('log_errors', 1);
+enable_php_error_log('api_errors.log'); // Custom function to log PHP errors
+error_reporting(E_ALL);
+
+// Basic routing
+$request = $_SERVER['REQUEST_URI'];
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Remove query parameters and get path
+$path = parse_url($request, PHP_URL_PATH);
+$originalPath = $path;
+// Normalize path so it works regardless of project folder name.
+// Supports URLs like:
+// - /lcmtvweb/backend/api/...
+// - /LCMTVWebNew/backend/api/...
+// - /backend/api/...
+// - /api/... (when proxied)
+$backendApiSegmentPos = strpos($path, '/backend/api');
+if ($backendApiSegmentPos !== false) {
+    $path = substr($path, $backendApiSegmentPos + strlen('/backend/api'));
+} else {
+    // Fallback: if called through a proxy that maps /api -> backend/api
+    $apiSegmentPos = strpos($path, '/api');
+    if ($apiSegmentPos !== false) {
+        $path = substr($path, $apiSegmentPos + strlen('/api'));
+    }
+}
+
+// Debug logging for push routes
+if (strpos($originalPath, 'push') !== false || strpos($path, 'push') !== false) {
+    error_log("Push route detected - Original: $originalPath, Parsed: $path, Method: $method");
+}
+
+// Route to appropriate controller
+try {
+    switch ($path) {
+        case '/':
+        case '':
+            require_once '../controllers/HomeController.php';
+            $controller = new HomeController();
+            $controller->index();
+            break;
+
+        case (preg_match('/^\/videos/', $path) ? true : false):
+            require_once '../controllers/VideoController.php';
+            $controller = new VideoController();
+            handleVideoRoutes($controller, $method, $path);
+            break;
+
+        case '/categories':
+            require_once '../controllers/CategoryController.php';
+            $controller = new CategoryController();
+            handleCategoryRoutes($controller, $method, $path);
+            break;
+
+        // Category videos by slug: /categories/{slug}/videos
+        case (preg_match('/^\/categories\/([^\/]+)\/videos$/', $path, $matches) ? true : false):
+            require_once '../models/Category.php';
+            require_once '../models/Video.php';
+            $slug = $matches[1];
+            $category = Category::getBySlug($slug);
+            if (!$category) {
+                Response::notFound('Category not found');
+            }
+
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $limit = max(1, min(100, $limit));
+
+            // Simple paging (fetch up to 100 and slice). For large datasets, implement SQL LIMIT/OFFSET.
+            $videos = Video::getByCategory((int)$category['id'], 100);
+            $total = count($videos);
+            $offset = ($page - 1) * $limit;
+            $paged = array_slice($videos, $offset, $limit);
+            $totalPages = $limit > 0 ? (int)ceil($total / $limit) : 1;
+
+            Response::success([
+                'videos' => $paged,
+                'total' => $total,
+                'page' => $page,
+                'total_pages' => $totalPages,
+                'category' => [
+                    'id' => (int)$category['id'],
+                    'name' => $category['name'],
+                    'slug' => $category['slug']
+                ]
+            ]);
+            break;
+
+        // Category stats: /categories/{slug}/stats
+        case (preg_match('/^\/categories\/([^\/]+)\/stats$/', $path, $matches) ? true : false):
+            require_once '../models/Category.php';
+            $slug = $matches[1];
+            $category = Category::getBySlug($slug);
+            if (!$category) {
+                Response::notFound('Category not found');
+            }
+            $conn = getDBConnection();
+            $stmt = $conn->prepare("SELECT COUNT(*) as video_count, COALESCE(SUM(view_count),0) as total_views, MAX(updated_at) as last_updated
+                                    FROM videos
+                                    WHERE is_active = 1 AND category_id = ?");
+            $categoryId = (int)$category['id'];
+            $stmt->bind_param("i", $categoryId);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            Response::success([
+                'video_count' => (int)($row['video_count'] ?? 0),
+                'total_views' => (int)($row['total_views'] ?? 0),
+                'last_updated' => $row['last_updated'] ?? null
+            ]);
+            break;
+
+        // Search endpoint: /search?q=...
+        case '/search':
+            require_once '../models/Video.php';
+            $query = isset($_GET['q']) ? trim($_GET['q']) : '';
+            if (strlen($query) < 2) {
+                Response::badRequest('Search query must be at least 2 characters');
+            }
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 24;
+            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $limit = max(1, min(100, $limit));
+
+            $videos = Video::search($query, 100);
+            $total = count($videos);
+            $offset = ($page - 1) * $limit;
+            $paged = array_slice($videos, $offset, $limit);
+            $totalPages = $limit > 0 ? (int)ceil($total / $limit) : 1;
+
+            Response::success([
+                'videos' => $paged,
+                'total' => $total,
+                'page' => $page,
+                'total_pages' => $totalPages,
+                'query' => $query
+            ]);
+            break;
+
+        case '/users':
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            handleUserRoutes($controller, $method);
+            break;
+
+        case '/livestreams':
+            require_once '../controllers/LivestreamController.php';
+            $controller = new LivestreamController();
+            handleLivestreamRoutes($controller, $method);
+            break;
+
+        case (preg_match('/^\/users\/profile$/', $path) ? true : false):
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            if ($method === 'GET') {
+                $controller->profile();
+            } elseif ($method === 'PUT') {
+                $controller->updateProfile();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/users\/password$/', $path) ? true : false):
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            if ($method === 'PUT') {
+                $controller->updatePassword();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/users\/history\/(\d+)$/', $path, $matches) ? true : false):
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            if ($method === 'DELETE') {
+                $controller->removeHistoryItem($matches[1]);
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/users\/history$/', $path) ? true : false):
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            if ($method === 'GET') {
+                $controller->history();
+            } elseif ($method === 'POST') {
+                $controller->addHistory();
+            } elseif ($method === 'DELETE') {
+                $controller->clearHistory();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/users\/favorites$/', $path) ? true : false):
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            if ($method === 'GET') {
+                $controller->getFavorites();
+            } elseif ($method === 'POST') {
+                $controller->addToFavorites();
+            } elseif ($method === 'DELETE') {
+                $controller->removeFromFavorites();
+            }
+            break;
+
+        case (preg_match('/^\/users\/channels$/', $path) ? true : false):
+            require_once '../controllers/UserController.php';
+            $controller = new UserController();
+            if ($method === 'GET') {
+                $controller->getMyChannels();
+            } elseif ($method === 'POST') {
+                $controller->addToMyChannels();
+            } elseif ($method === 'DELETE') {
+                $controller->removeFromMyChannels();
+            }
+            break;
+
+        case (preg_match('/^\/livestreams\/featured$/', $path) ? true : false):
+            require_once '../controllers/LivestreamController.php';
+            $controller = new LivestreamController();
+            if ($method === 'GET') {
+                $controller->featured();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/analytics/page-view':
+            require_once '../controllers/AnalyticsController.php';
+            if ($method === 'POST') {
+                AnalyticsController::trackPageView();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/analytics/video-view':
+            require_once '../controllers/AnalyticsController.php';
+            if ($method === 'POST') {
+                AnalyticsController::trackVideoView();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/analytics/dashboard':
+            require_once '../controllers/AnalyticsController.php';
+            if ($method === 'GET') {
+                AnalyticsController::getDashboard();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/analytics\/engagement$/', $path) ? true : false):
+            require_once '../controllers/AnalyticsController.php';
+            if ($method === 'GET') {
+                AnalyticsController::getVideoEngagement();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/ai/recommendations':
+            require_once '../controllers/AIController.php';
+            $controller = new AIController();
+            handleAIRoutes($controller, $method, $path);
+            break;
+
+        case '/ai/search':
+            require_once '../controllers/AIController.php';
+            $controller = new AIController();
+            handleAISearchRoutes($controller, $method);
+            break;
+
+        case '/ai/health':
+            require_once '../controllers/AIController.php';
+            $controller = new AIController();
+            if ($method === 'GET') {
+                $health = $controller->getServiceHealth();
+                Response::success($health);
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/ai/analytics':
+            require_once '../controllers/AIController.php';
+            $controller = new AIController();
+            if ($method === 'GET') {
+                $analytics = $controller->getAnalyticsOverview();
+                Response::success($analytics);
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/test-push':
+            error_log("Test push endpoint called with path: $path");
+            Response::success(['message' => 'Push endpoint working', 'path' => $path]);
+            break;
+
+        case '/notifications':
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'GET') {
+                $controller->getNotifications();
+            } elseif ($method === 'POST') {
+                // Admin only - create system notification
+                $controller->createSystemNotification();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/notifications/unread-count':
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'GET') {
+                $controller->getUnreadCount();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/notifications\/mark-read$/', $path) ? true : false):
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'POST') {
+                $controller->markAsRead();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/notifications\/mark-all-read$/', $path) ? true : false):
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'POST') {
+                $controller->markAllAsRead();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case (preg_match('/^\/notifications\/delete$/', $path) ? true : false):
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'DELETE') {
+                $controller->deleteNotification();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/notifications/video-favorited':
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'POST') {
+                $controller->notifyVideoFavorited();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/notifications/new-video-category':
+            require_once '../controllers/NotificationController.php';
+            $controller = new NotificationController();
+            if ($method === 'POST') {
+                $controller->notifyNewVideoInCategory();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/subscribe':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'POST') {
+                $controller->subscribe();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/unsubscribe':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'POST') {
+                $controller->unsubscribe();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/subscriptions':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'GET') {
+                $controller->getSubscriptions();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/test':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'POST') {
+                $controller->sendTest();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/vapid-public-key':
+            error_log("VAPID endpoint matched with path: $path");
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'GET') {
+                $controller->getVapidPublicKey();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/send-notification':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'POST') {
+                $controller->sendForNotification();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/send-to-all':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'POST') {
+                $controller->sendToAll();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/push/cleanup':
+            require_once '../controllers/PushController.php';
+            $controller = new PushController();
+            if ($method === 'POST') {
+                $controller->cleanup();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        default:
+            // Debug for unmatched routes
+            if (strpos($path, 'push') !== false) {
+                error_log("Push route not matched: $path (original: $originalPath)");
+            }
+            Response::notFound('Endpoint not found');
+    }
+
+} catch (Exception $e) {
+    error_log("API Error: " . $e->getMessage());
+    error_log("API Error Stack: " . $e->getTraceAsString());
+    // Ensure we return JSON even for unexpected errors
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+    Response::error('Internal server error: ' . (ini_get('display_errors') ? $e->getMessage() : 'Please check server logs'), 500);
+}
+
+// Helper function to enable detailed PHP error logging to a custom file
+function enable_php_error_log($filename) {
+    ini_set('log_errors', 1);
+    ini_set('error_log', __DIR__ . '/../../logs/' . $filename);
+    error_log("API error logging enabled to $filename");
+}
+
+// Helper functions for route handling
+function handleVideoRoutes($controller, $method, $path) {
+
+    // Handle video like routes
+    if (preg_match('/^\/videos\/(\d+)\/like$/', $path, $matches)) {
+        $videoId = $matches[1];
+        if ($method === 'POST') {
+            $controller->like($videoId);
+        } elseif ($method === 'GET') {
+            $controller->checkLikeStatus($videoId);
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Handle video view increment routes
+    if (preg_match('/^\/videos\/(\d+)\/view$/', $path, $matches)) {
+        $videoId = $matches[1];
+        if ($method === 'POST') {
+            $controller->incrementView($videoId);
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Handle video details route: /videos/{id}
+    if ($method === 'GET' && preg_match('/^\/videos\/(\d+)$/', $path, $matches)) {
+        $controller->show($matches[1]);
+        return;
+    }
+
+    // Trending route: /videos/trending
+    if ($method === 'GET' && preg_match('/^\/videos\/trending$/', $path)) {
+        // For now, treat \"trending\" as featured (most viewed)
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 12;
+        $limit = max(1, min(50, $limit));
+        $videos = Video::getFeaturedVideos($limit);
+        Response::success($videos);
+        return;
+    }
+
+    switch ($method) {
+        case 'GET':
+            if (isset($_GET['id'])) {
+                $controller->show($_GET['id']);
+            } elseif (isset($_GET['category'])) {
+                $controller->getByCategory($_GET['category']);
+            } elseif (isset($_GET['search'])) { // backward compatible
+                $controller->search($_GET['search']);
+            } else {
+                $controller->index();
+            }
+            break;
+        default:
+            Response::methodNotAllowed();
+    }
+}
+
+function handleCategoryRoutes($controller, $method, $path) {
+    switch ($method) {
+        case 'GET':
+            if (isset($_GET['id'])) {
+                $controller->show($_GET['id']);
+            } else {
+                $controller->index();
+            }
+            break;
+        default:
+            Response::methodNotAllowed();
+    }
+}
+
+function handleUserRoutes($controller, $method) {
+    switch ($method) {
+        case 'POST':
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (isset($data['action'])) {
+                switch ($data['action']) {
+                    case 'login':
+                        $controller->login($data);
+                        break;
+                    case 'register':
+                        $controller->register($data);
+                        break;
+                    default:
+                        Response::badRequest('Invalid action');
+                }
+            } else {
+                Response::badRequest('Missing action parameter');
+            }
+            break;
+        default:
+            Response::methodNotAllowed();
+    }
+}
+
+function handleLivestreamRoutes($controller, $method) {
+    switch ($method) {
+        case 'GET':
+            if (isset($_GET['id'])) {
+                $controller->show($_GET['id']);
+            } elseif (isset($_GET['category'])) {
+                $controller->getByCategory($_GET['category']);
+            } else {
+                $controller->index();
+            }
+            break;
+        default:
+            Response::methodNotAllowed();
+    }
+}
+
+function handleAIRoutes($controller, $method, $path) {
+    if ($method === 'GET') {
+        // Get recommendations
+        $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
+        $contextVideoId = isset($_GET['context_video_id']) ? (int)$_GET['context_video_id'] : null;
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+
+        if (!$userId) {
+            Response::badRequest('user_id parameter required');
+            return;
+        }
+
+        $recommendations = $controller->getRecommendations($userId, $contextVideoId, $limit);
+        Response::success($recommendations);
+
+    } elseif ($method === 'POST') {
+        // Track recommendation interactions
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        if (!$data) {
+            Response::badRequest('Invalid JSON data');
+            return;
+        }
+
+        $userId = $data['user_id'] ?? null;
+        $videoId = $data['video_id'] ?? null;
+        $action = $data['action'] ?? null;
+        $context = $data['context'] ?? [];
+
+        if (!$userId || !$videoId || !$action) {
+            Response::badRequest('Missing required parameters: user_id, video_id, action');
+            return;
+        }
+
+        $success = $controller->trackRecommendationInteraction($userId, $videoId, $action, $context);
+
+        if ($success) {
+            Response::success(['tracked' => true]);
+        } else {
+            Response::error('Failed to track interaction', 500);
+        }
+
+    } else {
+        Response::methodNotAllowed();
+    }
+}
+
+function handleAISearchRoutes($controller, $method) {
+    if ($method === 'GET') {
+        // Basic search (fallback to existing search)
+        $query = isset($_GET['q']) ? trim($_GET['q']) : '';
+        $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+
+        if (!$query) {
+            Response::badRequest('Query parameter required');
+            return;
+        }
+
+        $results = $controller->search($query, $userId, $limit);
+        Response::success($results);
+
+    } elseif ($method === 'POST') {
+        // Advanced AI search
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        if (!$data || !isset($data['query'])) {
+            Response::badRequest('Query parameter required in JSON payload');
+            return;
+        }
+
+        $query = trim($data['query']);
+        $userId = $data['user_id'] ?? null;
+        $limit = $data['limit'] ?? 20;
+
+        $results = $controller->search($query, $userId, $limit);
+        Response::success($results);
+
+    } else {
+            Response::methodNotAllowed();
+    }
+}
+?>

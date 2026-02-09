@@ -1,0 +1,42 @@
+{
+  "name": "church-tv-streaming-platform",
+  "version": "1.0.0",
+  "description": "Church TV streaming platform built with AngularJS",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -p 3000",
+    "dev": "http-server -p 3000 -o",
+    "build": "grunt build",
+    "watch": "grunt watch",
+    "test": "karma start karma.conf.js"
+  },
+  "keywords": [
+    "church",
+    "tv",
+    "streaming",
+    "angularjs",
+    "youtube"
+  ],
+  "author": "Church TV Team",
+  "license": "MIT",
+  "devDependencies": {
+    "grunt": "^1.5.3",
+    "grunt-contrib-concat": "^2.1.0",
+    "grunt-contrib-cssmin": "^4.0.0",
+    "grunt-contrib-uglify": "^5.0.1",
+    "grunt-contrib-watch": "^1.1.0",
+    "http-server": "^14.1.1",
+    "karma": "^6.4.2",
+    "karma-chrome-launcher": "^3.2.0",
+    "karma-jasmine": "^5.1.0"
+  },
+  "dependencies": {
+    "angular": "^1.8.3",
+    "angular-route": "^1.8.3",
+    "angular-animate": "^1.8.3",
+    "angular-sanitize": "^1.8.3",
+    "bootstrap": "^3.4.1",
+    "jquery": "^3.7.1",
+    "font-awesome": "^4.7.0"
+  }
+}
