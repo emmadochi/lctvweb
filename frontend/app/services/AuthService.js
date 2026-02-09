@@ -23,6 +23,69 @@
             var authStateCallbacks = [];
 
             /**
+             * Check if token has valid format (basic validation)
+             */
+            function isValidTokenFormat(token) {
+                // Basic JWT format check (should have 3 parts separated by dots)
+                if (!token || typeof token !== 'string') return false;
+
+                var parts = token.split('.');
+                if (parts.length !== 3) return false;
+
+                // Check if each part is base64-like
+                try {
+                    // Try to decode header and payload (not signature for security)
+                    atob(parts[0]); // Header
+                    JSON.parse(atob(parts[1])); // Payload
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            /**
+             * Verify token validity with server (background check)
+             */
+            function verifyTokenWithServer() {
+                if (!currentToken) return;
+
+                // Make a lightweight request to verify token using profile endpoint
+                // Use a custom request that bypasses the interceptor's automatic logout
+                var config = {
+                    headers: {
+                        'Authorization': 'Bearer ' + currentToken,
+                        'X-Auth-Verification': 'true' // Custom header to identify verification requests
+                    },
+                    // Don't let the interceptor handle this response
+                    skipAuthInterceptor: true
+                };
+
+                $http.get(API_BASE + '/users/profile', config)
+                    .then(function(response) {
+                        // Token is valid, update user data if needed
+                        console.log('Token verified with server');
+                        var userData = response.data.data;
+                        if (userData && JSON.stringify(userData) !== JSON.stringify(currentUser)) {
+                            currentUser = userData;
+                            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                            // Notify listeners of auth state change
+                            notifyAuthStateChanged(true);
+                        }
+                    })
+                    .catch(function(error) {
+                        if (error.status === 401) {
+                            console.warn('Token verification failed, user not authenticated');
+                            // Only logout if we're still using the same token
+                            if (currentToken) {
+                                service.logout();
+                            }
+                        }
+                        // For other errors (network issues, server errors), keep current state
+                        // This prevents auth flickering due to temporary connectivity issues
+                    });
+            }
+
+            /**
              * Initialize service - load from localStorage
              */
             service.init = function() {
@@ -32,6 +95,20 @@
 
                     if (userData) {
                         currentUser = JSON.parse(userData);
+                    }
+
+                    // Validate token if we have one
+                    if (currentToken && currentUser) {
+                        // Check if token looks valid (basic check)
+                        if (!isValidTokenFormat(currentToken)) {
+                            console.warn('Invalid token format detected, clearing auth data');
+                            service.logout();
+                            return;
+                        }
+
+                        // Verify token with server in background after a short delay
+                        // This prevents immediate logout on temporary network issues
+                        setTimeout(verifyTokenWithServer, 1000);
                     }
 
                     console.log('AuthService initialized:', {
@@ -147,12 +224,7 @@
              * Check if user is authenticated
              */
             service.isAuthenticated = function() {
-                var authenticated = !!(currentUser && currentToken);
-                console.log('AuthService.isAuthenticated() called:', authenticated, {
-                    hasUser: !!currentUser,
-                    hasToken: !!currentToken
-                });
-                return authenticated;
+                return !!(currentUser && currentToken);
             };
 
             /**

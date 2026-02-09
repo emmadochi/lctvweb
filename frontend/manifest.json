@@ -30,13 +30,13 @@
       "purpose": "any maskable"
     },
     {
-      "src": "../lctv-logo-white.png",
+      "src": "/LCMTVWebNew/lctv-logo-white.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "../lctv-logo-white.png",
+      "src": "/LCMTVWebNew/lctv-logo-white.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

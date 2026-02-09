@@ -64,5 +64,29 @@ class LivestreamController {
             Response::error('Failed to fetch livestreams by category', 500);
         }
     }
+
+    /**
+     * Batch delete livestreams
+     */
+    public function batchDelete() {
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $ids = $data['ids'] ?? [];
+
+            if (empty($ids)) {
+                Response::badRequest('No livestream IDs provided');
+                return;
+            }
+
+            if (Livestream::batchDelete($ids)) {
+                Response::success(['deleted' => count($ids)]);
+            } else {
+                Response::error('Failed to delete livestreams', 500);
+            }
+        } catch (Exception $e) {
+            error_log("Livestream batchDelete error: " . $e->getMessage());
+            Response::error('Failed to batch delete livestreams', 500);
+        }
+    }
 }
 ?>

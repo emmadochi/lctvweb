@@ -1,358 +1,299 @@
-// LCMTV Service Worker - Progressive Web App
-// Handles caching, offline functionality, and background sync
+/**
+ * Service Worker for Church TV PWA
+ * Handles caching, offline functionality, and push notifications
+ */
 
 const CACHE_NAME = 'lcmtv-v1.0.0';
-const OFFLINE_URL = '/offline.html';
+const STATIC_CACHE_NAME = 'lcmtv-static-v1.0.0';
+const DYNAMIC_CACHE_NAME = 'lcmtv-dynamic-v1.0.0';
 
-// Critical resources to cache immediately
-const CRITICAL_RESOURCES = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/app/app.js',
-  '/assets/css/main.css',
-  '/assets/images/logo.png',
-  '/assets/images/favicon.ico',
-  '../lctv-logo-white.png',
-  '../lctv-logo-dark.png'
+// Resources to cache immediately (minimal set to avoid errors)
+const STATIC_ASSETS = [
+    '/LCMTVWebNew/frontend/index.html',
+    '/LCMTVWebNew/frontend/manifest.json'
 ];
 
-// API endpoints that should be cached briefly
-const API_CACHE_PATTERNS = [
-  /\/api\/videos\?limit=\d+$/,
-  /\/api\/categories$/,
-  /\/api\/livestreams$/
+// API endpoints to cache with network-first strategy
+const API_ENDPOINTS = [
+    '/api/categories',
+    '/api/videos/featured',
+    '/api/languages',
+    '/api/languages/translations'
 ];
 
-// Static assets to cache
-const STATIC_CACHE_PATTERNS = [
-  /\.(?:png|jpg|jpeg|svg|gif|ico|webp)$/,
-  /\.(?:css|js)$/,
-  /\.(?:woff|woff2|ttf|eot)$/
-];
-
-// Install event - cache critical resources
+// Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[SW] Install event');
+    console.log('[SW] Installing Service Worker');
 
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching critical resources');
-        return cache.addAll(CRITICAL_RESOURCES);
-      })
-      .then(() => {
-        console.log('[SW] Install complete');
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error('[SW] Install failed:', error);
-      })
-  );
+    event.waitUntil(
+        Promise.all([
+            caches.open(STATIC_CACHE_NAME).then((cache) => {
+                console.log('[SW] Caching static assets');
+                return cache.addAll(STATIC_ASSETS);
+            }),
+            // Skip waiting to activate immediately
+            self.skipWaiting()
+        ])
+    );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activate event');
+    console.log('[SW] Activating Service Worker');
 
-  event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              console.log('[SW] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => {
-        console.log('[SW] Activation complete');
-        return self.clients.claim();
-      })
-  );
+    event.waitUntil(
+        Promise.all([
+            // Clean up old caches
+            caches.keys().then((cacheNames) => {
+                return Promise.all(
+                    cacheNames.map((cacheName) => {
+                        if (cacheName !== STATIC_CACHE_NAME &&
+                            cacheName !== DYNAMIC_CACHE_NAME &&
+                            !cacheName.startsWith('lcmtv-offline-')) {
+                            console.log('[SW] Deleting old cache:', cacheName);
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            }),
+            // Take control of all clients
+            self.clients.claim()
+        ])
+    );
 });
 
-// Fetch event - handle requests with caching strategies
+// Fetch event - handle requests
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+    const { request } = event;
+    const url = new URL(request.url);
 
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
+    // Handle API requests with network-first strategy
+    if (isApiRequest(url)) {
+        event.respondWith(networkFirstStrategy(request));
+        return;
+    }
 
-  // Skip external requests
-  if (!url.origin.includes(self.location.origin) &&
-      !url.origin.includes('fonts.googleapis.com') &&
-      !url.origin.includes('fonts.gstatic.com')) {
-    return;
-  }
+    // Handle static assets with cache-first strategy
+    if (isStaticAsset(request.url)) {
+        event.respondWith(cacheFirstStrategy(request));
+        return;
+    }
 
-  // Handle API requests with network-first strategy
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/backend/api/')) {
-    event.respondWith(handleApiRequest(event.request));
-    return;
-  }
-
-  // Handle static assets with cache-first strategy
-  if (STATIC_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
-    event.respondWith(handleStaticAsset(event.request));
-    return;
-  }
-
-  // Handle navigation requests
-  if (event.request.mode === 'navigate') {
-    event.respondWith(handleNavigationRequest(event.request));
-    return;
-  }
-
-  // Default cache-first strategy
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
-  );
+    // Default: network-first for HTML, cache-first for others
+    if (request.destination === 'document') {
+        event.respondWith(networkFirstStrategy(request));
+    } else {
+        event.respondWith(cacheFirstStrategy(request));
+    }
 });
 
-// Handle API requests with network-first strategy and brief caching
-async function handleApiRequest(request) {
-  try {
-    // Try network first
-    const networkResponse = await fetch(request);
-    const cache = await caches.open(CACHE_NAME);
+// Push notification event
+self.addEventListener('push', (event) => {
+    console.log('[SW] Push received:', event);
 
-    // Cache successful API responses briefly (5 minutes)
-    if (networkResponse.ok && API_CACHE_PATTERNS.some(pattern => pattern.test(request.url))) {
-      const responseClone = networkResponse.clone();
-      const cacheKey = new Request(request.url, {
-        headers: { ...request.headers, 'sw-cache-time': Date.now().toString() }
-      });
-      cache.put(cacheKey, responseClone);
+    let data = {};
+    if (event.data) {
+        data = event.data.json();
     }
 
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Network failed, trying cache for:', request.url);
+    const options = {
+        body: data.body || 'New content available!',
+        icon: '/LCMTVWebNew/lctv-logo-white.png',
+        badge: '/LCMTVWebNew/lctv-logo-white.png',
+        vibrate: [100, 50, 100],
+        data: {
+            url: data.url || '/'
+        },
+        actions: [
+            {
+                action: 'view',
+                title: 'View'
+            },
+            {
+                action: 'dismiss',
+                title: 'Dismiss'
+            }
+        ]
+    };
 
-    // Try cache as fallback
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
+    event.waitUntil(
+        self.registration.showNotification(data.title || 'Church TV', options)
+    );
+});
+
+// Notification click event
+self.addEventListener('notificationclick', (event) => {
+    console.log('[SW] Notification clicked:', event);
+
+    event.notification.close();
+
+    if (event.action === 'view') {
+        const url = event.notification.data.url || '/';
+        event.waitUntil(
+            clients.openWindow(url)
+        );
     }
-
-    // Return offline response for critical API calls
-    return new Response(JSON.stringify({
-      success: false,
-      message: 'Offline mode - content may not be up to date',
-      data: [],
-      offline: true
-    }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-}
-
-// Handle static assets with cache-first strategy
-async function handleStaticAsset(request) {
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Failed to fetch static asset:', request.url);
-    return new Response('', { status: 404 });
-  }
-}
-
-// Handle navigation requests
-async function handleNavigationRequest(request) {
-  try {
-    const networkResponse = await fetch(request);
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Navigation failed, serving offline page');
-
-    const cache = await caches.open(CACHE_NAME);
-    const offlineResponse = await cache.match(OFFLINE_URL);
-
-    if (offlineResponse) {
-      return offlineResponse;
-    }
-
-    // Fallback offline page
-    return new Response(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>LCMTV - Offline</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 50px;
-            background: linear-gradient(135deg, #6a0dad, #8b5cf6);
-            color: white;
-            min-height: 100vh;
-            margin: 0;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-          }
-          h1 { font-size: 2.5rem; margin-bottom: 20px; }
-          p { font-size: 1.2rem; opacity: 0.9; }
-          .retry-btn {
-            background: white;
-            color: #6a0dad;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 1.1rem;
-            cursor: pointer;
-            margin-top: 30px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>You're Offline</h1>
-          <p>LCMTV is currently unavailable. Please check your internet connection and try again.</p>
-          <button class="retry-btn" onclick="window.location.reload()">Try Again</button>
-        </div>
-      </body>
-      </html>
-    `, {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  }
-}
+});
 
 // Background sync for offline actions
 self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync:', event.tag);
+    console.log('[SW] Background sync:', event.tag);
 
-  if (event.tag === 'background-sync') {
-    event.waitUntil(doBackgroundSync());
-  }
-});
-
-// Handle push notifications
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push received');
-
-  const options = {
-    body: event.data ? event.data.text() : 'New content available!',
-    icon: '/assets/images/logo.png',
-    badge: '/assets/images/favicon.ico',
-    vibrate: [200, 100, 200],
-    data: {
-      url: '/'
-    },
-    actions: [
-      {
-        action: 'view',
-        title: 'View'
-      },
-      {
-        action: 'dismiss',
-        title: 'Dismiss'
-      }
-    ]
-  };
-
-  event.waitUntil(
-    self.registration.showNotification('LCMTV', options)
-  );
-});
-
-// Handle notification clicks
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked');
-
-  event.notification.close();
-
-  if (event.action === 'view' || !event.action) {
-    event.waitUntil(
-      clients.openWindow(event.notification.data.url || '/')
-    );
-  }
-});
-
-// Background sync implementation
-async function doBackgroundSync() {
-  console.log('[SW] Performing background sync');
-
-  try {
-    // Get pending offline actions from IndexedDB
-    const pendingActions = await getPendingActions();
-
-    for (const action of pendingActions) {
-      try {
-        await fetch(action.url, action.options);
-        await removePendingAction(action.id);
-      } catch (error) {
-        console.error('[SW] Background sync failed for:', action.url, error);
-      }
+    if (event.tag === 'background-sync') {
+        event.waitUntil(syncOfflineData());
     }
-  } catch (error) {
-    console.error('[SW] Background sync error:', error);
-  }
-}
+});
 
-// IndexedDB helpers for offline storage
-async function getPendingActions() {
-  // Placeholder - implement IndexedDB operations
-  return [];
-}
-
-async function removePendingAction(id) {
-  // Placeholder - implement IndexedDB operations
-}
-
-// Periodic cache cleanup
+// Message event for communication with main thread
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CLEAN_CACHE') {
-    event.waitUntil(cleanOldCache());
-  }
+    console.log('[SW] Message received:', event.data);
+
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+
+    if (event.data && event.data.type === 'GET_VERSION') {
+        event.ports[0].postMessage({ version: '1.0.0' });
+    }
 });
 
-async function cleanOldCache() {
-  const cache = await caches.open(CACHE_NAME);
-  const keys = await cache.keys();
+// Helper functions
 
-  // Remove cached API responses older than 5 minutes
-  const now = Date.now();
-  const maxAge = 5 * 60 * 1000; // 5 minutes
-
-  for (const request of keys) {
-    const cacheTime = request.headers.get('sw-cache-time');
-    if (cacheTime && (now - parseInt(cacheTime)) > maxAge) {
-      await cache.delete(request);
-    }
-  }
+function isApiRequest(url) {
+    return url.pathname.startsWith('/api/') ||
+           url.pathname.startsWith('/backend/api/') ||
+           API_ENDPOINTS.some(endpoint => url.pathname.includes(endpoint));
 }
 
-// Error handling
-self.addEventListener('error', (event) => {
-  console.error('[SW] Service worker error:', event.error);
-});
+function isStaticAsset(url) {
+    const staticExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf'];
+    return staticExtensions.some(ext => url.endsWith(ext)) ||
+           STATIC_ASSETS.includes(new URL(url).pathname);
+}
 
-self.addEventListener('unhandledrejection', (event) => {
-  console.error('[SW] Unhandled promise rejection:', event.reason);
-});
+function cacheFirstStrategy(request) {
+    return caches.match(request)
+        .then((cachedResponse) => {
+            if (cachedResponse) {
+                return cachedResponse;
+            }
+
+            return fetch(request)
+                .then((networkResponse) => {
+                    // Cache successful GET responses only (POST requests cannot be cached)
+                    if (networkResponse.ok && request.method === 'GET') {
+                        const responseClone = networkResponse.clone();
+                        caches.open(DYNAMIC_CACHE_NAME)
+                            .then((cache) => cache.put(request, responseClone));
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    // Return offline fallback for documents
+                    if (request.destination === 'document') {
+                        return caches.match('/offline.html');
+                    }
+                });
+        });
+}
+
+function networkFirstStrategy(request) {
+    return fetch(request)
+        .then((networkResponse) => {
+            // Cache successful responses
+            if (networkResponse.ok) {
+                const responseClone = networkResponse.clone();
+                caches.open(DYNAMIC_CACHE_NAME)
+                    .then((cache) => cache.put(request, responseClone));
+            }
+            return networkResponse;
+        })
+        .catch(() => {
+            // Try cache as fallback
+            return caches.match(request)
+                .then((cachedResponse) => {
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+
+                    // Return offline page for navigation requests
+                    if (request.destination === 'document') {
+                        return caches.match('/offline.html');
+                    }
+                });
+        });
+}
+
+function syncOfflineData() {
+    // Sync offline comments, reactions, and other data
+    return Promise.resolve();
+}
+
+// Cache video content for offline viewing
+function cacheVideo(videoId, videoUrl) {
+    return caches.open('lcmtv-offline-videos')
+        .then((cache) => {
+            return cache.add(videoUrl);
+        })
+        .then(() => {
+            // Notify client that video is cached
+            return self.clients.matchAll()
+                .then((clients) => {
+                    clients.forEach((client) => {
+                        client.postMessage({
+                            type: 'VIDEO_CACHED',
+                            videoId: videoId
+                        });
+                    });
+                });
+        });
+}
+
+// Remove cached video
+function removeCachedVideo(videoId, videoUrl) {
+    return caches.open('lcmtv-offline-videos')
+        .then((cache) => {
+            return cache.delete(videoUrl);
+        })
+        .then(() => {
+            // Notify client that video is removed
+            return self.clients.matchAll()
+                .then((clients) => {
+                    clients.forEach((client) => {
+                        client.postMessage({
+                            type: 'VIDEO_REMOVED',
+                            videoId: videoId
+                        });
+                    });
+                });
+        });
+}
+
+// Periodic cleanup of old cache entries
+function cleanupOldCaches() {
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const now = Date.now();
+
+    return caches.open(DYNAMIC_CACHE_NAME)
+        .then((cache) => {
+            return cache.keys()
+                .then((requests) => {
+                    return Promise.all(
+                        requests.map((request) => {
+                            return cache.match(request)
+                                .then((response) => {
+                                    if (response) {
+                                        const date = response.headers.get('date');
+                                        if (date && (now - new Date(date).getTime()) > maxAge) {
+                                            return cache.delete(request);
+                                        }
+                                    }
+                                });
+                        })
+                    );
+                });
+        });
+}
+
+// Run cleanup periodically
+setInterval(cleanupOldCaches, 24 * 60 * 60 * 1000); // Daily cleanup

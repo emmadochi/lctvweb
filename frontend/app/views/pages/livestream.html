@@ -17,10 +17,11 @@
                 <!-- YouTube Player -->
                 <div class="livestream-player-wrapper">
                     <div id="livestream-player" class="youtube-player"></div>
-                    <div class="player-overlay" ng-if="!vm.player">
+                    <div class="player-overlay" ng-if="!vm.playerReady" ng-click="vm.startPlayback()">
                         <div class="player-placeholder">
                             <i class="fa fa-play-circle fa-5x"></i>
-                            <p>Loading live stream...</p>
+                            <p ng-if="!vm.player">Loading live stream...</p>
+                            <p ng-if="vm.playerReady">Click to play live stream</p>
                         </div>
                     </div>
                     <!-- Live Indicator -->
@@ -54,7 +55,8 @@
 
             <!-- Livestream Details -->
             <div class="livestream-details-panel">
-                <div class="livestream-info">
+                <div class="container">
+                    <div class="livestream-info">
                     <h1 class="livestream-title">{{vm.livestream.title}}</h1>
 
                     <div class="livestream-meta">
@@ -74,6 +76,7 @@
 
                     <div class="livestream-description" ng-if="vm.livestream.description">
                         <p>{{vm.livestream.description}}</p>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -312,6 +315,8 @@
 
 .livestream-info {
     max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
 }
 
 .livestream-title {

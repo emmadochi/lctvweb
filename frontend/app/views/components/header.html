@@ -4,8 +4,11 @@
         <div class="header-content">
             <!-- Logo/Brand -->
             <a href="#/" class="logo">
-                <img src="../../../lctv-logo-white.png" alt="LCTV Logo" class="logo-image">
+                <img src="../../../../LCMTVWebNew/lctv-logo-white.png" alt="LCTV Logo" class="logo-image">
             </a>
+
+            <!-- Language Switcher -->
+            <language-switcher class="language-switcher-mobile"></language-switcher>
 
             <!-- Navigation Links -->
             <nav class="nav-links">
@@ -30,19 +33,15 @@
                     </div>
                 </div>
 
-                <a href="#/search" ng-class="{active: $location.path() === '/search'}">
-                    <i class="fa fa-search"></i> Search
-                </a>
-
                 <!-- User Authentication -->
-                <div ng-if="!headerCtrl.isAuthenticated()" class="auth-links">
+                <div ng-if="!headerCtrl.authLoading && !headerCtrl.isAuthenticated()" class="auth-links">
                     <button ng-click="headerCtrl.goToLogin()" class="btn btn-outline-light btn-sm">
                         <i class="fa fa-sign-in"></i> Login
                     </button>
                 </div>
 
                 <!-- User Dropdown (when authenticated) -->
-                <div ng-if="headerCtrl.isAuthenticated()" class="user-dropdown" ng-class="{active: headerCtrl.showUserDropdown}">
+                <div ng-if="!headerCtrl.authLoading && headerCtrl.isAuthenticated()" class="user-dropdown" ng-class="{active: headerCtrl.showUserDropdown}">
                     <button class="user-dropdown-toggle" ng-click="headerCtrl.toggleUserDropdown()">
                         <i class="fa fa-user"></i>
                         <span class="user-name">{{headerCtrl.currentUser.first_name}}</span>
@@ -66,16 +65,38 @@
                 </div>
             </nav>
 
+
             <!-- Search Bar -->
-            <form class="search-bar" ng-submit="searchQuery && $location.path('/search').search({q: searchQuery})">
-                <input type="text"
-                       ng-model="searchQuery"
-                       placeholder="Search videos..."
-                       autocomplete="off">
-                <button type="submit">
-                    <i class="fa fa-search"></i>
-                </button>
-            </form>
+            <div class="search-bar-container">
+                <form class="search-bar" ng-submit="headerCtrl.performHeaderSearch()">
+                    <input type="text"
+                           ng-model="headerCtrl.searchQuery"
+                           ng-keyup="headerCtrl.onSearchInputChange($event)"
+                           ng-keydown="headerCtrl.onSearchKeyDown($event)"
+                           ng-focus="headerCtrl.showSearchSuggestions = headerCtrl.searchSuggestions.length > 0"
+                           placeholder="Search videos..."
+                           autocomplete="off">
+                    <button type="submit">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </form>
+
+
+                <!-- Search Suggestions Dropdown -->
+                <div class="search-suggestions-dropdown" ng-show="headerCtrl.showSearchSuggestions">
+                    <div class="search-suggestion-item"
+                         ng-repeat="suggestion in headerCtrl.searchSuggestions track by $index"
+                         ng-class="{selected: $index === headerCtrl.selectedSuggestionIndex}"
+                         ng-click="headerCtrl.selectSearchSuggestion(suggestion)">
+                        <i class="fa fa-search"></i>
+                        <span class="suggestion-text">{{suggestion.suggestion || suggestion}}</span>
+                        <span class="suggestion-type" ng-if="suggestion.type">{{suggestion.type}}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Language Switcher (Desktop) -->
+            <language-switcher class="language-switcher-desktop"></language-switcher>
         </div>
     </div>
 
@@ -311,6 +332,170 @@
 
         .auth-links {
             margin-left: 10px;
+        }
+    }
+
+    /* Language Switcher */
+    .language-switcher {
+        margin-left: 15px;
+    }
+
+    .language-switcher-mobile {
+        display: none;
+    }
+
+    .language-btn {
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+    }
+
+    .language-btn:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .flag {
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    .language-menu {
+        min-width: 180px;
+        border-radius: 8px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        border: none;
+        margin-top: 5px;
+    }
+
+    .language-menu .dropdown-item {
+        padding: 10px 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.3s ease;
+    }
+
+    .language-menu .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .language-menu .dropdown-item.active {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .lang-name {
+        font-weight: 500;
+        flex: 1;
+    }
+
+    .lang-english {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: normal;
+    }
+
+    /* RTL Support */
+    .rtl .language-menu {
+        text-align: right;
+    }
+
+    .rtl .flag {
+        margin-left: 8px;
+        margin-right: 0;
+    }
+
+    /* Search Suggestions */
+    .search-bar-container {
+        position: relative;
+        display: inline-block;
+    }
+
+    .search-suggestions-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff !important; /* Bright white background */
+        border-radius: 8px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important; /* Stronger shadow */
+        border: 2px solid #007bff !important; /* Blue border for visibility */
+        z-index: 9999 !important; /* Very high z-index */
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 2px;
+    }
+
+    .search-suggestion-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #f5f5f5;
+        transition: background-color 0.2s ease;
+    }
+
+    .search-suggestion-item:hover,
+    .search-suggestion-item.selected {
+        background-color: #f8f9fa;
+    }
+
+    .search-suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .search-suggestion-item i {
+        color: #6c757d;
+        margin-right: 10px;
+        width: 14px;
+        text-align: center;
+    }
+
+    .suggestion-text {
+        flex: 1;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+
+    .suggestion-type {
+        font-size: 12px;
+        color: #6c757d;
+        background: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 8px;
+    }
+
+    /* Mobile Styles */
+    @media (max-width: 768px) {
+        .language-switcher-desktop {
+            display: none;
+        }
+
+        .language-switcher-mobile {
+            display: block;
+            margin-top: 10px;
+        }
+
+        .language-menu {
+            left: auto;
+            right: 0;
+        }
+
+        .search-suggestions-dropdown {
+            position: fixed;
+            top: auto;
+            left: 15px;
+            right: 15px;
+            max-height: 250px;
+            border-radius: 6px;
         }
     }
     </style>

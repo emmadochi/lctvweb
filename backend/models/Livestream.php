@@ -138,17 +138,56 @@ class Livestream {
                 WHERE id = ?";
 
         $stmt = $conn->prepare($sql);
+
+        // Extract values to variables to avoid pass-by-reference issues
+        $title = $data['title'] ?? '';
+        $description = $data['description'] ?? '';
+        $thumbnail_url = $data['thumbnail_url'] ?? '';
+        $viewer_count = $data['viewer_count'] ?? 0;
+        $is_live = $data['is_live'] ?? 1;
+
         $stmt->bind_param(
             "sssiii",
-            $data['title'],
-            $data['description'],
-            $data['thumbnail_url'],
-            $data['viewer_count'] ?? 0,
-            $data['is_live'] ?? 1,
+            $title,
+            $description,
+            $thumbnail_url,
+            $viewer_count,
+            $is_live,
             $id
         );
 
         return $stmt->execute();
+    }
+
+    /**
+     * Batch delete livestreams
+     */
+    public static function batchDelete($ids) {
+        if (empty($ids)) {
+            return false;
+        }
+
+        $conn = getDBConnection();
+
+        // Create placeholders for the IN clause
+        $placeholders = str_repeat('?,', count($ids) - 1) . '?';
+        $types = str_repeat('i', count($ids));
+
+        $stmt = $conn->prepare("DELETE FROM " . self::$table . " WHERE id IN ($placeholders)");
+        $stmt->bind_param($types, ...$ids);
+
+        return $stmt->execute();
+    }
+
+    /**
+     * Count total livestreams
+     */
+    public static function count() {
+        $conn = getDBConnection();
+
+        $result = $conn->query("SELECT COUNT(*) as count FROM " . self::$table);
+        $row = $result->fetch_assoc();
+        return $row['count'];
     }
 
     /**

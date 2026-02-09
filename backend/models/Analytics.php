@@ -190,11 +190,12 @@ class Analytics {
         $avgSessionResult = $conn->query($avgSessionQuery);
         $avgSessionData = $avgSessionResult->fetch_assoc();
 
-        // Top content
-        $topContentQuery = "SELECT video_id, video_title, COUNT(*) as views
-                           FROM " . self::$videoViewsTable . "
-                           WHERE $dateFilter
-                           GROUP BY video_id, video_title
+        // Top content - join with videos table to get video titles
+        $topContentQuery = "SELECT vv.video_id, v.title as video_title, COUNT(*) as views
+                           FROM " . self::$videoViewsTable . " vv
+                           LEFT JOIN videos v ON vv.video_id = v.id
+                           WHERE DATE(vv.created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)
+                           GROUP BY vv.video_id, v.title
                            ORDER BY views DESC
                            LIMIT 5";
         $topContentResult = $conn->query($topContentQuery);
@@ -290,18 +291,19 @@ class Analytics {
 
         $dateFilter = "DATE(vv.created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
 
-        // Video performance
+        // Video performance - join with videos table for titles
         $videoPerfQuery = "SELECT
                             vv.video_id,
-                            vv.video_title,
+                            v.title as video_title,
                             COUNT(*) as total_views,
                             AVG(vv.watch_duration) as avg_watch_duration,
-                            AVG(vv.completion_rate) as avg_completion_rate,
+                            AVG(vv.watch_percentage) as avg_completion_rate,
                             SUM(vv.watch_duration) as total_watch_time,
                             COUNT(DISTINCT vv.user_id) as unique_viewers
                           FROM " . self::$videoViewsTable . " vv
+                          LEFT JOIN videos v ON vv.video_id = v.id
                           WHERE $dateFilter
-                          GROUP BY vv.video_id, vv.video_title
+                          GROUP BY vv.video_id, v.title
                           ORDER BY total_views DESC
                           LIMIT 20";
 
@@ -369,13 +371,13 @@ class Analytics {
 
         $dateFilter = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
 
-        // Social interactions
+        // Social interactions - using available tables
         $socialQuery = "SELECT
                         'comments' as type, COUNT(*) as count FROM comments WHERE $dateFilter
                         UNION ALL
                         SELECT 'reactions' as type, COUNT(*) as count FROM reactions WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)
                         UNION ALL
-                        SELECT 'favorites' as type, COUNT(*) as count FROM user_favorites WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
+                        SELECT 'social_activity' as type, COUNT(*) as count FROM social_activity WHERE DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
 
         $socialResult = $conn->query($socialQuery);
         $socialInteractions = [];
@@ -470,11 +472,26 @@ class Analytics {
             $topPages[] = $row;
         }
 
+        // Recent video activity (last 1 hour)
+        $recentVideosQuery = "SELECT v.title, vv.watch_duration, vv.created_at
+                             FROM " . self::$videoViewsTable . " vv
+                             LEFT JOIN videos v ON vv.video_id = v.id
+                             WHERE vv.created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+                             ORDER BY vv.created_at DESC
+                             LIMIT 10";
+
+        $recentVideosResult = $conn->query($recentVideosQuery);
+        $recentVideos = [];
+        while ($row = $recentVideosResult->fetch_assoc()) {
+            $recentVideos[] = $row;
+        }
+
         return [
             'active_users' => (int)$activeUsers['active_users'],
             'video_views_24h' => (int)$videoViews['video_views_24h'],
             'page_views_24h' => (int)$pageViews['page_views_24h'],
             'top_pages' => $topPages,
+            'recent_activity' => $recentVideos,
             'timestamp' => date('c')
         ];
     }
@@ -551,6 +568,39 @@ class Analytics {
         }
 
         return 'Other';
+    }
+
+    /**
+     * Track engagement events (social interactions, user engagement, etc.)
+     */
+    public static function trackEngagement($data) {
+        $conn = getDBConnection();
+
+        $sql = "INSERT INTO " . self::$contentEngagementTable . "
+            (user_id, session_id, event_type, event_data, page_url, referrer_url, user_agent, ip_address, country, city, device_type, browser, os, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = $conn->prepare($sql);
+
+        $userId = $data['user_id'] ?? null;
+        $sessionId = $data['session_id'] ?? session_id();
+        $eventType = $data['event_type'] ?? '';
+        $eventData = json_encode($data['event_data'] ?? []);
+        $pageUrl = $data['page_url'] ?? '';
+        $referrer = $data['referrer'] ?? $data['referrer_url'] ?? '';
+        $userAgent = $data['user_agent'] ?? '';
+        $ipAddress = $data['ip_address'] ?? '';
+        $country = $data['country'] ?? '';
+        $city = $data['city'] ?? '';
+        $deviceType = $data['device_type'] ?? self::getDeviceType($userAgent);
+        $browser = $data['browser'] ?? self::getBrowser($userAgent);
+        $os = $data['os'] ?? self::getOS($userAgent);
+        $createdAt = date('Y-m-d H:i:s');
+
+        $stmt->bind_param("ssssssssssssss", $userId, $sessionId, $eventType, $eventData, $pageUrl, $referrer,
+                         $userAgent, $ipAddress, $country, $city, $deviceType, $browser, $os, $createdAt);
+
+        return $stmt->execute();
     }
 
     /**

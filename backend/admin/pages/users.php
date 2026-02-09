@@ -1,4 +1,10 @@
 <?php
+// Prevent direct access - this file should be included from admin/index.php
+if (!defined('ADMIN_ACCESS') && !isset($_SESSION['admin_logged_in'])) {
+    header('Location: ../index.php');
+    exit();
+}
+
 // Get users for management
 $conn = getDBConnection();
 $result = $conn->query("

@@ -402,8 +402,7 @@ class ContentIngestion {
             $videoData = $videos[0];
 
             // Check if this is actually a live stream
-            // YouTube API returns liveBroadcastContent in video details
-            if (!isset($videoData['liveBroadcastContent']) || $videoData['liveBroadcastContent'] !== 'live') {
+            if (!isset($videoData['isLive']) || !$videoData['isLive']) {
                 echo "Warning: This video is not currently live. Importing as regular video instead.\n";
                 // Import as regular video instead
                 return $this->importVideo($videoData, $categoryId) ? 1 : 0;
@@ -501,7 +500,7 @@ class ContentIngestion {
                 'channel_title' => $videoData['channel_title'],
                 'channel_id' => $videoData['channel_id'],
                 'is_live' => true,
-                'viewer_count' => $videoData['view_count'] ?? null,
+                'viewer_count' => $videoData['concurrentViewers'] ?? $videoData['view_count'] ?? 0,
                 'started_at' => date('Y-m-d H:i:s'), // Current time as start time
                 'category_id' => $categoryId
             ];

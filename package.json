@@ -1,0 +1,20 @@
+{
+  "name": "lcmtvwebnew",
+  "version": "1.0.0",
+  "description": "A modern, comprehensive streaming platform designed specifically for churches and religious organizations. Built with PHP backend, AngularJS frontend, and YouTube API integration.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emmadochi/lctvweb.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/emmadochi/lctvweb/issues"
+  },
+  "homepage": "https://github.com/emmadochi/lctvweb#readme"
+}

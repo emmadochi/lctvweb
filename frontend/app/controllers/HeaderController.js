@@ -7,8 +7,8 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .controller('HeaderController', ['$scope', '$location', 'CategoryService', 'AuthService',
-            function($scope, $location, CategoryService, AuthService) {
+        .controller('HeaderController', ['$scope', '$location', '$timeout', 'CategoryService', 'AuthService', 'SearchService',
+            function($scope, $location, $timeout, CategoryService, AuthService, SearchService) {
 
             var vm = this;
 
@@ -18,12 +18,18 @@
             vm.showUserDropdown = false;
             vm.currentUser = null;
 
-            /**
-             * Check if user is authenticated (defined before init so updateAuthState can use it)
-             */
-            vm.isAuthenticated = function() {
-                return AuthService.isAuthenticated();
-            };
+            // Authentication state property (updated when auth state changes)
+            vm.isAuthenticated = false;
+
+            // Auth loading state to prevent flickering
+            vm.authLoading = true;
+
+            // Search functionality
+            vm.searchQuery = '';
+            vm.showSearchSuggestions = false;
+            vm.searchSuggestions = [];
+            vm.selectedSuggestionIndex = -1;
+            vm.suggestionTimeout = null;
 
             // Initialize controller
             init();
@@ -35,7 +41,13 @@
                 // Register for auth state changes
                 AuthService.onAuthStateChanged(function(isAuthenticated) {
                     updateAuthState();
-                    $scope.$apply();
+                    // Use $applyAsync to ensure it runs after current digest cycle
+                    $scope.$applyAsync();
+                });
+
+                // Also watch for route changes to ensure auth state is updated
+                $scope.$on('$routeChangeSuccess', function() {
+                    updateAuthState();
                 });
             }
 
@@ -57,6 +69,8 @@
              */
             function updateAuthState() {
                 vm.currentUser = AuthService.getCurrentUser();
+                vm.isAuthenticated = AuthService.isAuthenticated();
+                vm.authLoading = false; // Auth state has been determined
             }
 
             /**
@@ -112,6 +126,108 @@
             };
 
             /**
+             * Handle header search submission
+             */
+            vm.performHeaderSearch = function() {
+                if (vm.searchQuery && vm.searchQuery.trim()) {
+                    vm.hideSearchSuggestions();
+                    $location.path('/search').search({q: vm.searchQuery.trim()});
+                }
+            };
+
+            /**
+             * Handle search input changes
+             */
+            vm.onSearchInputChange = function(event) {
+                var query = vm.searchQuery.trim();
+
+                // Clear previous timeout
+                if (vm.suggestionTimeout) {
+                    $timeout.cancel(vm.suggestionTimeout);
+                }
+
+                // Hide suggestions if query is too short
+                if (query.length < 3) {
+                    vm.hideSearchSuggestions();
+                    return;
+                }
+
+                // Debounce the suggestion request
+                vm.suggestionTimeout = $timeout(function() {
+                    vm.loadSearchSuggestions(query);
+                }, 300);
+            };
+
+            /**
+             * Load search suggestions
+             */
+            vm.loadSearchSuggestions = function(query) {
+                SearchService.getSuggestions(query).then(function(suggestions) {
+                    vm.searchSuggestions = suggestions || [];
+                    vm.showSearchSuggestions = vm.searchSuggestions.length > 0;
+                    vm.selectedSuggestionIndex = -1;
+                    $scope.$applyAsync();
+                }).catch(function(error) {
+                    vm.hideSearchSuggestions();
+                });
+            };
+
+            /**
+             * Hide search suggestions
+             */
+            vm.hideSearchSuggestions = function() {
+                vm.showSearchSuggestions = false;
+                vm.searchSuggestions = [];
+                vm.selectedSuggestionIndex = -1;
+            };
+
+            /**
+             * Select a search suggestion
+             */
+            vm.selectSearchSuggestion = function(suggestion) {
+                // If suggestion has a video_id, navigate directly to video page
+                if (suggestion.video_id) {
+                    vm.hideSearchSuggestions();
+                    $location.path('/video/' + suggestion.video_id);
+                } else {
+                    // Fallback to search page
+                    vm.searchQuery = typeof suggestion === 'string' ? suggestion : suggestion.suggestion;
+                    vm.performHeaderSearch();
+                }
+            };
+
+            /**
+             * Handle keyboard navigation for suggestions
+             */
+            vm.onSearchKeyDown = function(event) {
+                if (!vm.showSearchSuggestions || vm.searchSuggestions.length === 0) {
+                    return;
+                }
+
+                switch (event.keyCode) {
+                    case 38: // Up arrow
+                        event.preventDefault();
+                        vm.selectedSuggestionIndex = Math.max(-1, vm.selectedSuggestionIndex - 1);
+                        break;
+                    case 40: // Down arrow
+                        event.preventDefault();
+                        vm.selectedSuggestionIndex = Math.min(vm.searchSuggestions.length - 1, vm.selectedSuggestionIndex + 1);
+                        break;
+                    case 13: // Enter
+                        event.preventDefault();
+                        if (vm.selectedSuggestionIndex >= 0) {
+                            vm.selectSearchSuggestion(vm.searchSuggestions[vm.selectedSuggestionIndex]);
+                        } else {
+                            vm.performHeaderSearch();
+                        }
+                        break;
+                    case 27: // Escape
+                        vm.hideSearchSuggestions();
+                        break;
+                }
+            };
+
+            /**
              * Get category icon for display
              */
             vm.getCategoryIcon = function(slug) {
@@ -133,6 +249,7 @@
                 var target = event.target;
                 var dropdownElement = null;
                 var userDropdownElement = null;
+                var searchContainer = null;
 
                 // Traverse up the DOM to find dropdowns
                 while (target && target !== document) {
@@ -141,6 +258,9 @@
                     }
                     if (angular.element(target).hasClass('user-dropdown')) {
                         userDropdownElement = target;
+                    }
+                    if (angular.element(target).hasClass('search-bar')) {
+                        searchContainer = target;
                     }
                     target = target.parentNode;
                 }
@@ -154,11 +274,23 @@
                     vm.showUserDropdown = false;
                     $scope.$apply();
                 }
+
+                if (!searchContainer && vm.showSearchSuggestions) {
+                    vm.hideSearchSuggestions();
+                    $scope.$apply();
+                }
             });
 
             // Cleanup event listener on controller destroy
             $scope.$on('$destroy', function() {
                 angular.element(document).off('click');
+            });
+
+            // Watch for search query changes
+            $scope.$watch('headerCtrl.searchQuery', function(newValue, oldValue) {
+                if (newValue !== oldValue) {
+                    vm.onSearchInputChange();
+                }
             });
 
             // Expose controller to scope

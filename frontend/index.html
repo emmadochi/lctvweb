@@ -37,8 +37,10 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/rtl.css" id="rtl-stylesheet">
 
     <!-- YouTube API -->
     <script src="https://www.youtube.com/iframe_api"></script>
@@ -90,6 +92,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-animate.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-sanitize.min.js"></script>
 
+
     <!-- jQuery and Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"></script>
@@ -98,7 +101,8 @@
     <script src="app/config/security.js"></script>
 
     <!-- Application Files -->
-    <script src="app/app.js"></script>
+    <script src="app/i18n/translations.js?v=1.1"></script>
+    <script src="app/app.js?v=1.1"></script>
 
     <!-- Controllers -->
     <script src="app/controllers/HomeController.js"></script>
@@ -106,6 +110,9 @@
     <script src="app/controllers/VideoController.js"></script>
     <script src="app/controllers/LivestreamController.js"></script>
     <script src="app/controllers/SearchController.js"></script>
+    <script src="app/services/DonationService.js"></script>
+    <script src="app/controllers/DonationController.js"></script>
+    <script src="app/directives/languageSwitcher.js"></script>
     <script src="app/controllers/FavoritesController.js"></script>
     <script src="app/controllers/PlaylistController.js"></script>
     <script src="app/controllers/HeroSliderController.js"></script>
@@ -126,6 +133,8 @@
     <script src="app/services/CommentService.js"></script>
     <script src="app/services/ReactionService.js"></script>
     <script src="app/services/AnalyticsService.js"></script>
+    <script src="app/services/DonationService.js"></script>
+    <script src="app/services/I18nService.js?v=1.1"></script>
     <script src="app/services/CategoryService.js"></script>
     <script src="app/services/SearchService.js"></script>
     <script src="app/services/UserService.js"></script>
@@ -137,8 +146,9 @@
     <script src="app/directives/videoThumbnail.js"></script>
     <script src="app/directives/youtubePlayer.js"></script>
 
+
     <!-- Custom JavaScript -->
-    <script src="assets/js/main.js"></script>
-    <script src="assets/js/performance.js"></script>
+    <script src="assets/js/main.js?v=1.1"></script>
+    <script src="assets/js/performance.js?v=1.1"></script>
 </body>
 </html>

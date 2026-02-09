@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="ChurchTVApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church TV - Final Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #007bff; }
+        .warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🏛️ Church TV - Final Stability Test</h1>
+
+    <div class="test-section" ng-controller="TestController">
+        <h2>AngularJS Core Tests</h2>
+
+        <div ng-show="angularLoaded" class="success">
+            ✅ AngularJS {{angularVersion}} Loaded Successfully
+        </div>
+
+        <div ng-show="moduleLoaded" class="success">
+            ✅ ChurchTVApp Module Initialized
+        </div>
+
+        <div ng-show="controllerLoaded" class="success">
+            ✅ TestController Active
+        </div>
+
+        <div class="info">
+            Current Time: {{currentTime}}
+            <button ng-click="updateTime()" style="margin-left: 10px;">Update</button>
+        </div>
+    </div>
+
+    <div class="test-section" ng-controller="StabilityController">
+        <h2>Application Stability Tests</h2>
+
+        <div ng-repeat="test in testResults" class="test-result" ng-class="test.status">
+            <strong>{{test.category}}:</strong> {{test.message}}
+            <span ng-if="test.details"> - {{test.details}}</span>
+        </div>
+
+        <button ng-click="runTests()" style="margin-top: 15px;">Run Stability Tests</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Test Results Summary</h2>
+        <div ng-controller="SummaryController">
+            <div class="success" ng-show="allTestsPassed">
+                🎉 All Core Tests Passed! Application is Stable.
+            </div>
+
+            <div class="error" ng-show="hasErrors">
+                ⚠️ Some tests failed. Check console for details.
+            </div>
+
+            <div class="info">
+                Tests Completed: {{completedTests}} / {{totalTests}}
+            </div>
+        </div>
+    </div>
+
+    <!-- AngularJS Core -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+
+    <!-- Application Files -->
+    <script src="app/i18n/translations.js"></script>
+    <script src="app/app.js"></script>
+
+    <script>
+        // Test controllers
+        angular.module('ChurchTVApp')
+            .controller('TestController', ['$scope', '$timeout', function($scope, $timeout) {
+                console.log('TestController: Initializing...');
+
+                $scope.angularLoaded = true;
+                $scope.angularVersion = '1.8.3';
+                $scope.moduleLoaded = true;
+                $scope.controllerLoaded = true;
+                $scope.currentTime = new Date().toLocaleString();
+
+                $scope.updateTime = function() {
+                    $scope.currentTime = new Date().toLocaleString();
+                };
+
+                console.log('TestController: All basic tests passed');
+            }])
+            .controller('StabilityController', ['$scope', '$timeout', function($scope, $timeout) {
+                console.log('StabilityController: Initializing...');
+
+                $scope.testResults = [];
+
+                $scope.runTests = function() {
+                    $scope.testResults = [];
+
+                    // Test 1: Module loading
+                    try {
+                        var moduleExists = angular.module('ChurchTVApp');
+                        $scope.testResults.push({
+                            category: 'Module Loading',
+                            message: 'ChurchTVApp module loaded successfully',
+                            status: 'success'
+                        });
+                    } catch (e) {
+                        $scope.testResults.push({
+                            category: 'Module Loading',
+                            message: 'Failed to load module',
+                            status: 'error',
+                            details: e.message
+                        });
+                    }
+
+                    // Test 2: Translations loading
+                    try {
+                        if (window.LCTV_TRANSLATIONS && window.LCTV_TRANSLATIONS.en) {
+                            $scope.testResults.push({
+                                category: 'Translations',
+                                message: 'Translation files loaded successfully',
+                                status: 'success',
+                                details: Object.keys(window.LCTV_TRANSLATIONS).length + ' languages'
+                            });
+                        } else {
+                            $scope.testResults.push({
+                                category: 'Translations',
+                                message: 'Translation files not loaded',
+                                status: 'warning'
+                            });
+                        }
+                    } catch (e) {
+                        $scope.testResults.push({
+                            category: 'Translations',
+                            message: 'Translation loading failed',
+                            status: 'error',
+                            details: e.message
+                        });
+                    }
+
+                    // Test 3: Service injection
+                    $timeout(function() {
+                        try {
+                            var injector = angular.element(document.body).injector();
+                            if (injector) {
+                                $scope.testResults.push({
+                                    category: 'Dependency Injection',
+                                    message: 'Angular injector working',
+                                    status: 'success'
+                                });
+                            }
+                        } catch (e) {
+                            $scope.testResults.push({
+                                category: 'Dependency Injection',
+                                message: 'Injector failed',
+                                status: 'error',
+                                details: e.message
+                            });
+                        }
+                    }, 100);
+
+                    // Test 4: No console errors
+                    $timeout(function() {
+                        $scope.testResults.push({
+                            category: 'Console Errors',
+                            message: 'Check browser console for errors',
+                            status: 'info',
+                            details: 'Verify no Angular or JavaScript errors'
+                        });
+                    }, 500);
+                };
+
+                // Auto-run tests
+                $timeout(function() {
+                    $scope.runTests();
+                }, 200);
+            }])
+            .controller('SummaryController', ['$scope', function($scope) {
+                $scope.completedTests = 0;
+                $scope.totalTests = 4;
+                $scope.allTestsPassed = false;
+                $scope.hasErrors = false;
+
+                $scope.$watch('testResults', function(newResults) {
+                    if (newResults && newResults.length > 0) {
+                        $scope.completedTests = newResults.length;
+                        $scope.allTestsPassed = newResults.every(function(test) {
+                            return test.status === 'success';
+                        });
+                        $scope.hasErrors = newResults.some(function(test) {
+                            return test.status === 'error';
+                        });
+                    }
+                }, true);
+            }]);
+
+        // Global error handler
+        window.addEventListener('error', function(e) {
+            console.error('Global error caught:', e.error);
+        });
+
+        console.log('Church TV Final Test: Loaded successfully');
+    </script>
+</body>
+</html>

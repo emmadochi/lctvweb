@@ -1,4 +1,10 @@
 <?php
+// Prevent direct access - this file should be included from admin/index.php
+if (!defined('ADMIN_ACCESS') && !isset($_SESSION['admin_logged_in'])) {
+    header('Location: ../index.php');
+    exit();
+}
+
 // Handle actions
 $message = '';
 $messageType = '';
@@ -15,6 +21,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $messageType = 'success';
                 } else {
                     throw new Exception('Failed to delete video');
+                }
+                break;
+
+            case 'batch_delete':
+                $selectedVideos = $_POST['selected_videos'] ?? [];
+                if (empty($selectedVideos)) {
+                    throw new Exception('No videos selected for deletion');
+                }
+
+                $videoIds = array_map('intval', $selectedVideos);
+                if (Video::batchDelete($videoIds)) {
+                    $deletedCount = count($videoIds);
+                    $message = $deletedCount . ' video' . ($deletedCount > 1 ? 's' : '') . ' deleted successfully';
+                    $messageType = 'success';
+                } else {
+                    throw new Exception('Failed to delete selected videos');
                 }
                 break;
 
@@ -41,6 +63,7 @@ $stmt = $conn->prepare("
     SELECT v.*, c.name as category_name
     FROM videos v
     LEFT JOIN categories c ON v.category_id = c.id
+    WHERE v.is_active = 1
     ORDER BY v.created_at DESC
     LIMIT ? OFFSET ?
 ");
@@ -54,7 +77,7 @@ while ($row = $result->fetch_assoc()) {
 }
 
 // Get total count for pagination
-$totalResult = $conn->query("SELECT COUNT(*) as total FROM videos");
+$totalResult = $conn->query("SELECT COUNT(*) as total FROM videos WHERE is_active = 1");
 $totalVideos = $totalResult->fetch_assoc()['total'];
 $totalPages = ceil($totalVideos / $perPage);
 ?>
@@ -106,13 +129,32 @@ $totalPages = ceil($totalVideos / $perPage);
     <!-- Videos Table -->
     <div class="bg-white rounded-lg shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">All Videos (<?php echo $totalVideos; ?>)</h3>
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">All Videos (<?php echo $totalVideos; ?>)</h3>
+                <div class="flex space-x-2">
+                    <button type="button" id="selectAllBtn" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                        Select All
+                    </button>
+                    <button type="button" id="deselectAllBtn" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 hidden">
+                        Deselect All
+                    </button>
+                    <button type="button" id="deleteSelectedBtn" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 hidden" disabled>
+                        <i class="fas fa-trash mr-1"></i> Delete Selected
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+        <!-- Bulk Delete Form -->
+        <form method="POST" id="bulkDeleteForm">
+            <input type="hidden" name="action" id="formAction" value="batch_delete">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" id="selectAllCheckbox" class="rounded border-gray-300 text-orange-600 focus:ring-orange-500">
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Video</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
@@ -124,7 +166,7 @@ $totalPages = ceil($totalVideos / $perPage);
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php if (empty($videos)): ?>
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                             <i class="fas fa-video text-4xl mb-4"></i>
                             <p class="text-lg">No videos found</p>
                             <p class="text-sm">Import some videos to get started</p>
@@ -139,6 +181,9 @@ $totalPages = ceil($totalVideos / $perPage);
                     <?php else: ?>
                     <?php foreach ($videos as $video): ?>
                     <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="checkbox" name="selected_videos[]" value="<?php echo $video['id']; ?>" class="video-checkbox rounded border-gray-300 text-orange-600 focus:ring-orange-500">
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-12 w-18">
@@ -182,13 +227,9 @@ $totalPages = ceil($totalVideos / $perPage);
                                 >
                                     <i class="fas fa-external-link-alt"></i>
                                 </a>
-                                <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this video?')">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="video_id" value="<?php echo $video['id']; ?>">
-                                    <button type="submit" class="text-red-600 hover:text-red-900" title="Delete Video">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                                <button type="button" class="text-red-600 hover:text-red-900 delete-single-btn" title="Delete Video" data-video-id="<?php echo $video['id']; ?>">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -197,6 +238,7 @@ $totalPages = ceil($totalVideos / $perPage);
                 </tbody>
             </table>
         </div>
+        </form>
 
         <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
@@ -237,4 +279,115 @@ $totalPages = ceil($totalVideos / $perPage);
         </div>
         <?php endif; ?>
     </div>
+
+    <!-- JavaScript for bulk operations -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const selectAllBtn = document.getElementById('selectAllBtn');
+            const deselectAllBtn = document.getElementById('deselectAllBtn');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const videoCheckboxes = document.querySelectorAll('.video-checkbox');
+            const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+
+            // Update delete button state based on selected checkboxes
+            function updateDeleteButton() {
+                const checkedBoxes = document.querySelectorAll('.video-checkbox:checked');
+                const hasSelection = checkedBoxes.length > 0;
+
+                deleteSelectedBtn.disabled = !hasSelection;
+                deleteSelectedBtn.classList.toggle('hidden', !hasSelection);
+
+                // Update select/deselect all button visibility
+                const allChecked = videoCheckboxes.length > 0 && checkedBoxes.length === videoCheckboxes.length;
+                const someChecked = checkedBoxes.length > 0 && checkedBoxes.length < videoCheckboxes.length;
+
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = someChecked;
+            }
+
+            // Select all videos
+            function selectAll() {
+                videoCheckboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                updateDeleteButton();
+            }
+
+            // Deselect all videos
+            function deselectAll() {
+                videoCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                updateDeleteButton();
+            }
+
+            // Handle select all checkbox
+            selectAllCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    selectAll();
+                } else {
+                    deselectAll();
+                }
+            });
+
+            // Handle select all button
+            selectAllBtn.addEventListener('click', function() {
+                selectAll();
+            });
+
+            // Handle deselect all button
+            deselectAllBtn.addEventListener('click', function() {
+                deselectAll();
+            });
+
+            // Handle individual checkbox changes
+            videoCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateDeleteButton);
+            });
+
+            // Handle bulk delete with confirmation
+            deleteSelectedBtn.addEventListener('click', function() {
+                const checkedBoxes = document.querySelectorAll('.video-checkbox:checked');
+                const count = checkedBoxes.length;
+
+                if (count === 0) {
+                    alert('Please select at least one video to delete.');
+                    return;
+                }
+
+                const message = `Are you sure you want to delete ${count} video${count > 1 ? 's' : ''}? This action cannot be undone.`;
+
+                if (confirm(message)) {
+                    document.getElementById('formAction').value = 'batch_delete';
+                    bulkDeleteForm.submit();
+                }
+            });
+
+            // Handle individual delete buttons
+            document.querySelectorAll('.delete-single-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const videoId = this.getAttribute('data-video-id');
+                    const message = 'Are you sure you want to delete this video? This action cannot be undone.';
+
+                    if (confirm(message)) {
+                        // Create a hidden input for the single video ID
+                        const videoIdInput = document.createElement('input');
+                        videoIdInput.type = 'hidden';
+                        videoIdInput.name = 'video_id';
+                        videoIdInput.value = videoId;
+
+                        document.getElementById('formAction').value = 'delete';
+
+                        // Add the video ID input to the form
+                        bulkDeleteForm.appendChild(videoIdInput);
+                        bulkDeleteForm.submit();
+                    }
+                });
+            });
+
+            // Initial state
+            updateDeleteButton();
+        });
+    </script>
 </div>

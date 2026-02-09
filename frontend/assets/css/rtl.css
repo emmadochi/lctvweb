@@ -1,0 +1,313 @@
+/* RTL (Right-to-Left) Language Support for LCMTV */
+
+/* Base RTL Styles */
+.rtl {
+    direction: rtl;
+    text-align: right;
+}
+
+.rtl .ltr {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Header RTL Support */
+.rtl .main-header .header-content {
+    flex-direction: row-reverse;
+}
+
+.rtl .main-header .logo {
+    margin-left: 20px;
+    margin-right: 0;
+}
+
+.rtl .main-header .nav-links {
+    flex-direction: row-reverse;
+}
+
+.rtl .main-header .nav-links a,
+.rtl .main-header .nav-dropdown-toggle {
+    margin-left: 0;
+    margin-right: 20px;
+}
+
+.rtl .main-header .search-bar {
+    margin-left: 0;
+    margin-right: 20px;
+}
+
+.rtl .main-header .language-switcher-desktop {
+    margin-left: 0;
+    margin-right: 15px;
+}
+
+.rtl .main-header .user-dropdown,
+.rtl .main-header .auth-links {
+    margin-left: 0;
+    margin-right: 15px;
+}
+
+/* Navigation Dropdown RTL */
+.rtl .nav-dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+.rtl .user-dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+/* Search Page RTL */
+.rtl .search-page .search-input-container {
+    text-align: right;
+}
+
+.rtl .search-page .input-group {
+    flex-direction: row-reverse;
+}
+
+.rtl .search-page .input-group-btn {
+    border-radius: 0 4px 4px 0;
+    border-left: 1px solid #ccc;
+    border-right: none;
+}
+
+.rtl .search-page .form-control {
+    border-radius: 4px 0 0 4px;
+    border-right: 1px solid #ccc;
+    border-left: none;
+}
+
+.rtl .search-page .search-suggestions {
+    text-align: right;
+}
+
+.rtl .search-page .quick-filters {
+    flex-direction: row-reverse;
+}
+
+/* Advanced Filters RTL */
+.rtl .advanced-filters .filters-grid {
+    direction: rtl;
+}
+
+.rtl .advanced-filters .filter-group label {
+    text-align: right;
+}
+
+.rtl .advanced-filters .date-range {
+    flex-direction: row-reverse;
+}
+
+.rtl .advanced-filters .date-separator {
+    margin: 0 10px;
+}
+
+/* AI Recommendations RTL */
+.rtl .ai-recommendations .recommendations-grid {
+    direction: rtl;
+}
+
+.rtl .ai-recommendations .recommendation-card {
+    text-align: right;
+}
+
+/* Donation Form RTL */
+.rtl .donation-form .form-row {
+    flex-direction: row-reverse;
+}
+
+.rtl .donation-form .form-group.col-md-6:first-child {
+    padding-left: 15px;
+    padding-right: 0;
+}
+
+.rtl .donation-form .form-group.col-md-6:last-child {
+    padding-right: 15px;
+    padding-left: 0;
+}
+
+.rtl .donation-form .checkbox-group {
+    text-align: right;
+}
+
+.rtl .donation-form .payment-methods {
+    flex-direction: row-reverse;
+}
+
+/* Video Player RTL */
+.rtl .video-player .controls {
+    flex-direction: row-reverse;
+}
+
+.rtl .video-player .control-btn {
+    margin-left: 0;
+    margin-right: 10px;
+}
+
+/* Comments RTL */
+.rtl .comments-section .comment {
+    text-align: right;
+}
+
+.rtl .comments-section .comment-reply {
+    margin-left: 0;
+    margin-right: 30px;
+}
+
+.rtl .comments-section .comment-actions {
+    flex-direction: row-reverse;
+}
+
+/* Footer RTL */
+.rtl .main-footer .footer-content {
+    text-align: right;
+}
+
+.rtl .main-footer .footer-links {
+    flex-direction: row-reverse;
+}
+
+/* Modal RTL */
+.rtl .modal-header .close {
+    margin-left: -2px;
+    margin-right: auto;
+}
+
+.rtl .modal-footer {
+    flex-direction: row-reverse;
+}
+
+.rtl .modal-footer .btn + .btn {
+    margin-left: 5px;
+    margin-right: -5px;
+}
+
+/* Dropdown RTL */
+.rtl .dropdown-menu {
+    left: auto;
+    right: 0;
+    text-align: right;
+}
+
+/* Table RTL */
+.rtl table {
+    direction: rtl;
+}
+
+.rtl th,
+.rtl td {
+    text-align: right;
+}
+
+/* Form Elements RTL */
+.rtl .form-control {
+    text-align: right;
+}
+
+.rtl .input-group .form-control:first-child {
+    border-radius: 0 4px 4px 0;
+    border-left: 1px solid #ccc;
+    border-right: none;
+}
+
+.rtl .input-group .input-group-btn:last-child > .btn {
+    border-radius: 4px 0 0 4px;
+    border-right: 1px solid #ccc;
+    border-left: none;
+}
+
+/* Button Groups RTL */
+.rtl .btn-group {
+    flex-direction: row-reverse;
+}
+
+/* Pagination RTL */
+.rtl .pagination {
+    flex-direction: row-reverse;
+}
+
+/* Language Switcher RTL */
+.rtl .language-menu .dropdown-item {
+    flex-direction: row-reverse;
+    text-align: right;
+}
+
+.rtl .language-menu .flag {
+    margin-left: 8px;
+    margin-right: 0;
+}
+
+/* Loading States RTL */
+.rtl .loading-spinner {
+    margin-left: 10px;
+    margin-right: 0;
+}
+
+/* Error Messages RTL */
+.rtl .alert {
+    text-align: right;
+}
+
+/* Breadcrumbs RTL */
+.rtl .breadcrumb {
+    flex-direction: row-reverse;
+}
+
+.rtl .breadcrumb-item + .breadcrumb-item::before {
+    content: "\\";
+    margin-left: 0.5rem;
+    margin-right: 0;
+}
+
+/* Cards RTL */
+.rtl .card {
+    text-align: right;
+}
+
+.rtl .card-header {
+    text-align: right;
+}
+
+/* Badges RTL */
+.rtl .badge {
+    margin-left: 0;
+    margin-right: 5px;
+}
+
+/* Tooltips RTL */
+.rtl .tooltip {
+    text-align: right;
+}
+
+/* Mobile Menu RTL */
+@media (max-width: 768px) {
+    .rtl .mobile-menu {
+        direction: rtl;
+        text-align: right;
+    }
+
+    .rtl .mobile-menu .menu-item {
+        text-align: right;
+        padding-right: 20px;
+        padding-left: 0;
+    }
+
+    .rtl .mobile-menu .submenu {
+        padding-right: 40px;
+        padding-left: 0;
+    }
+}
+
+/* Print Styles RTL */
+@media print {
+    .rtl {
+        direction: rtl;
+        text-align: right;
+    }
+
+    .rtl * {
+        text-align: right !important;
+    }
+}

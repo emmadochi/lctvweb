@@ -7,8 +7,8 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .controller('SearchController', ['$scope', '$location', '$routeParams', '$timeout', 'VideoService', 'CategoryService', 'UserService', 'AuthService',
-            function($scope, $location, $routeParams, $timeout, VideoService, CategoryService, UserService, AuthService) {
+        .controller('SearchController', ['$scope', '$location', '$routeParams', '$timeout', 'VideoService', 'CategoryService', 'UserService', 'AuthService', 'SearchService', 'I18nService',
+            function($scope, $location, $routeParams, $timeout, VideoService, CategoryService, UserService, AuthService, SearchService, I18nService) {
 
             var vm = this;
 
@@ -55,6 +55,11 @@
             init();
 
             function init() {
+                // Ensure translations are loaded
+                if (!I18nService.currentTranslations) {
+                    I18nService.initialize();
+                }
+
                 // Get search query from URL params or route params
                 vm.query = $routeParams.q || $location.search().q || '';
 
@@ -79,15 +84,6 @@
 
                 // Set page title
                 $scope.$root.setPageTitle(vm.query ? 'Enhanced Search: ' + vm.query : 'Enhanced Search');
-            }
-
-            /**
-             * Load categories for filter dropdown
-             */
-            function loadCategories() {
-                CategoryService.getCategories().then(function(categories) {
-                    vm.categories = categories;
-                });
             }
 
             /**
@@ -169,25 +165,6 @@
                 performSearch();
             };
 
-            /**
-             * Get search suggestions
-             */
-            vm.getSuggestions = function(event) {
-                if (vm.suggestionsTimeout) {
-                    $timeout.cancel(vm.suggestionsTimeout);
-                }
-
-                if (!vm.query.trim()) {
-                    vm.suggestions = [];
-                    return;
-                }
-
-                vm.suggestionsTimeout = $timeout(function() {
-                    VideoService.getSearchSuggestions(vm.query, 8).then(function(response) {
-                        vm.suggestions = response.suggestions || [];
-                    });
-                }, 300);
-            };
 
             /**
              * Hide suggestions
@@ -412,30 +389,6 @@
                 loadRecommendations();
             };
 
-            /**
-             * Clear search
-             */
-            vm.clearSearch = function() {
-                vm.query = '';
-                vm.results = [];
-                vm.totalResults = 0;
-                vm.currentPage = 1;
-                vm.filters = {
-                    category: '',
-                    sort: 'relevance',
-                    duration: '',
-                    date: ''
-                };
-                $location.search('q', null);
-            };
-
-            /**
-             * Apply filters
-             */
-            vm.applyFilters = function() {
-                vm.currentPage = 1;
-                performSearch();
-            };
 
             /**
              * Change page
@@ -464,14 +417,6 @@
                 });
             };
 
-            /**
-             * Select suggestion
-             */
-            vm.selectSuggestion = function(suggestion) {
-                vm.query = suggestion;
-                vm.showSuggestions = false;
-                vm.search();
-            };
 
             /**
              * Use search history item

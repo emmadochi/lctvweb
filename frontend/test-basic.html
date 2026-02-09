@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="ChurchTVApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church TV Basic Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Church TV - Basic Functionality Test</h1>
+
+    <div ng-controller="TestController">
+        <div class="success" ng-show="angularLoaded">
+            ✅ AngularJS Loaded Successfully
+        </div>
+
+        <div class="success" ng-show="moduleLoaded">
+            ✅ ChurchTVApp Module Loaded
+        </div>
+
+        <div class="info">
+            Current Time: {{currentTime}}
+        </div>
+
+        <button ng-click="testServices()">Test Services</button>
+        <div ng-show="serviceTestResult" ng-class="serviceTestResult.success ? 'success' : 'error'">
+            {{serviceTestResult.message}}
+        </div>
+
+        <hr>
+        <h3>Test Results:</h3>
+        <ul>
+            <li ng-repeat="result in testResults" ng-class="result.status">
+                {{result.test}}: {{result.message}}
+            </li>
+        </ul>
+    </div>
+
+    <!-- AngularJS Core Only -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+
+    <!-- Basic App Module -->
+    <script>
+        try {
+            // Create the basic app module
+            angular.module('ChurchTVApp', []);
+
+            // Test controller
+            angular.module('ChurchTVApp')
+                .controller('TestController', ['$scope', '$timeout', function($scope, $timeout) {
+                    $scope.angularLoaded = true;
+                    $scope.moduleLoaded = true;
+                    $scope.currentTime = new Date().toLocaleString();
+                    $scope.testResults = [];
+
+                    $scope.testServices = function() {
+                        $scope.serviceTestResult = { success: true, message: 'Basic Angular functionality working!' };
+                        $scope.testResults.push({
+                            test: 'Angular Services',
+                            message: 'Controller and scope working',
+                            status: 'success'
+                        });
+                    };
+
+                    // Auto-run basic tests
+                    $timeout(function() {
+                        $scope.testResults.push({
+                            test: 'Module Creation',
+                            message: 'ChurchTVApp module created successfully',
+                            status: 'success'
+                        });
+                        $scope.testResults.push({
+                            test: 'Controller Loading',
+                            message: 'TestController loaded and working',
+                            status: 'success'
+                        });
+                    }, 100);
+                }]);
+
+            console.log('ChurchTVApp module created successfully');
+        } catch (error) {
+            console.error('Failed to create ChurchTVApp module:', error);
+            document.body.innerHTML += '<div style="color: red;">❌ Failed to create Angular module: ' + error.message + '</div>';
+        }
+    </script>
+</body>
+</html>

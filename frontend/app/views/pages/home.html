@@ -197,43 +197,43 @@
         </div>
     </section>
 
-    <!-- Sermon Series & Playlists -->
-    <section class="section series-section bg-light">
+    <!-- Recent Videos -->
+    <section class="section featured-videos">
         <div class="container">
-            <h2 class="section-title">Sermon Series & Collections</h2>
-            <p class="section-subtitle">Explore our teaching series and special collections</p>
-            <div class="series-grid" ng-if="vm.playlists.length > 0">
-                <div class="series-card" ng-repeat="playlist in vm.playlists" ng-click="vm.playPlaylist(playlist.id)">
-                    <div class="series-thumbnail">
-                        <i class="fa {{playlist.icon}} fa-3x"></i>
-                        <div class="series-badge" ng-if="playlist.season">
-                            <i class="fa fa-calendar"></i> {{playlist.season_display}}
+            <h2 class="section-title">Recent Videos</h2>
+            <p class="section-subtitle">Check out the latest videos added to our platform</p>
+            <div class="video-grid" ng-if="vm.recentVideos.length > 0">
+                <div class="video-card" ng-repeat="video in vm.recentVideos | limitTo:12" ng-click="vm.playVideo(video.id)">
+                    <div class="video-thumbnail">
+                        <img ng-src="{{video.thumbnail_url}}" alt="{{video.title}}" loading="lazy">
+                        <span class="video-duration">{{vm.formatDuration(video.duration)}}</span>
+                        <div class="play-overlay">
+                            <i class="fa fa-play-circle"></i>
                         </div>
                     </div>
-                    <div class="series-info">
-                        <h4 class="series-title">{{playlist.name}}</h4>
-                        <p class="series-description">{{playlist.description}}</p>
-                        <div class="series-meta">
-                            <span class="series-videos">
-                                <i class="fa fa-video-camera"></i> {{playlist.video_count}} videos
+                    <button type="button" class="video-favorite-btn" ng-click="vm.toggleFavorite(video, $event); $event.stopPropagation()" title="{{vm.isFavorite(video.id) ? 'Remove from Favourites' : 'Add to Favourites'}}">
+                        <i class="fa fa-heart" ng-class="{'favorited': vm.isFavorite(video.id)}"></i>
+                    </button>
+                    <div class="video-info">
+                        <h3 class="video-title">{{video.title}}</h3>
+                        <div class="video-meta">
+                            <span class="video-views">
+                                <i class="fa fa-eye"></i> {{vm.formatViews(video.view_count)}}
                             </span>
-                            <span class="series-date" ng-if="playlist.created_at">
-                                <i class="fa fa-clock-o"></i> {{vm.formatPlaylistDate(playlist.created_at)}}
+                            <span class="video-date">
+                                <i class="fa fa-calendar"></i> {{vm.formatDate(video.published_at)}}
                             </span>
                         </div>
-                    </div>
-                    <div class="series-play-overlay">
-                        <i class="fa fa-play-circle fa-2x"></i>
                     </div>
                 </div>
             </div>
-            <div class="text-center" ng-if="vm.loadingPlaylists">
+            <div class="text-center" ng-if="vm.loadingRecent">
                 <i class="fa fa-spinner fa-spin fa-2x"></i>
-                <p>Loading series...</p>
+                <p>Loading recent videos...</p>
             </div>
-            <div class="text-center" ng-if="!vm.loadingPlaylists && vm.playlists.length === 0">
-                <i class="fa fa-book fa-3x text-muted"></i>
-                <p>No series available at the moment.</p>
+            <div class="text-center" ng-if="!vm.loadingRecent && vm.recentVideos.length === 0">
+                <i class="fa fa-video-camera fa-3x text-muted"></i>
+                <p>No recent videos available at the moment.</p>
             </div>
         </div>
     </section>
@@ -1264,6 +1264,7 @@
         font-size: 1.3rem;
     }
 }
+
 
 /* ===== PRINT STYLES ===== */
 @media print {

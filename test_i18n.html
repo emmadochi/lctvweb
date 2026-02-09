@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>I18n Service Test</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+</head>
+<body ng-app="TestApp">
+    <div ng-controller="TestCtrl">
+        <h1>Testing I18nService</h1>
+        <p>Language: {{currentLanguage}}</p>
+        <p>RTL: {{isRTL}}</p>
+        <button ng-click="changeLanguage('es')">Spanish</button>
+        <button ng-click="changeLanguage('en')">English</button>
+        <button ng-click="changeLanguage('ar')">Arabic</button>
+    </div>
+
+    <script>
+        // Mock translations
+        window.LCTV_TRANSLATIONS = {
+            'en': {
+                'NAV_HOME': 'Home',
+                'NAV_SEARCH': 'Search'
+            },
+            'es': {
+                'NAV_HOME': 'Inicio',
+                'NAV_SEARCH': 'Buscar'
+            },
+            'ar': {
+                'NAV_HOME': 'الرئيسية',
+                'NAV_SEARCH': 'البحث'
+            }
+        };
+    </script>
+
+    <script src="frontend/app/services/I18nService.js?v=1.1"></script>
+
+    <script>
+        angular.module('TestApp', [])
+            .controller('TestCtrl', ['$scope', 'I18nService', function($scope, I18nService) {
+                $scope.currentLanguage = I18nService.currentLanguage;
+                $scope.isRTL = I18nService.isRTL;
+
+                $scope.changeLanguage = function(lang) {
+                    I18nService.setLanguage(lang).then(function() {
+                        $scope.currentLanguage = I18nService.currentLanguage;
+                        $scope.isRTL = I18nService.isRTL;
+                        console.log('Language changed to:', lang);
+                    }).catch(function(error) {
+                        console.error('Error changing language:', error);
+                    });
+                };
+
+                // Initialize
+                I18nService.initialize();
+            }]);
+    </script>
+</body>
+</html>

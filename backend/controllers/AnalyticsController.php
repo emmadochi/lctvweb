@@ -199,6 +199,75 @@ class AnalyticsController {
     }
 
     /**
+     * Track engagement events (social interactions, user engagement, etc.)
+     */
+    public static function trackEngagement() {
+        try {
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput, true);
+
+            // Validate JSON parsing
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                error_log("AnalyticsController::trackEngagement - JSON decode error: " . json_last_error_msg());
+                return Response::error('Invalid JSON data', 400);
+            }
+
+            // Validate required fields
+            if (empty($data['session_id']) || empty($data['event_type'])) {
+                error_log("AnalyticsController::trackEngagement - Missing required fields");
+                return Response::error('Missing required fields: session_id, event_type', 400);
+            }
+
+            // Get user info if authenticated (may return null if not authenticated)
+            $userId = null;
+            try {
+                $userId = Auth::getCurrentUserId();
+            } catch (Exception $e) {
+                // User not authenticated - that's okay for analytics
+                error_log("AnalyticsController::trackEngagement - Auth check: " . $e->getMessage());
+            }
+
+            // Detect device info
+            $deviceInfo = self::detectDeviceInfo();
+
+            // Prepare engagement data
+            $engagementData = [
+                'user_id' => $userId,
+                'session_id' => $data['session_id'],
+                'event_type' => $data['event_type'],
+                'event_data' => $data['event_data'] ?? [],
+                'page_url' => $data['page_url'] ?? '',
+                'referrer' => $data['referrer_url'] ?? $data['referrer'] ?? '',
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'ip_address' => self::getClientIP(),
+                'device_type' => $deviceInfo['device_type'],
+                'browser' => $deviceInfo['browser'],
+                'os' => $deviceInfo['os'],
+                'country' => $data['country'] ?? null,
+                'city' => $data['city'] ?? null
+            ];
+
+            // Record engagement event
+            $success = Analytics::trackEngagement($engagementData);
+
+            if ($success) {
+                return Response::success(['message' => 'Engagement event recorded']);
+            } else {
+                // Log error but return success to prevent breaking the frontend
+                error_log("AnalyticsController::trackEngagement - Failed to record engagement event");
+                // Return success anyway - analytics failures shouldn't break the app
+                return Response::success(['message' => 'Engagement event recording attempted']);
+            }
+
+        } catch (Exception $e) {
+            error_log("AnalyticsController::trackEngagement - Exception: " . $e->getMessage());
+            error_log("AnalyticsController::trackEngagement - Stack trace: " . $e->getTraceAsString());
+            // Return success to prevent breaking the frontend
+            return Response::success(['message' => 'Engagement event recording attempted']);
+        }
+    }
+
+    /**
      * Get video engagement metrics (legacy endpoint)
      */
     public static function getVideoEngagement() {

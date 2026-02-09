@@ -147,7 +147,7 @@ class YouTubeAPI {
             }
 
             $params = [
-                'part' => 'snippet,statistics,contentDetails',
+                'part' => 'snippet,statistics,contentDetails,liveStreamingDetails',
                 'id' => implode(',', array_slice($videoIds, 0, 50)) // Max 50 per request
             ];
 
@@ -223,6 +223,22 @@ class YouTubeAPI {
             // Parse ISO 8601 duration (PT4M13S = 4 minutes 13 seconds)
             $duration = $this->parseDuration($item['contentDetails']['duration'] ?? 'PT0S');
 
+            // Check if video is currently live
+            $isLive = false;
+            $liveBroadcastContent = $item['snippet']['liveBroadcastContent'] ?? 'none';
+            $liveStreamingDetails = $item['liveStreamingDetails'] ?? null;
+
+            // A video is live if it's currently broadcasting live
+            if ($liveBroadcastContent === 'live' || (isset($liveStreamingDetails['actualStartTime']) && !isset($liveStreamingDetails['actualEndTime']))) {
+                $isLive = true;
+            }
+
+            // Get concurrent viewers if available
+            $concurrentViewers = null;
+            if ($isLive && isset($liveStreamingDetails['concurrentViewers'])) {
+                $concurrentViewers = (int)$liveStreamingDetails['concurrentViewers'];
+            }
+
             $videos[] = [
                 'youtube_id' => $item['id'],
                 'title' => $item['snippet']['title'],
@@ -234,7 +250,11 @@ class YouTubeAPI {
                 'tags' => $item['snippet']['tags'] ?? [],
                 'view_count' => (int)($item['statistics']['viewCount'] ?? 0),
                 'like_count' => (int)($item['statistics']['likeCount'] ?? 0),
-                'duration' => $duration
+                'duration' => $duration,
+                'isLive' => $isLive,
+                'liveBroadcastContent' => $liveBroadcastContent,
+                'concurrentViewers' => $concurrentViewers,
+                'liveStreamingDetails' => $liveStreamingDetails
             ];
         }
 

@@ -15,11 +15,13 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../models/Category.php';
 require_once __DIR__ . '/../models/Video.php';
+require_once __DIR__ . '/../models/Livestream.php';
 require_once __DIR__ . '/../models/User.php';
 
 // Get stats for dashboard
 $totalCategories = Category::count();
 $totalVideos = Video::count();
+$totalLivestreams = Livestream::count();
 $categories = Category::getActiveCategories();
 $recentVideos = Video::getFeaturedVideos(10);
 
@@ -70,6 +72,11 @@ $page = $_GET['page'] ?? 'dashboard';
                             </a>
                         </li>
                         <li>
+                            <a href="?page=livestreams" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'livestreams' ? 'bg-orange-100 text-orange-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
+                                <i class="fas fa-video-camera mr-3"></i> Livestreams
+                            </a>
+                        </li>
+                        <li>
                             <a href="?page=categories" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'categories' ? 'bg-orange-100 text-orange-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
                                 <i class="fas fa-folder mr-3"></i> Categories
                             </a>
@@ -94,6 +101,11 @@ $page = $_GET['page'] ?? 'dashboard';
                                 <i class="fas fa-users mr-3"></i> Users
                             </a>
                         </li>
+                        <li>
+                            <a href="?page=translations" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'translations' ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
+                                <i class="fas fa-language mr-3"></i> Translations
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </nav>
@@ -107,6 +119,9 @@ $page = $_GET['page'] ?? 'dashboard';
                         break;
                     case 'videos':
                         include 'pages/videos.php';
+                        break;
+                    case 'livestreams':
+                        include 'pages/livestreams.php';
                         break;
                     case 'categories':
                         include 'pages/categories.php';
@@ -122,6 +137,9 @@ $page = $_GET['page'] ?? 'dashboard';
                         break;
                     case 'users':
                         include 'pages/users.php';
+                        break;
+                    case 'translations':
+                        include 'pages/translations.php';
                         break;
                     default:
                         include 'pages/dashboard.php';

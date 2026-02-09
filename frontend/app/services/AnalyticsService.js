@@ -3,7 +3,7 @@
  * Handles client-side analytics tracking and reporting
  */
 
-angular.module('churchApp').factory('AnalyticsService', ['$http', 'API_BASE', '$window', '$location', '$rootScope', function($http, API_BASE, $window, $location, $rootScope) {
+angular.module('ChurchTVApp').factory('AnalyticsService', ['$http', 'API_BASE', '$window', '$location', '$rootScope', function($http, API_BASE, $window, $location, $rootScope) {
     var service = {};
 
     // Configuration
@@ -309,17 +309,17 @@ angular.module('churchApp').factory('AnalyticsService', ['$http', 'API_BASE', '$
     // Get API endpoint for event type
     service.getEndpointForEventType = function(eventType) {
         var endpoints = {
-            'page_view': 'analytics/trackPageView',
-            'video_view': 'analytics/trackVideoView',
-            'video_progress': 'analytics/trackVideoView',
-            'video_complete': 'analytics/trackVideoView',
-            'social_interaction': 'analytics/trackEngagement',
-            'content_engagement': 'analytics/trackEngagement',
-            'user_engagement': 'analytics/trackEngagement',
-            'search': 'analytics/trackEngagement'
+            'page_view': '/analytics/page-view',
+            'video_view': '/analytics/video-view',
+            'video_progress': '/analytics/video-view',
+            'video_complete': '/analytics/video-view',
+            'social_interaction': '/analytics/engagement',
+            'content_engagement': '/analytics/engagement',
+            'user_engagement': '/analytics/engagement',
+            'search': '/analytics/engagement'
         };
 
-        return endpoints[eventType] || 'analytics/trackEngagement';
+        return endpoints[eventType] || '/analytics/engagement';
     };
 
     // Send data to API

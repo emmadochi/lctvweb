@@ -61,6 +61,23 @@
             };
 
             /**
+             * Get recent videos for homepage (ordered by creation date)
+             */
+            service.getRecentVideos = function(limit) {
+                limit = limit || 12;
+
+                return $http.get(API_BASE + '/videos', {
+                    params: { limit: limit, sort: 'recent' }
+                }).then(function(response) {
+                    var data = unwrap(response);
+                    return normalizeVideoList(Array.isArray(data) ? data : []);
+                }).catch(function(error) {
+                    console.error('Error fetching recent videos:', error);
+                    return [];
+                });
+            };
+
+            /**
              * Get videos by category
              */
             service.getVideosByCategory = function(categorySlug, page, limit) {

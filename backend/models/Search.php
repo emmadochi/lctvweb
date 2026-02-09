@@ -198,28 +198,37 @@ class Search {
      * Get search suggestions based on popular searches and content
      */
     public static function getSearchSuggestions($query, $userId = null, $limit = 10) {
-        $conn = getDBConnection();
+        try {
+            $conn = getDBConnection();
 
-        if (empty($query)) {
-            // Return popular searches when no query
-            $sql = "SELECT query, COUNT(*) as frequency
-                    FROM " . self::$searchHistoryTable . "
-                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                    GROUP BY query
-                    ORDER BY frequency DESC
+            if (empty($query)) {
+            // For empty queries, return some default suggestions based on available videos
+            // Instead of using search_history table which might not exist
+            $sql = "SELECT DISTINCT title as suggestion, 'popular' as type, COUNT(*) as relevance
+                    FROM videos
+                    WHERE is_active = 1
+                    GROUP BY title
+                    ORDER BY relevance DESC
                     LIMIT ?";
         } else {
-            // Return fuzzy matches and suggestions
+            // Return fuzzy matches and suggestions with video IDs - more permissive search
             $sql = "SELECT DISTINCT
                         CASE
-                            WHEN title LIKE CONCAT(?, '%') THEN title
-                            WHEN speaker LIKE CONCAT(?, '%') THEN CONCAT('by ', speaker)
-                            WHEN tags LIKE CONCAT(?, '%') THEN tags
+                            WHEN title LIKE CONCAT('%', ?, '%') THEN title
+                            WHEN channel_title LIKE CONCAT('%', ?, '%') THEN CONCAT('by ', channel_title)
+                            WHEN tags LIKE CONCAT('%', ?, '%') THEN tags
                         END as suggestion,
                         'content' as type,
-                        COUNT(*) as relevance
-                    FROM videos
-                    WHERE (title LIKE CONCAT(?, '%') OR speaker LIKE CONCAT(?, '%') OR tags LIKE CONCAT(?, '%'))
+                        COUNT(*) as relevance,
+                        -- Get the most viewed video ID that matches this suggestion pattern
+                        (SELECT id FROM videos v2
+                         WHERE v2.is_active = 1
+                         AND ((v.title LIKE CONCAT('%', ?, '%') AND v2.title = v.title)
+                              OR (v.channel_title LIKE CONCAT('%', ?, '%') AND v2.channel_title = v.channel_title)
+                              OR (v.tags LIKE CONCAT('%', ?, '%') AND v2.tags LIKE CONCAT('%', v.tags, '%')))
+                         ORDER BY v2.view_count DESC LIMIT 1) as video_id
+                    FROM videos v
+                    WHERE (title LIKE CONCAT('%', ?, '%') OR channel_title LIKE CONCAT('%', ?, '%') OR tags LIKE CONCAT('%', ?, '%'))
                     AND is_active = 1
                     GROUP BY suggestion
                     ORDER BY relevance DESC, suggestion
@@ -232,18 +241,23 @@ class Search {
             $stmt->bind_param("i", $limit);
         } else {
             $fuzzyQuery = $query . '%';
-            $stmt->bind_param("ssssssi", $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $limit);
+                    $stmt->bind_param("sssssssi", $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $limit);
         }
 
         $stmt->execute();
         $result = $stmt->get_result();
 
-        $suggestions = [];
-        while ($row = $result->fetch_assoc()) {
-            $suggestions[] = $row;
-        }
+            $suggestions = [];
+            while ($row = $result->fetch_assoc()) {
+                $suggestions[] = $row;
+            }
 
-        return $suggestions;
+            return $suggestions;
+        } catch (Exception $e) {
+            error_log("Search::getSearchSuggestions Error: " . $e->getMessage());
+            error_log("Query: '$query', Limit: $limit");
+            throw $e;
+        }
     }
 
     /**

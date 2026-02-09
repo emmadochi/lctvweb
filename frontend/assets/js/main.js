@@ -18,11 +18,11 @@
      * Initialize custom features
      */
     function initializeCustomFeatures() {
+        // Add PWA install prompt FIRST (before service worker)
+        initializeInstallPrompt();
+
         // Register service worker for PWA
         registerServiceWorker();
-
-        // Add PWA install prompt
-        initializeInstallPrompt();
 
         // Add smooth scrolling for anchor links
         initializeSmoothScrolling();
@@ -46,7 +46,7 @@
     function registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('/LCMTVWebNew/frontend/sw.js?v=1.1')
                     .then(function(registration) {
                         console.log('Service Worker registered successfully:', registration.scope);
 
@@ -119,11 +119,10 @@
         let deferredPrompt;
 
         window.addEventListener('beforeinstallprompt', function(e) {
-            // Prevent the default prompt
-            e.preventDefault();
+            // Store the event for later use
             deferredPrompt = e;
 
-            // Show custom install button
+            // Show custom install button (don't prevent default)
             showInstallPrompt();
         });
 

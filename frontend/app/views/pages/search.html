@@ -5,9 +5,9 @@
         <div class="container">
             <div class="search-header-content">
                 <h1 class="search-title">
-                    <i class="fa fa-search"></i> Enhanced Search
+                    <i class="fa fa-search"></i> {{'SEARCH_ADVANCED' | translate}}
                 </h1>
-                <p class="search-subtitle">Find inspiring content with AI-powered search and recommendations</p>
+                <p class="search-subtitle">{{'SEARCH_PLACEHOLDER' | translate}}</p>
 
                 <!-- Search Input -->
                 <div class="search-input-container">
@@ -15,7 +15,7 @@
                         <div class="input-group">
                             <input type="text"
                                    class="form-control search-input"
-                                   placeholder="Search for videos, sermons, worship..."
+                                   placeholder="{{'SEARCH_PLACEHOLDER' | translate}}"
                                    ng-model="vm.query"
                                    ng-keyup="vm.getSuggestions($event)"
                                    ng-focus="vm.showSuggestions = true"
@@ -66,11 +66,11 @@
 
                 <!-- Advanced Search Toggle -->
                 <div class="search-options">
-                    <button type="button"
-                            class="btn btn-link advanced-toggle"
-                            ng-click="vm.toggleAdvancedSearch()">
+                        <button type="button"
+                                class="btn btn-link advanced-toggle"
+                                ng-click="vm.toggleAdvancedSearch()">
                         <i class="fa fa-sliders-h"></i>
-                        {{vm.showAdvanced ? 'Hide' : 'Show'}} Advanced Filters
+                        {{vm.showAdvanced ? 'Hide' : 'Show'}} {{'SEARCH_FILTERS' | translate}}
                     </button>
 
                     <!-- Quick Filters -->
@@ -79,13 +79,13 @@
                                 class="btn btn-sm btn-outline-primary"
                                 ng-click="vm.setQuickFilter('sermons')"
                                 ng-class="{active: vm.filters.category_id === vm.getCategoryId('sermons')}">
-                            <i class="fa fa-church"></i> Sermons
+                            <i class="fa fa-church"></i> {{'CATEGORY_SERMONS' | translate}}
                         </button>
                         <button type="button"
                                 class="btn btn-sm btn-outline-primary"
                                 ng-click="vm.setQuickFilter('worship')"
                                 ng-class="{active: vm.filters.category_id === vm.getCategoryId('worship')}">
-                            <i class="fa fa-music"></i> Worship
+                            <i class="fa fa-music"></i> {{'CATEGORY_WORSHIP' | translate}}
                         </button>
                         <button type="button"
                                 class="btn btn-sm btn-outline-primary"

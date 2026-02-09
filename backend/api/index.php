@@ -28,6 +28,9 @@ require_once __DIR__ . '/../utils/Response.php';
 require_once __DIR__ . '/../utils/Auth.php';
 require_once __DIR__ . '/../controllers/AnalyticsController.php'; // Added for direct access to static methods
 require_once __DIR__ . '/../controllers/SearchController.php'; // Added for search functionality
+require_once __DIR__ . '/../controllers/DonationController.php'; // Added for donation processing
+require_once __DIR__ . '/../controllers/LanguageController.php'; // Added for language management
+require_once __DIR__ . '/../controllers/AdminController.php'; // Added for admin functions
 
 // Enable error logging but don't display errors (they break JSON responses)
 ini_set('display_errors', 0);
@@ -301,6 +304,15 @@ try {
             }
             break;
 
+        case '/analytics/engagement':
+            require_once '../controllers/AnalyticsController.php';
+            if ($method === 'POST') {
+                AnalyticsController::trackEngagement();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
         // Search endpoints
         case '/search':
             require_once '../controllers/SearchController.php';
@@ -353,6 +365,142 @@ try {
                 SearchController::getSmartPlaylists();
             } elseif ($method === 'POST') {
                 SearchController::createSmartPlaylist();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        // Donation endpoints
+        case '/donations':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'POST') {
+                DonationController::processDonation();
+            } elseif ($method === 'GET') {
+                DonationController::getUserDonations();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/campaigns':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'GET') {
+                DonationController::getCampaigns();
+            } elseif ($method === 'POST') {
+                DonationController::createCampaign();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/stats':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'GET') {
+                DonationController::getStats();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/receipt':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'POST') {
+                DonationController::generateReceipt();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/recurring/process':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'POST') {
+                DonationController::processRecurring();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/webhook':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'POST') {
+                DonationController::handleWebhook();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        // Language endpoints
+        case '/languages':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::getLanguages();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/languages/translations':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::getTranslations();
+            } elseif ($method === 'POST') {
+                LanguageController::setTranslation();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/languages/detect':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::detectLanguage();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/languages/stats':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::getStats();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/languages/missing':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::getMissingTranslations();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/languages/import':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'POST') {
+                LanguageController::importTranslations();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/languages/categories':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::getCategories();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/content/translations':
+            require_once '../controllers/LanguageController.php';
+            if ($method === 'GET') {
+                LanguageController::getContentTranslations();
+            } elseif ($method === 'POST') {
+                LanguageController::setContentTranslation();
             } else {
                 Response::methodNotAllowed();
             }
@@ -545,6 +693,161 @@ try {
             $controller = new PushController();
             if ($method === 'POST') {
                 $controller->sendToAll();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/admin/login':
+            require_once '../controllers/AdminController.php';
+            if ($method === 'POST') {
+                AdminController::login();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/admin/dashboard':
+            require_once '../controllers/AdminController.php';
+            if ($method === 'GET') {
+                AdminController::getDashboard();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/admin/create-default-admin':
+            require_once '../controllers/AdminController.php';
+            if ($method === 'POST') {
+                AdminController::createDefaultAdmin();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/debug/database':
+            if ($method === 'GET') {
+                try {
+                    $conn = getDBConnection();
+
+                    // Check videos count
+                    $result = $conn->query("SELECT COUNT(*) as count FROM videos");
+                    $videosCount = $result->fetch_assoc()['count'];
+
+                    // Check if search_history table exists
+                    $result = $conn->query("SHOW TABLES LIKE 'search_history'");
+                    $hasSearchHistory = $result->num_rows > 0;
+
+                    // Get some sample videos if any exist
+                    $sampleVideos = [];
+                    if ($videosCount > 0) {
+                        $result = $conn->query("SELECT id, title, channel_title, tags FROM videos LIMIT 5");
+                        while ($row = $result->fetch_assoc()) {
+                            $sampleVideos[] = $row;
+                        }
+                    }
+
+                    Response::success([
+                        'videos_count' => (int)$videosCount,
+                        'has_search_history_table' => $hasSearchHistory,
+                        'sample_videos' => $sampleVideos
+                    ]);
+                } catch (Exception $e) {
+                    Response::error('Database check failed: ' . $e->getMessage(), 500);
+                }
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/debug/add-test-videos':
+            if ($method === 'POST') {
+                try {
+                    $conn = getDBConnection();
+
+                    // Add some test videos that will match common search queries
+                    $testVideos = [
+                        [
+                            'youtube_id' => 'dQw4w9WgXcQ',
+                            'title' => 'Rick Astley - Never Gonna Give You Up',
+                            'description' => 'Classic Rick Astley song that became a meme',
+                            'channel_title' => 'Rick Astley',
+                            'tags' => '["music", "80s", "pop", "rick astley", "meme"]',
+                            'category_id' => 3, // Music category
+                            'duration' => 212,
+                            'view_count' => 1000000
+                        ],
+                        [
+                            'youtube_id' => '9bZkp7q19f0',
+                            'title' => 'PSY - Gangnam Style (강남스타일)',
+                            'description' => 'World famous K-pop music video by PSY',
+                            'channel_title' => 'officialpsy',
+                            'tags' => '["music", "kpop", "psy", "gangnam", "korean", "dance"]',
+                            'category_id' => 3,
+                            'duration' => 252,
+                            'view_count' => 4000000000
+                        ],
+                        [
+                            'youtube_id' => 'hTWKbfoikeg',
+                            'title' => 'Nirvana - Smells Like Teen Spirit (Official Music Video)',
+                            'description' => 'Grunge rock classic by Nirvana',
+                            'channel_title' => 'Nirvana',
+                            'tags' => '["music", "rock", "grunge", "nirvana", "90s", "alternative"]',
+                            'category_id' => 3,
+                            'duration' => 301,
+                            'view_count' => 150000000
+                        ],
+                        [
+                            'youtube_id' => 'kJQP7kiw5Fk',
+                            'title' => 'Luis Fonsi - Despacito ft. Daddy Yankee',
+                            'description' => 'Latin pop hit that became a global phenomenon',
+                            'channel_title' => 'Luis Fonsi',
+                            'tags' => '["music", "latin", "pop", "despacito", "reggaeton", "spanish"]',
+                            'category_id' => 3,
+                            'duration' => 229,
+                            'view_count' => 7000000000
+                        ],
+                        [
+                            'youtube_id' => 'JGwWNGJdvx8',
+                            'title' => 'Ed Sheeran - Shape of You (Official Music Video)',
+                            'description' => 'Pop music hit by Ed Sheeran',
+                            'channel_title' => 'Ed Sheeran',
+                            'tags' => '["music", "pop", "ed sheeran", "shape of you", "british", "guitar"]',
+                            'category_id' => 3,
+                            'duration' => 234,
+                            'view_count' => 5000000000
+                        ]
+                    ];
+
+                    $inserted = 0;
+                    foreach ($testVideos as $video) {
+                        $stmt = $conn->prepare("INSERT IGNORE INTO videos
+                            (youtube_id, title, description, channel_title, tags, category_id, duration, view_count, is_active)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                        $stmt->bind_param("sssssiis",
+                            $video['youtube_id'],
+                            $video['title'],
+                            $video['description'],
+                            $video['channel_title'],
+                            $video['tags'],
+                            $video['category_id'],
+                            $video['duration'],
+                            $video['view_count']
+                        );
+
+                        if ($stmt->execute()) {
+                            $inserted++;
+                        }
+                        $stmt->close();
+                    }
+
+                    Response::success([
+                        'message' => "Added $inserted test videos",
+                        'videos' => $testVideos
+                    ]);
+                } catch (Exception $e) {
+                    Response::error('Failed to add test videos: ' . $e->getMessage(), 500);
+                }
             } else {
                 Response::methodNotAllowed();
             }

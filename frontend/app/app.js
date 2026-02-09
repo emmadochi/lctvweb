@@ -39,6 +39,12 @@
                     if (rejection.config && rejection.config.url && rejection.config.url.indexOf(API_BASE) === 0) {
                         console.warn('Church TV API request failed:', rejection.config.url, rejection.status, rejection.statusText || rejection.message);
 
+                        // Skip automatic logout for auth verification requests
+                        if (rejection.config.headers && rejection.config.headers['X-Auth-Verification']) {
+                            console.log('Skipping auto-logout for auth verification request');
+                            return $q.reject(rejection);
+                        }
+
                         // Handle authentication errors
                         if (rejection.status === 401) {
                             console.warn('Authentication failed, clearing local auth data');
@@ -83,6 +89,11 @@
             .when('/search', {
                 templateUrl: 'app/views/pages/search.html',
                 controller: 'SearchController',
+                controllerAs: 'vm'
+            })
+            .when('/donate', {
+                templateUrl: 'app/views/pages/donate.html',
+                controller: 'DonationController',
                 controllerAs: 'vm'
             })
             .when('/favorites', {
@@ -183,7 +194,7 @@
     // Application constants
     // Backend API URL. For XAMPP: use http://localhost/LCMTVWebNew/backend/api
     // If you serve the frontend from XAMPP (e.g. http://localhost/LCMTVWebNew/frontend/), use that same origin.
-    .constant('API_BASE', 'http://localhost/LCMTVWebNew/backend/api')
+    .constant('API_BASE', '/LCMTVWebNew/backend/api')
     .constant('YOUTUBE_API_KEY', 'AIzaSyDT1-_m5WdXEAPDd8J-WuPAGrmKgdMeqeY')
     .constant('APP_CONFIG', {
         title: 'Church TV',
@@ -194,7 +205,7 @@
     })
 
     // Root scope configuration
-    .run(['$rootScope', '$location', '$timeout', 'API_BASE', 'PushService', 'AnalyticsService', function($rootScope, $location, $timeout, API_BASE, PushService, AnalyticsService) {
+    .run(['$rootScope', '$location', '$timeout', 'API_BASE', 'PushService', 'AnalyticsService', 'I18nService', function($rootScope, $location, $timeout, API_BASE, PushService, AnalyticsService, I18nService) {
 
         // Global loading state
         $rootScope.loading = false;
@@ -285,6 +296,9 @@
 
         // Initialize analytics tracking
         AnalyticsService.initialize();
+
+        // Initialize internationalization
+        I18nService.initialize();
     }]);
 
 })();

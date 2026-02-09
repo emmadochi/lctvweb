@@ -3,253 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LCMTV - You're Offline</title>
-    <link rel="icon" href="assets/images/favicon.ico" sizes="256x256" type="image/x-icon">
+    <title>Church TV - Offline</title>
     <style>
-        * {
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
         }
-
         .offline-container {
-            max-width: 500px;
             text-align: center;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 500px;
+            padding: 2rem;
         }
-
         .offline-icon {
             font-size: 4rem;
-            margin-bottom: 20px;
+            margin-bottom: 1rem;
             opacity: 0.8;
         }
-
         .offline-title {
-            font-size: 2.2rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            background: linear-gradient(45deg, #ffd700, #ffed4e);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 2rem;
+            font-weight: 300;
+            margin-bottom: 1rem;
         }
-
-        .offline-subtitle {
+        .offline-message {
             font-size: 1.1rem;
             opacity: 0.9;
-            margin-bottom: 10px;
+            margin-bottom: 2rem;
             line-height: 1.6;
         }
-
-        .offline-message {
-            font-size: 1rem;
-            opacity: 0.8;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-
-        .offline-features {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 25px 0;
-            text-align: left;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-            font-size: 0.95rem;
-        }
-
-        .feature-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .feature-icon {
-            width: 20px;
-            height: 20px;
-            background: #4ade80;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 12px;
-            font-size: 10px;
-            color: white;
-            flex-shrink: 0;
-        }
-
-        .retry-button {
-            background: linear-gradient(135deg, #6a0dad 0%, #8b5cf6 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 10px 5px;
-            display: inline-block;
-        }
-
-        .retry-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(106, 13, 173, 0.4);
-        }
-
-        .secondary-button {
+        .retry-btn {
             background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .secondary-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .status-indicator {
+            border: 2px solid white;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
             display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: #ef4444;
-            border-radius: 50%;
-            margin-left: 8px;
-            animation: pulse 2s infinite;
+            transition: all 0.3s ease;
+            font-weight: 500;
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .connection-status {
-            font-size: 0.9rem;
-            opacity: 0.7;
-            margin-bottom: 20px;
-        }
-
-        @media (max-width: 480px) {
-            .offline-container {
-                padding: 30px 20px;
-                margin: 20px;
-            }
-
-            .offline-title {
-                font-size: 1.8rem;
-            }
-
-            .offline-features {
-                padding: 15px;
-            }
-
-            .retry-button {
-                width: 100%;
-                margin: 5px 0;
-            }
+        .retry-btn:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
         }
     </style>
 </head>
 <body>
     <div class="offline-container">
         <div class="offline-icon">📺</div>
-        <h1 class="offline-title">You're Currently Offline</h1>
-        <p class="offline-subtitle">Don't worry! LCMTV is still here to serve your faith journey.</p>
-
-        <div class="connection-status">
-            Connection Status: Offline
-            <span class="status-indicator"></span>
-        </div>
-
-        <div class="offline-features">
-            <div class="feature-item">
-                <div class="feature-icon">✓</div>
-                <span>Access previously viewed sermons</span>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✓</div>
-                <span>Browse your favorite content</span>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✓</div>
-                <span>View cached live streams</span>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✓</div>
-                <span>Read saved articles and notes</span>
-            </div>
-        </div>
-
+        <h1 class="offline-title">You're Offline</h1>
         <p class="offline-message">
-            Your favorite content and recently viewed material are available offline.
-            Check your connection and refresh to see the latest updates.
+            It looks like you're not connected to the internet.
+            Don't worry, you can still enjoy some offline content when you're back online.
         </p>
-
-        <button class="retry-button" onclick="window.location.reload()">
-            🔄 Check Connection
-        </button>
-
-        <button class="retry-button secondary-button" onclick="window.history.back()">
-            ← Go Back
-        </button>
+        <a href="#" onclick="window.location.reload()" class="retry-btn">
+            Try Again
+        </a>
     </div>
 
     <script>
-        // Check for connection restoration
+        // Check for connection and reload when back online
         window.addEventListener('online', function() {
-            // Auto-refresh when connection is restored
-            setTimeout(function() {
-                window.location.reload();
-            }, 1000);
+            window.location.reload();
         });
-
-        // Update connection status
-        function updateConnectionStatus() {
-            const statusElement = document.querySelector('.connection-status');
-            const indicator = document.querySelector('.status-indicator');
-
-            if (navigator.onLine) {
-                statusElement.innerHTML = 'Connection Status: <span style="color: #4ade80;">Online</span> ✓';
-                setTimeout(function() {
-                    window.location.reload();
-                }, 2000);
-            } else {
-                statusElement.innerHTML = 'Connection Status: Offline <span class="status-indicator"></span>';
-            }
-        }
-
-        // Check connection periodically
-        setInterval(updateConnectionStatus, 5000);
-
-        // Initial check
-        updateConnectionStatus();
-
-        // Service worker message handling
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.addEventListener('message', function(event) {
-                if (event.data && event.data.type === 'CONNECTION_RESTORED') {
-                    updateConnectionStatus();
-                }
-            });
-        }
     </script>
 </body>
 </html>

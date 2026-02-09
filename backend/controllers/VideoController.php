@@ -11,7 +11,17 @@ class VideoController {
 
     public function index() {
         try {
-            $videos = Video::getFeaturedVideos(50);
+            $sort = $_GET['sort'] ?? 'featured';
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+
+            if ($sort === 'recent') {
+                // Get videos ordered by creation date (most recent first)
+                $videos = Video::getRecentVideos($limit);
+            } else {
+                // Default to featured videos
+                $videos = Video::getFeaturedVideos($limit);
+            }
+
             Response::success($videos);
         } catch (Exception $e) {
             error_log("VideoController index error: " . $e->getMessage());

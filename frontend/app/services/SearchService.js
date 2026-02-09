@@ -83,9 +83,13 @@
                     params: { q: query }
                 }).then(function(response) {
                     var data = unwrap(response);
-                    return Array.isArray(data) ? data : [];
+                    var suggestions = [];
+                    if (data && data.suggestions && Array.isArray(data.suggestions)) {
+                        suggestions = data.suggestions;
+                    }
+                    return suggestions;
                 }).catch(function(error) {
-                    console.error('Error getting suggestions:', error);
+                    console.error('SearchService: Error getting suggestions:', error);
                     return [];
                 });
             };

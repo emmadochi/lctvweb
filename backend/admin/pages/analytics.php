@@ -1,42 +1,97 @@
 <?php
+// Prevent direct access - this file should be included from admin/index.php
+if (!defined('ADMIN_ACCESS') && !isset($_SESSION['admin_logged_in'])) {
+    header('Location: ../index.php');
+    exit();
+}
+
+// Get the correct path to models directory
+$modelsPath = realpath(__DIR__ . '/../../models/Analytics.php');
+if (!$modelsPath) {
+    die('Analytics model not found');
+}
+require_once $modelsPath;
+
 $message = '';
 $messageType = '';
 
-$period = $_GET['period'] ?? '30 days';
-// Get the base URL for API calls
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $apiUrl = $protocol . '://' . $host . '/lcmtvweb/backend/api/analytics/dashboard?period=' . urlencode($period);
+$period = $_GET['period'] ?? 30;
+// Convert period to days if it's a string like "30 days"
+if (is_string($period) && strpos($period, ' ') !== false) {
+    $parts = explode(' ', $period);
+    $period = (int)$parts[0];
+}
 
-    // Get analytics data from API
-    $analytics = [];
+// Get analytics data directly from the model
+$analytics = [];
 try {
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'header' => 'Authorization: Bearer ' . ($_SESSION['admin_token'] ?? ''),
-            'timeout' => 15, // Increased timeout for comprehensive data
-        ]
-    ]);
+    // Get comprehensive dashboard overview
+    $overview = Analytics::getDashboardOverview($period);
 
-    $response = file_get_contents($apiUrl, false, $context);
-    if ($response) {
-        $data = json_decode($response, true);
-        // Check if the API returned success
-        if (isset($data['success']) && $data['success'] && isset($data['data'])) {
-            $analytics = $data['data'];
-        } elseif (isset($data['success']) && !$data['success']) {
-            throw new Exception($data['message'] ?? 'API returned an error');
-        } else {
-            // Fallback for old API format
-            $analytics = $data;
+    // Get user demographics
+    $demographics = Analytics::getUserDemographics($period);
+
+    // Get content performance metrics
+    $contentPerformance = Analytics::getContentPerformance($period);
+
+    // Get engagement analytics
+    $engagement = Analytics::getEngagementAnalytics($period);
+
+    // Get real-time metrics
+    $realtime = Analytics::getRealtimeMetrics();
+
+    // Calculate video watch stats
+    $videoPerformance = $contentPerformance['video_performance'] ?? [];
+    $totalWatchTime = 0;
+    $totalCompletionRate = 0;
+    $videoCount = count($videoPerformance);
+
+    if ($videoCount > 0) {
+        foreach ($videoPerformance as $video) {
+            $totalWatchTime += $video['avg_watch_duration'] ?? 0;
+            $totalCompletionRate += $video['avg_completion_rate'] ?? 0;
         }
+        $avgWatchTime = $totalWatchTime / $videoCount;
+        $avgCompletionRate = $totalCompletionRate / $videoCount;
     } else {
-        throw new Exception('No response from analytics API');
+        $avgWatchTime = 0;
+        $avgCompletionRate = 0;
     }
+
+    // Restructure data to match template expectations
+    $analytics = [
+        'data' => [
+            'page_views' => [
+                'total_views' => $overview['page_views'] ?? 0,
+                'top_pages' => [], // Will be populated from content_performance
+                'devices' => $demographics['devices'] ?? []
+            ],
+            'video_views' => [
+                'total_views' => $overview['video_views'] ?? 0,
+                'top_videos' => $overview['top_content'] ?? [],
+                'watch_stats' => [
+                    'avg_watch_time' => round($avgWatchTime, 2),
+                    'avg_completion_rate' => round($avgCompletionRate, 2)
+                ]
+            ],
+            'realtime_page_views' => $realtime['top_pages'] ?? [],
+            'realtime_video_views' => $realtime['recent_activity'] ?? []
+        ],
+        'overview' => $overview,
+        'demographics' => $demographics,
+        'content_performance' => $contentPerformance,
+        'engagement' => $engagement,
+        'realtime' => $realtime,
+        'period_days' => $period
+    ];
+
+    // Check if we have any data
+    $hasData = !empty($overview) || !empty($demographics) || !empty($contentPerformance) || !empty($engagement);
+
 } catch (Exception $e) {
     $message = 'Failed to load analytics data: ' . $e->getMessage();
     $messageType = 'error';
+    error_log("Analytics page error: " . $e->getMessage());
     // Provide fallback empty data structure
     $analytics = [
         'overview' => [
@@ -70,6 +125,7 @@ try {
             'top_pages' => []
         ]
     ];
+    $hasData = false;
 }
 ?>
 
@@ -116,6 +172,8 @@ try {
         </div>
     </div>
     <?php endif; ?>
+
+    <?php if ($hasData) { ?>
 
     <!-- Real-time Metrics Banner -->
     <div class="bg-gradient-to-r from-green-500 to-blue-600 rounded-lg p-6 text-white">
@@ -352,15 +410,15 @@ try {
                 <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-gray-900 truncate">
-                            <?php echo htmlspecialchars($video['title']); ?>
+                            <?php echo htmlspecialchars($video['video_title'] ?? 'Unknown Video'); ?>
                         </p>
                         <p class="text-sm text-gray-500">
-                            <?php echo number_format($video['views']); ?> views
+                            <?php echo number_format($video['total_views'] ?? 0); ?> views
                         </p>
                     </div>
                     <div class="text-right ml-4">
                         <span class="text-sm font-medium text-green-600">
-                            <?php echo round($video['avg_completion'], 1); ?>%
+                            <?php echo round($video['avg_completion_rate'] ?? 0, 1); ?>%
                         </span>
                     </div>
                 </div>
@@ -438,8 +496,8 @@ try {
                         foreach ($realtimePages as $page):
                     ?>
                     <div class="flex items-center justify-between text-sm py-1 border-b border-gray-100 last:border-b-0">
-                        <span class="truncate flex-1"><?php echo htmlspecialchars($page['page_title'] ?: $page['page_url']); ?></span>
-                        <span class="text-gray-500 ml-2"><?php echo date('H:i:s', strtotime($page['created_at'])); ?></span>
+                        <span class="truncate flex-1"><?php echo htmlspecialchars($page['page_title'] ?: 'Unknown Page'); ?></span>
+                        <span class="text-gray-500 ml-2"><?php echo number_format($page['views'] ?? 0); ?> views</span>
                     </div>
                     <?php endforeach; ?>
                     <?php else: ?>
@@ -470,7 +528,7 @@ try {
         </div>
     </div>
 
-    <?php else: ?>
+    <?php } else { ?>
     <!-- No Data State -->
     <div class="bg-white rounded-lg shadow-sm p-12 text-center">
         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -491,7 +549,7 @@ try {
             </ul>
         </div>
     </div>
-    <?php endif; ?>
+    <?php } ?>
 </div>
 
 <script>

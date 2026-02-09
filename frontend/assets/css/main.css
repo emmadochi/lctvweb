@@ -98,9 +98,9 @@ body {
 }
 
 .logo-image {
-    height: 40px;
+    height: 90px;
     width: auto;
-    max-width: 150px;
+    max-width: 338px;
     object-fit: contain;
     transition: opacity 0.3s ease;
 }
@@ -177,9 +177,9 @@ body {
 }
 
 .footer-logo-image {
-    height: 50px;
+    height: 113px;
     width: auto;
-    max-width: 200px;
+    max-width: 450px;
     object-fit: contain;
 }
 
@@ -502,8 +502,8 @@ body {
     }
 
     .logo-image {
-        height: 35px;
-        max-width: 120px;
+        height: 75px;
+        max-width: 270px;
     }
 
     .nav-links {
@@ -531,8 +531,8 @@ body {
     }
 
     .footer-logo-image {
-        height: 40px;
-        max-width: 150px;
+        height: 90px;
+        max-width: 338px;
     }
 }
 

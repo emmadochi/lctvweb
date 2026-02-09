@@ -15,14 +15,14 @@
             // Controller properties
             vm.featuredVideos = [];
             vm.trendingVideos = [];
+            vm.recentVideos = [];
             vm.heroVideos = [];
             vm.categories = [];
-            vm.playlists = [];
             vm.livestreams = [];
             vm.featuredLivestream = null;
             vm.loading = true;
-            vm.loadingPlaylists = false;
             vm.loadingLivestreams = false;
+            vm.loadingRecent = false;
             vm.searchQuery = '';
             vm.favoriteIds = {};
             vm.currentHeroVideo = 0;
@@ -34,10 +34,10 @@
                 loadCategories();
                 loadFeaturedVideos();
                 loadTrendingVideos();
+                loadRecentVideos();
                 loadFavorites();
                 loadHeroVideos();
                 loadLivestreams();
-                // loadPlaylists(); // Temporarily disabled - backend endpoint not implemented
 
                 // Set page title
                 $scope.$root.setPageTitle();
@@ -166,6 +166,23 @@
             }
 
             /**
+             * Load recent videos
+             */
+            function loadRecentVideos() {
+                vm.loadingRecent = true;
+                VideoService.getRecentVideos(12).then(function(videos) {
+                    vm.recentVideos = videos;
+                    vm.loadingRecent = false;
+                    updateLoadingState();
+                }).catch(function(error) {
+                    console.error('Error loading recent videos:', error);
+                    vm.recentVideos = [];
+                    vm.loadingRecent = false;
+                    updateLoadingState();
+                });
+            }
+
+            /**
              * Load livestreams
              */
             function loadLivestreams() {
@@ -190,34 +207,6 @@
                 });
             }
 
-            /**
-             * Load featured playlists/series
-             */
-            function loadPlaylists() {
-                vm.loadingPlaylists = true;
-                PlaylistService.getFeaturedPlaylists(6).then(function(playlists) {
-                    vm.playlists = (playlists || []).map(function(playlist) {
-                        return {
-                            id: playlist.id,
-                            name: playlist.name,
-                            description: playlist.description,
-                            video_count: playlist.video_ids ? playlist.video_ids.split(',').length : 0,
-                            created_at: playlist.created_at,
-                            season: playlist.season,
-                            season_display: vm.getSeasonDisplayName(playlist.season),
-                            icon: PlaylistService.getPlaylistIcon(playlist),
-                            color: PlaylistService.getPlaylistColor(playlist)
-                        };
-                    });
-                    vm.loadingPlaylists = false;
-                    updateLoadingState();
-                }).catch(function(error) {
-                    console.error('Error loading playlists:', error);
-                    vm.playlists = [];
-                    vm.loadingPlaylists = false;
-                    updateLoadingState();
-                });
-            }
 
             /**
              * Update loading state when all data is loaded
@@ -225,7 +214,8 @@
             function updateLoadingState() {
                 // Check if all data is loaded
                 if (vm.categories.length >= 0 && vm.featuredVideos.length >= 0 &&
-                    vm.trendingVideos.length >= 0 && !vm.loadingPlaylists && !vm.loadingLivestreams) {
+                    vm.trendingVideos.length >= 0 && vm.recentVideos.length >= 0 &&
+                    !vm.loadingLivestreams && !vm.loadingRecent) {
                     vm.loading = false;
                 }
             }
@@ -289,13 +279,6 @@
              */
             vm.browseCategory = function(categorySlug) {
                 $location.path('/category/' + categorySlug);
-            };
-
-            /**
-             * Navigate to playlist page
-             */
-            vm.playPlaylist = function(playlistId) {
-                $location.path('/playlist/' + playlistId);
             };
 
             /**
@@ -364,46 +347,6 @@
                 }
             };
 
-            /**
-             * Get season display name
-             */
-            vm.getSeasonDisplayName = function(season) {
-                var seasonNames = {
-                    'christmas': 'Christmas',
-                    'easter': 'Easter',
-                    'lent': 'Lent',
-                    'advent': 'Advent',
-                    'summer': 'Summer',
-                    'thanksgiving': 'Thanksgiving',
-                    'new_year': 'New Year'
-                };
-                return seasonNames[season] || season;
-            };
-
-            /**
-             * Format playlist creation date
-             */
-            vm.formatPlaylistDate = function(dateString) {
-                if (!dateString) return '';
-
-                var date = new Date(dateString);
-                var now = new Date();
-                var diffTime = Math.abs(now - date);
-                var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                if (diffDays === 1) {
-                    return 'Today';
-                } else if (diffDays === 2) {
-                    return 'Yesterday';
-                } else if (diffDays <= 7) {
-                    return diffDays + ' days ago';
-                } else if (diffDays <= 30) {
-                    var weeks = Math.floor(diffDays / 7);
-                    return weeks + ' week' + (weeks > 1 ? 's' : '') + ' ago';
-                } else {
-                    return date.toLocaleDateString();
-                }
-            };
 
             /**
              * Helper function to pad numbers with zero

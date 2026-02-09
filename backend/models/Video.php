@@ -39,6 +39,31 @@ class Video {
     }
 
     /**
+     * Get recent videos ordered by creation date
+     */
+    public static function getRecentVideos($limit = 12) {
+        $conn = getDBConnection();
+
+        $stmt = $conn->prepare("SELECT v.*, c.name as category_name, c.slug as category_slug
+                               FROM videos v
+                               LEFT JOIN categories c ON v.category_id = c.id
+                               WHERE v.is_active = 1 AND c.is_active = 1
+                               ORDER BY v.created_at DESC
+                               LIMIT ?");
+        $stmt->bind_param("i", $limit);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+
+        $videos = [];
+        while ($row = $result->fetch_assoc()) {
+            $videos[] = self::formatVideoData($row);
+        }
+
+        return $videos;
+    }
+
+    /**
      * Get videos by category
      */
     public static function getByCategory($categoryId, $limit = null) {
@@ -327,6 +352,26 @@ class Video {
     }
 
     /**
+     * Batch delete videos (soft delete)
+     */
+    public static function batchDelete($ids) {
+        if (empty($ids)) {
+            return false;
+        }
+
+        $conn = getDBConnection();
+
+        // Create placeholders for the IN clause
+        $placeholders = str_repeat('?,', count($ids) - 1) . '?';
+        $types = str_repeat('i', count($ids));
+
+        $stmt = $conn->prepare("UPDATE videos SET is_active = 0 WHERE id IN ($placeholders)");
+        $stmt->bind_param($types, ...$ids);
+
+        return $stmt->execute();
+    }
+
+    /**
      * Format video data for API response
      */
     private static function formatVideoData($video) {
@@ -350,6 +395,196 @@ class Video {
             'published_at' => $video['published_at'],
             'created_at' => $video['created_at']
         ];
+    }
+
+    /**
+     * Get video with translations for a specific language
+     */
+    public static function getWithTranslations($videoId, $languageCode = null) {
+        $video = self::find($videoId);
+
+        if (!$video || !$languageCode || $languageCode === 'en') {
+            return $video;
+        }
+
+        // Get translations for this video
+        $conn = getDBConnection();
+        $sql = "SELECT ct.field_name, ct.translated_text
+                FROM content_translations ct
+                JOIN languages l ON ct.language_id = l.id
+                WHERE ct.content_type = 'video'
+                AND ct.content_id = ?
+                AND l.code = ?
+                AND ct.field_name IN ('title', 'description')";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("is", $videoId, $languageCode);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            if ($row['field_name'] === 'title') {
+                $video['translated_title'] = $row['translated_text'];
+            } elseif ($row['field_name'] === 'description') {
+                $video['translated_description'] = $row['translated_text'];
+            }
+        }
+
+        return $video;
+    }
+
+    /**
+     * Get available subtitles for a video
+     */
+    public static function getSubtitles($videoId) {
+        $conn = getDBConnection();
+
+        $sql = "SELECT l.code as language_code, l.name as language_name,
+                       l.native_name, l.flag_emoji as flag,
+                       CONCAT('/subtitles/', ?, '_', l.code, '.vtt') as subtitle_url
+                FROM languages l
+                WHERE l.is_active = 1
+                AND EXISTS (
+                    SELECT 1 FROM content_translations ct
+                    WHERE ct.content_type = 'video'
+                    AND ct.content_id = ?
+                    AND ct.language_id = l.id
+                    AND ct.field_name = 'subtitles'
+                )
+                ORDER BY l.sort_order";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ii", $videoId, $videoId);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        $subtitles = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $subtitles[] = $row;
+        }
+
+        return $subtitles;
+    }
+
+    /**
+     * Set content translation for a video
+     */
+    public static function setTranslation($videoId, $languageCode, $field, $translatedText) {
+        require_once __DIR__ . '/Language.php';
+
+        return Language::setContentTranslation('video', $videoId, $languageCode, $field, $translatedText);
+    }
+
+    /**
+     * Get videos with language filtering
+     */
+    public static function getByLanguage($languageCode, $limit = 20, $offset = 0) {
+        $conn = getDBConnection();
+
+        // Get videos that have translations in the requested language
+        $sql = "SELECT DISTINCT v.*, c.name as category_name, c.slug as category_slug
+                FROM videos v
+                LEFT JOIN categories c ON v.category_id = c.id
+                LEFT JOIN content_translations ct ON ct.content_type = 'video' AND ct.content_id = v.id
+                LEFT JOIN languages l ON ct.language_id = l.id
+                WHERE v.is_active = 1
+                AND (v.original_language = ? OR l.code = ?)
+                ORDER BY v.created_at DESC
+                LIMIT ? OFFSET ?";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ssii", $languageCode, $languageCode, $limit, $offset);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        $videos = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $videos[] = self::formatVideoData($row);
+        }
+
+        return $videos;
+    }
+
+    /**
+     * Get content statistics by language
+     */
+    public static function getLanguageStats() {
+        $conn = getDBConnection();
+
+        $stats = [];
+
+        // Videos by original language
+        $sql = "SELECT original_language, COUNT(*) as count
+                FROM videos
+                WHERE is_active = 1 AND original_language IS NOT NULL
+                GROUP BY original_language
+                ORDER BY count DESC";
+
+        $result = $conn->query($sql);
+        $stats['by_original_language'] = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $stats['by_original_language'][] = $row;
+        }
+
+        // Translated content
+        $sql = "SELECT l.code, l.name, COUNT(ct.id) as translations_count
+                FROM languages l
+                LEFT JOIN content_translations ct ON l.id = ct.language_id AND ct.content_type = 'video'
+                WHERE l.is_active = 1
+                GROUP BY l.id, l.code, l.name
+                ORDER BY l.sort_order";
+
+        $result = $conn->query($sql);
+        $stats['translations_by_language'] = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $stats['translations_by_language'][] = $row;
+        }
+
+        // Videos with subtitles
+        $stats['videos_with_subtitles'] = 0;
+        $result = $conn->query("SELECT COUNT(DISTINCT content_id) as count FROM content_translations WHERE content_type = 'video' AND field_name = 'subtitles'");
+        if ($result) {
+            $stats['videos_with_subtitles'] = $result->fetch_assoc()['count'];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Update video language metadata
+     */
+    public static function updateLanguageMetadata($videoId, $originalLanguage, $hasSubtitles = null, $subtitleLanguages = null) {
+        $conn = getDBConnection();
+
+        $sql = "UPDATE videos SET original_language = ?";
+        $params = [$originalLanguage];
+        $types = "s";
+
+        if ($hasSubtitles !== null) {
+            $sql .= ", has_subtitles = ?";
+            $params[] = $hasSubtitles;
+            $types .= "i";
+        }
+
+        if ($subtitleLanguages !== null) {
+            $jsonLanguages = json_encode($subtitleLanguages);
+            $sql .= ", subtitle_languages = ?";
+            $params[] = $jsonLanguages;
+            $types .= "s";
+        }
+
+        $sql .= " WHERE id = ?";
+        $params[] = $videoId;
+        $types .= "i";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+
+        return $stmt->execute();
     }
 }
 ?>

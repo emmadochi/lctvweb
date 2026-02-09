@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="ChurchTVApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church TV Search Suggestions Test</title>
+
+    <!-- AngularJS Core -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-sanitize.min.js"></script>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header ng-include="'app/views/components/header.html'" class="main-header"></header>
+
+    <!-- Main Content -->
+    <div class="container" style="padding: 20px;">
+        <h1>Church TV - Auth Test</h1>
+        <div ng-controller="AuthTestController as testCtrl">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Authentication Status</h3>
+                </div>
+                <div class="panel-body">
+                    <p><strong>Auth Loading:</strong> {{testCtrl.authLoading}}</p>
+                    <p><strong>Is Authenticated:</strong> {{testCtrl.isAuthenticated}}</p>
+                    <p><strong>Current User:</strong> {{testCtrl.currentUser ? (testCtrl.currentUser.first_name + ' ' + testCtrl.currentUser.last_name) : 'None'}}</p>
+                    <p><strong>Token Exists:</strong> {{testCtrl.hasToken}}</p>
+                    <p><strong>Translation Test:</strong> {{'SEARCH_ADVANCED' | translate}} | {{'SEARCH_PLACEHOLDER' | translate}}</p>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Test Actions</h3>
+                </div>
+                <div class="panel-body">
+                    <button class="btn btn-primary" ng-click="checkAuth()">Refresh Auth Status</button>
+                    <button class="btn btn-warning" ng-click="clearAuth()" style="margin-left: 10px;">Clear Auth Data</button>
+                    <button class="btn btn-info" ng-click="testLogin()" style="margin-left: 10px;">Test Login</button>
+                    <button class="btn btn-success" ng-click="testSearch()" style="margin-left: 10px;">Test Search</button>
+                    <button class="btn btn-info" ng-click="testTranslation()" style="margin-left: 10px;">Test Translation</button>
+                    <button class="btn btn-warning" ng-click="testSuggestions()" style="margin-left: 10px;">Test Suggestions</button>
+                    <button class="btn btn-danger" ng-click="testDirectAPI()" style="margin-left: 10px;">Test Direct API</button>
+                    <button class="btn btn-secondary" ng-click="checkDatabase()" style="margin-left: 10px;">Check DB</button>
+                    <button class="btn btn-warning" ng-click="addTestVideos()" style="margin-left: 10px;">Add Test Videos</button>
+                    <a href="index.html#/search" class="btn btn-primary" style="margin-left: 10px;">Go to Search Page</a>
+                    </div>
+            </div>
+
+            <div class="panel panel-success" ng-if="searchResults">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Search Results</h3>
+                </div>
+                <div class="panel-body">
+                    <p><strong>Query:</strong> {{searchQuery}}</p>
+                    <p><strong>Results:</strong> {{searchResults.length}} items found</p>
+                    <ul ng-if="searchResults.length > 0">
+                        <li ng-repeat="result in searchResults | limitTo: 5">{{result.title || result.name}}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="alert alert-info" ng-if="!isAuthenticated">
+                <strong>Login link should be visible in header above.</strong> If you don't see the login button, there might be an issue with authentication state.
+            </div>
+        </div>
+    </div>
+
+    <!-- Load app files -->
+    <script src="app/i18n/translations.js"></script>
+    <script src="app/app.js"></script>
+    <script src="app/services/I18nService.js"></script>
+    <script src="app/services/AuthService.js"></script>
+    <script src="app/services/CategoryService.js"></script>
+    <script src="app/services/SearchService.js"></script>
+    <script src="app/controllers/HeaderController.js"></script>
+
+    <!-- Test Controller -->
+    <script>
+        angular.module('ChurchTVApp')
+            .controller('AuthTestController', ['$scope', 'AuthService', 'I18nService', 'SearchService', function($scope, AuthService, I18nService, SearchService) {
+                var vm = this;
+
+                vm.authLoading = true;
+                vm.isAuthenticated = false;
+                vm.currentUser = null;
+                vm.hasToken = false;
+                vm.searchQuery = '';
+                vm.searchResults = null;
+
+                vm.checkAuth = function() {
+                    vm.isAuthenticated = AuthService.isAuthenticated();
+                    vm.currentUser = AuthService.getCurrentUser();
+                    vm.hasToken = !!AuthService.getToken();
+                    vm.authLoading = false;
+                };
+
+                vm.clearAuth = function() {
+                    AuthService.logout();
+                    vm.checkAuth();
+                    alert('Auth data cleared!');
+                };
+
+                vm.testLogin = function() {
+                    var email = prompt('Enter email:');
+                    var password = prompt('Enter password:');
+                    if (email && password) {
+                        AuthService.login(email, password)
+                            .then(function(user) {
+                                alert('Login successful!');
+                                vm.checkAuth();
+                            })
+                            .catch(function(error) {
+                                alert('Login failed: ' + error.message);
+                            });
+                    }
+                };
+
+                vm.testSearch = function() {
+                    vm.searchQuery = prompt('Enter search query:', 'test');
+                    if (vm.searchQuery) {
+                        // Test VideoService.searchVideos
+                        fetch('/LCMTVWebNew/backend/api/search?q=' + encodeURIComponent(vm.searchQuery))
+                            .then(function(response) {
+                                return response.json();
+                            })
+                            .then(function(data) {
+                                if (data.success) {
+                                    vm.searchResults = data.data.videos || [];
+                                } else {
+                                    vm.searchResults = [];
+                                }
+                                $scope.$apply();
+                            })
+                            .catch(function(error) {
+                                console.error('Search test failed:', error);
+                                vm.searchResults = [];
+                                $scope.$apply();
+                            });
+                    }
+                };
+
+                vm.testTranslation = function() {
+                    console.log('Current translations:', I18nService.currentTranslations);
+                    console.log('Translate SEARCH_ADVANCED:', I18nService.translate('SEARCH_ADVANCED'));
+                    alert('Check console for translation debug info');
+                };
+
+                vm.testSuggestions = function() {
+                    var testQuery = prompt('Enter test query (3+ chars):', 'jesus');
+                    if (!testQuery || testQuery.length < 3) {
+                        alert('Query must be at least 3 characters');
+                        return;
+                    }
+
+                    console.log('Testing suggestions API with query:', testQuery);
+                    // Test SearchService suggestions
+                    SearchService.getSuggestions(testQuery).then(function(suggestions) {
+                        console.log('Search suggestions result:', suggestions);
+                        alert('Found ' + suggestions.length + ' suggestions for "' + testQuery + '". Check console for details.');
+                    }).catch(function(error) {
+                        console.error('Suggestions test failed:', error);
+                        alert('Suggestions test failed: ' + (error.message || 'Unknown error'));
+                    });
+                };
+
+                vm.testDirectAPI = function() {
+                    var testQuery = prompt('Enter test query (3+ chars):', 'hea');
+                    if (!testQuery || testQuery.length < 3) {
+                        alert('Query must be at least 3 characters');
+                        return;
+                    }
+
+                    console.log('Testing direct API call to suggestions endpoint');
+                    fetch('/LCMTVWebNew/backend/api/search/suggestions?q=' + encodeURIComponent(testQuery))
+                        .then(function(response) {
+                            console.log('API Response status:', response.status);
+                            console.log('Response headers:', response.headers);
+                            return response.text().then(function(text) {
+                                console.log('Raw response text:', text);
+                                try {
+                                    return JSON.parse(text);
+                                } catch (e) {
+                                    console.error('Failed to parse JSON:', e);
+                                    return { error: 'Invalid JSON response', raw: text };
+                                }
+                            });
+                        })
+                        .then(function(data) {
+                            console.log('API Response data:', data);
+                            alert('API Response: ' + JSON.stringify(data, null, 2));
+                        })
+                        .catch(function(error) {
+                            console.error('Direct API test failed:', error);
+                            alert('Direct API test failed: ' + error.message);
+                        });
+                };
+
+                vm.checkDatabase = function() {
+                    console.log('Checking database state');
+                    fetch('/LCMTVWebNew/backend/api/debug/database')
+                        .then(function(response) {
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            console.log('Database state:', data);
+                            alert('Database Info:\nVideos: ' + data.data.videos_count + '\nSearch History Table: ' + (data.data.has_search_history_table ? 'Yes' : 'No'));
+                        })
+                        .catch(function(error) {
+                            console.error('Database check failed:', error);
+                            alert('Database check failed: ' + error.message);
+                        });
+                };
+
+                vm.addTestVideos = function() {
+                    console.log('Adding test videos');
+                    fetch('/LCMTVWebNew/backend/api/debug/add-test-videos', {
+                        method: 'POST'
+                    })
+                        .then(function(response) {
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            console.log('Add test videos result:', data);
+                            alert(data.data.message || 'Test videos added successfully');
+                        })
+                        .catch(function(error) {
+                            console.error('Add test videos failed:', error);
+                            alert('Add test videos failed: ' + error.message);
+                        });
+                };
+
+                // Listen for auth state changes
+                AuthService.onAuthStateChanged(function(isAuthenticated) {
+                    vm.checkAuth();
+                    $scope.$applyAsync();
+                });
+
+                // Initial check after a short delay to allow services to initialize
+                setTimeout(function() {
+                    vm.checkAuth();
+                    console.log('I18nService initialized:', !!I18nService.currentTranslations);
+                }, 500);
+            }]);
+    </script>
+
+    <!-- jQuery and Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

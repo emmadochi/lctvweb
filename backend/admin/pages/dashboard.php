@@ -2,6 +2,7 @@
 // Get stats for dashboard
 $stats = [
     'total_videos' => $totalVideos,
+    'total_livestreams' => $totalLivestreams,
     'total_categories' => $totalCategories,
     'total_views' => 0, // We'll calculate this
     'recent_imports' => 0
@@ -21,7 +22,7 @@ foreach ($recentVideos as $video) {
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div class="bg-white rounded-lg shadow-sm p-6">
             <div class="flex items-center">
                 <div class="p-2 bg-blue-100 rounded-lg">
@@ -30,6 +31,18 @@ foreach ($recentVideos as $video) {
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600">Total Videos</p>
                     <p class="text-2xl font-semibold text-gray-900"><?php echo number_format($stats['total_videos']); ?></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-red-100 rounded-lg">
+                    <i class="fas fa-video-camera text-red-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Livestreams</p>
+                    <p class="text-2xl font-semibold text-gray-900"><?php echo number_format($stats['total_livestreams']); ?></p>
                 </div>
             </div>
         </div>

@@ -1,0 +1,346 @@
+<!-- Church TV Donation Page -->
+<div class="donation-page" ng-controller="DonationController as vm">
+    <!-- Page Header -->
+    <section class="donation-header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="donation-title">
+                    <i class="fa fa-heart"></i> Support Our Ministry
+                </h1>
+                <p class="donation-subtitle">
+                    Your generous giving helps us spread God's word and serve our community
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Donation Campaigns -->
+    <section class="donation-campaigns" ng-if="vm.campaigns.length > 0">
+        <div class="container">
+            <h2>Current Campaigns</h2>
+            <div class="campaigns-grid">
+                <div class="campaign-card" ng-repeat="campaign in vm.campaigns | limitTo: 3">
+                    <div class="campaign-image" ng-if="campaign.image_url">
+                        <img ng-src="{{campaign.image_url}}" alt="{{campaign.title}}">
+                    </div>
+                    <div class="campaign-content">
+                        <h3>{{campaign.title}}</h3>
+                        <p>{{campaign.description}}</p>
+
+                        <!-- Progress Bar -->
+                        <div class="campaign-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" ng-style="{width: campaign.progress_percentage + '%'}"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span class="amount">{{campaign.current_amount | currency:campaign.currency}}</span>
+                                <span class="goal">of {{campaign.goal_amount | currency:campaign.currency}} goal</span>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" ng-click="vm.selectCampaign(campaign)">
+                            Donate to This Campaign
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Donation Form -->
+    <section class="donation-form-section">
+        <div class="container">
+            <div class="donation-form-container">
+                <div class="form-header">
+                    <h2>Make a Donation</h2>
+                    <p>Choose your donation amount and payment method</p>
+                </div>
+
+                <form name="donationForm" ng-submit="vm.processDonation()" novalidate>
+
+                    <!-- Amount Selection -->
+                    <div class="form-group">
+                        <label class="form-label">Donation Amount</label>
+
+                        <!-- Suggested Amounts -->
+                        <div class="suggested-amounts">
+                            <button type="button"
+                                    class="amount-btn"
+                                    ng-repeat="amount in vm.suggestedAmounts"
+                                    ng-click="vm.selectAmount(amount.amount)"
+                                    ng-class="{active: vm.donation.amount === amount.amount}">
+                                <div class="amount-value">${{amount.amount}}</div>
+                                <div class="amount-label">{{amount.label}}</div>
+                            </button>
+                        </div>
+
+                        <!-- Custom Amount -->
+                        <div class="custom-amount">
+                            <div class="input-group">
+                                <span class="input-group-addon">$</span>
+                                <input type="number"
+                                       class="form-control"
+                                       ng-model="vm.donation.amount"
+                                       min="1"
+                                       step="0.01"
+                                       placeholder="Enter custom amount"
+                                       required>
+                            </div>
+                        </div>
+
+                        <!-- Impact Information -->
+                        <div class="impact-info" ng-if="vm.donation.amount && vm.getImpactInfo(vm.donation.amount)">
+                            <i class="fa fa-info-circle"></i>
+                            {{vm.getImpactInfo(vm.donation.amount)}}
+                        </div>
+                    </div>
+
+                    <!-- Recurring Donation -->
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" ng-model="vm.donation.is_recurring">
+                                Make this a recurring donation
+                            </label>
+                        </div>
+
+                        <div class="recurring-options" ng-show="vm.donation.is_recurring">
+                            <select class="form-control" ng-model="vm.donation.recurring_interval" required>
+                                <option value="">Select frequency</option>
+                                <option ng-repeat="interval in vm.recurringIntervals"
+                                        value="{{interval.id}}">
+                                    {{interval.name}}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Donation Type -->
+                    <div class="form-group">
+                        <label class="form-label">Donation Purpose</label>
+                        <select class="form-control" ng-model="vm.donation.donation_type">
+                            <option ng-repeat="type in vm.donationTypes" value="{{type.id}}">
+                                {{type.name}} - {{type.description}}
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Personal Information -->
+                    <div class="form-section">
+                        <h3>Personal Information</h3>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label class="form-label">First Name *</label>
+                                <input type="text" class="form-control" ng-model="vm.donation.first_name" required>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" ng-model="vm.donation.last_name" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" ng-model="vm.donation.donor_email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" ng-model="vm.donation.phone">
+                        </div>
+                    </div>
+
+                    <!-- Address Information -->
+                    <div class="form-section">
+                        <h3>Address Information <small>(for tax receipt)</small></h3>
+
+                        <div class="form-group">
+                            <label class="form-label">Street Address</label>
+                            <input type="text" class="form-control" ng-model="vm.donation.address_street">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label class="form-label">City</label>
+                                <input type="text" class="form-control" ng-model="vm.donation.address_city">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label class="form-label">State</label>
+                                <input type="text" class="form-control" ng-model="vm.donation.address_state">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label class="form-label">ZIP Code</label>
+                                <input type="text" class="form-control" ng-model="vm.donation.address_zip">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tax Deductible Notice -->
+                    <div class="tax-notice">
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" ng-model="vm.donation.tax_deductible" checked disabled>
+                                This donation is tax-deductible
+                            </label>
+                        </div>
+                        <p class="tax-info">
+                            LCMTV is a registered 501(c)(3) nonprofit organization. Your donation is tax-deductible to the extent allowed by law.
+                        </p>
+                    </div>
+
+                    <!-- Payment Method Selection -->
+                    <div class="form-section">
+                        <h3>Payment Method</h3>
+
+                        <div class="payment-methods">
+                            <div class="payment-method"
+                                 ng-click="vm.selectPaymentMethod('card')"
+                                 ng-class="{active: vm.donation.payment_method === 'card'}">
+                                <i class="fa fa-credit-card"></i>
+                                <span>Credit Card</span>
+                            </div>
+                            <div class="payment-method"
+                                 ng-click="vm.selectPaymentMethod('paypal')"
+                                 ng-class="{active: vm.donation.payment_method === 'paypal'}">
+                                <i class="fa fa-paypal"></i>
+                                <span>PayPal</span>
+                            </div>
+                            <div class="payment-method"
+                                 ng-click="vm.selectPaymentMethod('check')"
+                                 ng-class="{active: vm.donation.payment_method === 'check'}">
+                                <i class="fa fa-money-check"></i>
+                                <span>Check/Mail</span>
+                            </div>
+                        </div>
+
+                        <!-- Credit Card Form -->
+                        <div class="card-form" ng-show="vm.donation.payment_method === 'card'">
+                            <div class="form-group">
+                                <label class="form-label">Card Information</label>
+                                <div id="card-element" class="card-element"></div>
+                                <div id="card-errors" class="card-errors" ng-show="vm.cardError">
+                                    {{vm.cardError}}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PayPal Button -->
+                        <div class="paypal-form" ng-show="vm.donation.payment_method === 'paypal'">
+                            <div id="paypal-button-container"></div>
+                        </div>
+
+                        <!-- Check Instructions -->
+                        <div class="check-form" ng-show="vm.donation.payment_method === 'check'">
+                            <div class="alert alert-info">
+                                <h4>Mailing Instructions</h4>
+                                <p>Please make your check payable to "LCMTV" and mail to:</p>
+                                <address>
+                                    LCMTV<br>
+                                    123 Church Street<br>
+                                    Anytown, USA 12345
+                                </address>
+                                <p>Include your email address so we can send your tax receipt.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="form-actions">
+                        <button type="submit"
+                                class="btn btn-primary btn-lg donation-submit"
+                                ng-disabled="donationForm.$invalid || vm.processing">
+                            <i class="fa fa-heart" ng-hide="vm.processing"></i>
+                            <i class="fa fa-spinner fa-spin" ng-show="vm.processing"></i>
+                            {{vm.processing ? 'Processing...' : 'Complete Donation'}}
+                        </button>
+
+                        <p class="security-notice">
+                            <i class="fa fa-lock"></i>
+                            Your payment information is secure and encrypted.
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Donation History (for logged-in users) -->
+    <section class="donation-history" ng-if="vm.userDonations.length > 0">
+        <div class="container">
+            <h2>Your Donation History</h2>
+            <div class="history-table">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Purpose</th>
+                            <th>Status</th>
+                            <th>Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="donation in vm.userDonations">
+                            <td>{{donation.created_at | date:'mediumDate'}}</td>
+                            <td>{{donation.amount | currency:donation.currency}}</td>
+                            <td>{{donation.donation_type | titleCase}}</td>
+                            <td>
+                                <span class="status-badge"
+                                      ng-class="{'completed': 'success', 'pending': 'warning', 'failed': 'danger'}[donation.transaction_status]">
+                                    {{donation.transaction_status | titleCase}}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        ng-click="vm.requestReceipt(donation.id)"
+                                        ng-if="donation.transaction_status === 'completed' && !donation.receipt_issued">
+                                    Request Receipt
+                                </button>
+                                <span ng-if="donation.receipt_issued">Issued</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="donationSuccessModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Thank You!</h4>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="success-icon">
+                    <i class="fa fa-check-circle"></i>
+                </div>
+                <h3>Your donation has been received!</h3>
+                <p>Thank you for your generous support of our ministry.</p>
+
+                <div class="donation-summary" ng-if="vm.lastDonation">
+                    <div class="summary-item">
+                        <strong>Amount:</strong> {{vm.lastDonation.amount | currency:vm.lastDonation.currency}}
+                    </div>
+                    <div class="summary-item" ng-if="vm.lastDonation.is_recurring">
+                        <strong>Recurring:</strong> {{vm.lastDonation.recurring_interval | titleCase}}
+                    </div>
+                    <div class="summary-item">
+                        <strong>Purpose:</strong> {{vm.lastDonation.donation_type | titleCase}}
+                    </div>
+                </div>
+
+                <p>A tax receipt will be emailed to you shortly.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">Continue</button>
+            </div>
+        </div>
+    </div>
+</div>
