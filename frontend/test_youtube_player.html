@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Player Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .player-container { margin: 20px 0; }
+        #player { width: 640px; height: 360px; border: 1px solid #ccc; }
+        .status { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px; }
+        .error { background: #ffe6e6; border: 1px solid #ffcccc; }
+        .success { background: #e6ffe6; border: 1px solid #ccffcc; }
+    </style>
+</head>
+<body>
+    <h1>YouTube Player Test</h1>
+
+    <div class="status" id="api-status">Loading YouTube API...</div>
+    <div class="status" id="player-status">Waiting for player...</div>
+
+    <button onclick="loadPlayer()">Load Player</button>
+    <button onclick="playVideo()">Play Video</button>
+    <button onclick="pauseVideo()">Pause Video</button>
+
+    <div class="player-container">
+        <div id="player"></div>
+    </div>
+
+    <h2>Test Livestreams from Database:</h2>
+    <div id="livestreams-list">Loading...</div>
+
+    <!-- YouTube API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        let player;
+        let apiReady = false;
+
+        // YouTube API ready callback
+        function onYouTubeIframeAPIReady() {
+            apiReady = true;
+            document.getElementById('api-status').innerHTML = '<span class="success">✓ YouTube API loaded successfully</span>';
+            console.log('YouTube API ready');
+        }
+
+        function loadPlayer() {
+            if (!apiReady) {
+                alert('YouTube API not ready yet');
+                return;
+            }
+
+            if (player) {
+                player.destroy();
+            }
+
+            document.getElementById('player-status').innerHTML = 'Creating player...';
+
+            player = new YT.Player('player', {
+                videoId: 'dQw4w9WgXcQ', // Test video ID
+                playerVars: {
+                    autoplay: 0,
+                    controls: 1,
+                    rel: 0,
+                    showinfo: 0,
+                    modestbranding: 1,
+                    iv_load_policy: 3,
+                    playsinline: 1,
+                    disablekb: 0,
+                    enablejsapi: 1,
+                    origin: window.location.origin
+                },
+                events: {
+                    onReady: onPlayerReady,
+                    onStateChange: onPlayerStateChange,
+                    onError: onPlayerError
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            document.getElementById('player-status').innerHTML = '<span class="success">✓ Player ready</span>';
+            console.log('Player ready');
+        }
+
+        function onPlayerStateChange(event) {
+            const states = {
+                '-1': 'unstarted',
+                '0': 'ended',
+                '1': 'playing',
+                '2': 'paused',
+                '3': 'buffering',
+                '5': 'video cued'
+            };
+            document.getElementById('player-status').innerHTML = `Player state: ${states[event.data] || event.data}`;
+            console.log('Player state changed:', event.data);
+        }
+
+        function onPlayerError(event) {
+            const errors = {
+                2: 'Invalid video ID',
+                5: 'HTML5 player error',
+                100: 'Video not found or private',
+                101: 'Embedding disabled',
+                150: 'Embedding disabled'
+            };
+            document.getElementById('player-status').innerHTML = `<span class="error">✗ Player error: ${errors[event.data] || 'Unknown error'} (${event.data})</span>`;
+            console.error('Player error:', event.data);
+        }
+
+        function playVideo() {
+            if (player && player.playVideo) {
+                player.playVideo();
+            } else {
+                alert('Player not ready');
+            }
+        }
+
+        function pauseVideo() {
+            if (player && player.pauseVideo) {
+                player.pauseVideo();
+            } else {
+                alert('Player not ready');
+            }
+        }
+
+        // Load livestreams from API
+        fetch('/LCMTVWebNew/backend/api/livestreams')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    const list = document.getElementById('livestreams-list');
+                    list.innerHTML = '<ul>' +
+                        data.data.map(ls => `<li><strong>${ls.title || 'Untitled'}</strong> - YouTube ID: ${ls.youtube_id} - Live: ${ls.is_live ? 'Yes' : 'No'}</li>`).join('') +
+                        '</ul>';
+                } else {
+                    document.getElementById('livestreams-list').innerHTML = 'No livestreams found or API error';
+                }
+            })
+            .catch(error => {
+                document.getElementById('livestreams-list').innerHTML = '<span class="error">Error loading livestreams: ' + error.message + '</span>';
+                console.error('Error loading livestreams:', error);
+            });
+
+        // Check API status after 5 seconds
+        setTimeout(() => {
+            if (!apiReady) {
+                document.getElementById('api-status').innerHTML = '<span class="error">✗ YouTube API failed to load</span>';
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

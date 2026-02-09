@@ -88,5 +88,32 @@ class LivestreamController {
             Response::error('Failed to batch delete livestreams', 500);
         }
     }
+
+    /**
+     * Track livestream view for analytics
+     */
+    public function trackView($livestreamId) {
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $userId = $data['user_id'] ?? null;
+            $timestamp = $data['timestamp'] ?? date('Y-m-d H:i:s');
+
+            // Verify livestream exists
+            $livestream = Livestream::find($livestreamId);
+            if (!$livestream) {
+                Response::notFound('Livestream not found');
+                return;
+            }
+
+            // Here you could save view tracking data to a database table
+            // For now, we'll just return success
+            error_log("Livestream view tracked: ID {$livestreamId}, User: " . ($userId ?? 'anonymous') . ", Time: {$timestamp}");
+
+            Response::success(['tracked' => true, 'livestream_id' => $livestreamId]);
+        } catch (Exception $e) {
+            error_log("Livestream trackView error: " . $e->getMessage());
+            Response::error('Failed to track livestream view', 500);
+        }
+    }
 }
 ?>

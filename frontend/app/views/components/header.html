@@ -34,14 +34,14 @@
                 </div>
 
                 <!-- User Authentication -->
-                <div ng-if="!headerCtrl.authLoading && !headerCtrl.isAuthenticated()" class="auth-links">
+                <div ng-if="!headerCtrl.authLoading && !headerCtrl.isAuthenticated" class="auth-links">
                     <button ng-click="headerCtrl.goToLogin()" class="btn btn-outline-light btn-sm">
                         <i class="fa fa-sign-in"></i> Login
                     </button>
                 </div>
 
                 <!-- User Dropdown (when authenticated) -->
-                <div ng-if="!headerCtrl.authLoading && headerCtrl.isAuthenticated()" class="user-dropdown" ng-class="{active: headerCtrl.showUserDropdown}">
+                <div ng-if="!headerCtrl.authLoading && headerCtrl.isAuthenticated" class="user-dropdown" ng-class="{active: headerCtrl.showUserDropdown}">
                     <button class="user-dropdown-toggle" ng-click="headerCtrl.toggleUserDropdown()">
                         <i class="fa fa-user"></i>
                         <span class="user-name">{{headerCtrl.currentUser.first_name}}</span>

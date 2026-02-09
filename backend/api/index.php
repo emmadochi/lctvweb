@@ -277,6 +277,17 @@ try {
             }
             break;
 
+        case (preg_match('/^\/livestreams\/(\d+)\/view$/', $path, $matches) ? true : false):
+            require_once '../controllers/LivestreamController.php';
+            $controller = new LivestreamController();
+            if ($method === 'POST') {
+                $livestreamId = (int)$matches[1];
+                $controller->trackView($livestreamId);
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
         case '/analytics/page-view':
             require_once '../controllers/AnalyticsController.php';
             if ($method === 'POST') {

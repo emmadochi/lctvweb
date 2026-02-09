@@ -237,6 +237,27 @@
             $rootScope.errorMessage = '';
         };
 
+        // Toast notification function
+        $rootScope.showToast = function(message, type) {
+            type = type || 'info';
+
+            // Create toast element
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.innerHTML = '<span>' + message + '</span>';
+
+            // Add to page
+            var container = document.querySelector('.toast-container') || document.body;
+            container.appendChild(toast);
+
+            // Auto remove after 3 seconds
+            setTimeout(function() {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        };
+
         // Route change events
         $rootScope.$on('$routeChangeStart', function() {
             $rootScope.showLoading();

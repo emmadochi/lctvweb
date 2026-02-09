@@ -1,5 +1,5 @@
 <!-- Church TV Livestream Detail Page -->
-<div class="livestream-page" ng-controller="LivestreamController as vm">
+<div class="livestream-page">
     <!-- Loading State -->
     <div class="livestream-loading" ng-if="vm.isLoading">
         <div class="loading-container">
@@ -22,6 +22,9 @@
                             <i class="fa fa-play-circle fa-5x"></i>
                             <p ng-if="!vm.player">Loading live stream...</p>
                             <p ng-if="vm.playerReady">Click to play live stream</p>
+                            <p ng-if="vm.player && !vm.playerReady" style="color: #ff6b6b; margin-top: 10px;">
+                                <i class="fa fa-exclamation-triangle"></i> Player failed to load. <a href="#" ng-click="vm.retryPlayer()" style="color: #fff; text-decoration: underline;">Retry</a>
+                            </p>
                         </div>
                     </div>
                     <!-- Live Indicator -->

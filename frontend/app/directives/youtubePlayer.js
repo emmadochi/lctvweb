@@ -34,7 +34,8 @@
                         rel: 0,
                         iv_load_policy: 3, // Hide annotations
                         fs: 1, // Allow fullscreen
-                        cc_load_policy: 0 // Hide captions by default
+                        cc_load_policy: 0, // Hide captions by default
+                        origin: window.location.origin // Fix origin mismatch for localhost
                     };
 
                     // Merge with provided player vars

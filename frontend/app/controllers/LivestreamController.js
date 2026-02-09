@@ -12,6 +12,44 @@
 
             var vm = this;
 
+            // YouTube player event handlers
+            function onPlayerReady(event) {
+                console.log('Livestream player ready');
+                // Player is ready, could add additional setup here
+
+                // Hide loading overlay
+                vm.playerReady = true;
+                $scope.$apply();
+            }
+
+            function onPlayerStateChange(event) {
+                // Handle player state changes if needed
+                console.log('Player state changed:', event.data);
+            }
+
+            function onPlayerError(event) {
+                console.error('YouTube player error:', event.data);
+
+                var errorMessage = 'Error loading livestream player';
+                switch(event.data) {
+                    case 2:
+                        errorMessage = 'Invalid video ID';
+                        break;
+                    case 5:
+                        errorMessage = 'HTML5 player error';
+                        break;
+                    case 100:
+                        errorMessage = 'Video not found or private';
+                        break;
+                    case 101:
+                    case 150:
+                        errorMessage = 'Video embedding disabled';
+                        break;
+                }
+
+                $scope.$root.showToast(errorMessage, 'error');
+            }
+
             // Controller properties
             vm.livestream = null;
             vm.relatedLivestreams = [];
@@ -29,11 +67,25 @@
             function init() {
                 var livestreamId = $routeParams.id;
 
+                console.log('LivestreamController init - Route params:', $routeParams);
+                console.log('Livestream ID from route:', livestreamId);
+
                 if (!livestreamId) {
+                    console.warn('No livestream ID provided in route');
                     $location.path('/');
                     return;
                 }
 
+                // Validate livestream ID
+                livestreamId = parseInt(livestreamId);
+                if (isNaN(livestreamId) || livestreamId <= 0) {
+                    console.error('Invalid livestream ID:', $routeParams.id);
+                    $scope.$root.showToast('Invalid livestream ID', 'error');
+                    $location.path('/');
+                    return;
+                }
+
+                console.log('Loading livestream with ID:', livestreamId);
                 loadLivestream(livestreamId);
                 loadRelatedLivestreams();
                 loadFavorites();
@@ -49,12 +101,30 @@
              * Load livestream details
              */
             function loadLivestream(livestreamId) {
+                console.log('loadLivestream called with ID:', livestreamId);
                 vm.isLoading = true;
 
                 LivestreamService.getLivestream(livestreamId).then(function(livestream) {
+                    console.log('Livestream data received:', livestream);
+
+                    if (!livestream) {
+                        console.error('No livestream data returned');
+                        vm.isLoading = false;
+                        $scope.$root.showToast('Livestream not found', 'error');
+                        $location.path('/');
+                        return;
+                    }
+
                     vm.livestream = livestream;
                     vm.isLive = livestream.is_live === 1 || livestream.is_live === true;
                     vm.viewerCount = livestream.viewer_count || 0;
+
+                    console.log('Livestream loaded:', {
+                        title: vm.livestream.title,
+                        youtube_id: vm.livestream.youtube_id,
+                        isLive: vm.isLive,
+                        viewerCount: vm.viewerCount
+                    });
 
                     vm.isLoading = false;
 
@@ -69,8 +139,20 @@
 
                 }).catch(function(error) {
                     console.error('Error loading livestream:', error);
+                    console.error('Error details:', {
+                        status: error.status,
+                        statusText: error.statusText,
+                        data: error.data
+                    });
+
                     vm.isLoading = false;
-                    $scope.$root.showToast('Failed to load livestream', 'error');
+                    var errorMessage = 'Failed to load livestream';
+                    if (error.status === 404) {
+                        errorMessage = 'Livestream not found';
+                    } else if (error.status === 500) {
+                        errorMessage = 'Server error';
+                    }
+                    $scope.$root.showToast(errorMessage, 'error');
                     $location.path('/');
                 });
             }
@@ -100,6 +182,9 @@
                         if (!vm.player) {
                             console.error('YouTube API failed to load within timeout');
                             $scope.$root.showToast('Failed to load YouTube player. Please refresh the page.', 'error');
+                            // Show error state instead of keeping loading
+                            vm.playerReady = false;
+                            $scope.$apply();
                         }
                     }, 10000);
                 }
@@ -111,47 +196,60 @@
                 if (vm.player) {
                     console.log('Destroying existing player');
                     vm.player.destroy();
+                    vm.player = null;
                 }
 
-                // Ensure the player container exists
-                var playerContainer = document.getElementById('livestream-player');
-                if (!playerContainer) {
-                    console.error('Player container not found');
-                    $scope.$root.showToast('Player container not found', 'error');
-                    return;
-                }
-
-                vm.player = new YT.Player('livestream-player', {
-                    videoId: vm.livestream.youtube_id,
-                    playerVars: {
-                        autoplay: 0, // Disable autoplay due to browser restrictions
-                        controls: 1,
-                        rel: 0,
-                        showinfo: 0,
-                        modestbranding: 1,
-                        iv_load_policy: 3,
-                        playsinline: 1,
-                        // Live stream specific settings
-                        disablekb: 0,
-                        enablejsapi: 1,
-                        origin: window.location.origin,
-                        widget_referrer: window.location.href
-                    },
-                    events: {
-                        onReady: onPlayerReady,
-                        onStateChange: onPlayerStateChange,
-                        onError: onPlayerError
+                // Ensure the player container exists - wait for DOM if needed
+                var checkContainer = function() {
+                    var playerContainer = document.getElementById('livestream-player');
+                    if (!playerContainer) {
+                        console.warn('Player container not found, waiting...');
+                        // Wait a bit for the DOM to render
+                        $timeout(checkContainer, 100);
+                        return;
                     }
-                });
+
+                    console.log('Player container found, proceeding with player creation');
+                    createPlayerInstance(playerContainer);
+                };
+
+                checkContainer();
+
+                function createPlayerInstance(playerContainer) {
+
+                // Clear any existing content in the container
+                playerContainer.innerHTML = '';
+
+                try {
+                    vm.player = new YT.Player(playerContainer, {
+                        videoId: vm.livestream.youtube_id,
+                        playerVars: {
+                            autoplay: 0, // Disable autoplay due to browser restrictions
+                            controls: 1,
+                            rel: 0,
+                            showinfo: 0,
+                            modestbranding: 1,
+                            iv_load_policy: 3,
+                            playsinline: 1,
+                            // Live stream specific settings
+                            disablekb: 0,
+                            enablejsapi: 1,
+                            origin: window.location.origin,
+                            widget_referrer: window.location.href
+                        },
+                        events: {
+                            onReady: onPlayerReady,
+                            onStateChange: onPlayerStateChange,
+                            onError: onPlayerError
+                        }
+                    });
+
+                    console.log('YouTube player created successfully');
+                } catch (error) {
+                    console.error('Error creating YouTube player:', error);
+                    $scope.$root.showToast('Failed to create YouTube player: ' + error.message, 'error');
+                }
             }
-
-            function onPlayerReady(event) {
-                console.log('Livestream player ready');
-                // Player is ready, could add additional setup here
-
-                // Hide loading overlay
-                vm.playerReady = true;
-                $scope.$apply();
             }
 
             /**
@@ -164,32 +262,10 @@
                 }
             }
 
-            function onPlayerStateChange(event) {
-                // Handle player state changes if needed
-                console.log('Player state changed:', event.data);
-            }
-
-            function onPlayerError(event) {
-                console.error('YouTube player error:', event.data);
-
-                var errorMessage = 'Error loading livestream player';
-                switch(event.data) {
-                    case 2:
-                        errorMessage = 'Invalid video ID';
-                        break;
-                    case 5:
-                        errorMessage = 'HTML5 player error';
-                        break;
-                    case 100:
-                        errorMessage = 'Video not found or private';
-                        break;
-                    case 101:
-                    case 150:
-                        errorMessage = 'Video embedding disabled';
-                        break;
-                }
-
-                $scope.$root.showToast(errorMessage, 'error');
+            vm.retryPlayer = function() {
+                console.log('Retrying player initialization');
+                vm.playerReady = false;
+                initializePlayer();
             }
 
             /**

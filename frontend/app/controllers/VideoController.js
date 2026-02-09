@@ -173,6 +173,7 @@
                 }
 
                 // Create new player
+                console.log('Creating YouTube player with origin:', window.location.origin);
                 vm.player = new YT.Player('youtube-player', {
                     videoId: videoId,
                     playerVars: {
@@ -183,7 +184,8 @@
                         rel: 0,
                         iv_load_policy: 3, // Hide annotations
                         fs: 1, // Allow fullscreen
-                        cc_load_policy: $scope.$root.userPrefs.showCaptions ? 1 : 0
+                        cc_load_policy: $scope.$root.userPrefs.showCaptions ? 1 : 0,
+                        origin: window.location.origin // Fix origin mismatch for localhost
                     },
                     events: {
                         onReady: onPlayerReady,
