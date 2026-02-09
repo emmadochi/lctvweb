@@ -194,7 +194,7 @@
     })
 
     // Root scope configuration
-    .run(['$rootScope', '$location', '$timeout', 'API_BASE', function($rootScope, $location, $timeout, API_BASE) {
+    .run(['$rootScope', '$location', '$timeout', 'API_BASE', 'PushService', 'AnalyticsService', function($rootScope, $location, $timeout, API_BASE, PushService, AnalyticsService) {
 
         // Global loading state
         $rootScope.loading = false;
@@ -279,6 +279,12 @@
         // Initialize application
         console.log('Church TV Application initialized');
         console.log('Church TV API base:', API_BASE);
+
+        // Initialize push notifications
+        PushService.initialize();
+
+        // Initialize analytics tracking
+        AnalyticsService.initialize();
     }]);
 
 })();

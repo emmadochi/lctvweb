@@ -157,6 +157,268 @@
                     </form>
                 </div>
 
+                <!-- Push Notifications -->
+                <div class="profile-section">
+                    <h3><i class="fa fa-bell"></i> Push Notifications</h3>
+                    <p class="section-description">Manage your notification preferences and stay updated with church content.</p>
+
+                    <!-- Notification Status -->
+                    <div class="notification-status" ng-if="vm.pushStatus">
+                        <div class="status-item">
+                            <span class="status-label">Browser Support:</span>
+                            <span class="status-value" ng-class="{'supported': vm.pushStatus.supported, 'not-supported': !vm.pushStatus.supported}">
+                                <i class="fa" ng-class="{'fa-check-circle': vm.pushStatus.supported, 'fa-times-circle': !vm.pushStatus.supported}"></i>
+                                {{vm.pushStatus.supported ? 'Supported' : 'Not Supported'}}
+                            </span>
+                        </div>
+
+                        <div class="status-item" ng-if="vm.pushStatus.supported">
+                            <span class="status-label">Permission:</span>
+                            <span class="status-value" ng-class="{'granted': vm.pushStatus.permission === 'granted', 'denied': vm.pushStatus.permission === 'denied', 'default': vm.pushStatus.permission === 'default'}">
+                                <i class="fa" ng-class="{'fa-check-circle': vm.pushStatus.permission === 'granted', 'fa-times-circle': vm.pushStatus.permission === 'denied', 'fa-question-circle': vm.pushStatus.permission === 'default'}"></i>
+                                {{vm.pushStatus.permission === 'granted' ? 'Granted' : vm.pushStatus.permission === 'denied' ? 'Denied' : 'Not Set'}}
+                            </span>
+                        </div>
+
+                        <div class="status-item" ng-if="vm.pushStatus.supported">
+                            <span class="status-label">Subscription:</span>
+                            <span class="status-value" ng-class="{'subscribed': vm.pushStatus.subscribed, 'not-subscribed': !vm.pushStatus.subscribed}">
+                                <i class="fa" ng-class="{'fa-check-circle': vm.pushStatus.subscribed, 'fa-times-circle': !vm.pushStatus.subscribed}"></i>
+                                {{vm.pushStatus.subscribed ? 'Active' : 'Inactive'}}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Subscription Controls -->
+                    <div class="notification-controls" ng-if="vm.pushStatus && vm.pushStatus.supported">
+                        <div class="control-group">
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    ng-if="!vm.pushStatus.subscribed && vm.pushStatus.permission !== 'denied'"
+                                    ng-click="vm.subscribeToNotifications()">
+                                <i class="fa fa-bell"></i> Enable Notifications
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-success"
+                                    ng-if="vm.pushStatus.permission === 'default'"
+                                    ng-click="vm.requestNotificationPermission()">
+                                <i class="fa fa-question-circle"></i> Request Permission
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-outline-danger"
+                                    ng-if="vm.pushStatus.subscribed"
+                                    ng-click="vm.unsubscribeFromNotifications()">
+                                <i class="fa fa-bell-slash"></i> Disable Notifications
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-outline-info"
+                                    ng-if="vm.pushStatus.subscribed"
+                                    ng-click="vm.testNotification()">
+                                <i class="fa fa-flask"></i> Test Notification
+                            </button>
+                        </div>
+
+                        <div class="permission-denied" ng-if="vm.pushStatus.permission === 'denied'">
+                            <div class="alert alert-warning">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                <strong>Permission Denied:</strong> Notifications are blocked in your browser.
+                                Please enable them in your browser settings to receive updates.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notification Preferences -->
+                    <div class="notification-preferences" ng-if="vm.pushPreferences">
+                        <h4>Notification Preferences</h4>
+                        <p class="preferences-description">Choose what types of notifications you'd like to receive:</p>
+
+                        <div class="preference-item">
+                            <label class="preference-toggle">
+                                <input type="checkbox"
+                                       ng-model="vm.pushPreferences.liveStreams"
+                                       ng-change="vm.updateNotificationPreferences()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="preference-info">
+                                <strong>Live Streams</strong>
+                                <span>Get notified when church services go live</span>
+                            </div>
+                        </div>
+
+                        <div class="preference-item">
+                            <label class="preference-toggle">
+                                <input type="checkbox"
+                                       ng-model="vm.pushPreferences.newContent"
+                                       ng-change="vm.updateNotificationPreferences()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="preference-info">
+                                <strong>New Content</strong>
+                                <span>Notifications for new sermons and videos</span>
+                            </div>
+                        </div>
+
+                        <div class="preference-item">
+                            <label class="preference-toggle">
+                                <input type="checkbox"
+                                       ng-model="vm.pushPreferences.reminders"
+                                       ng-change="vm.updateNotificationPreferences()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="preference-info">
+                                <strong>Service Reminders</strong>
+                                <span>Reminders for upcoming church services</span>
+                            </div>
+                        </div>
+
+                        <div class="preference-item">
+                            <label class="preference-toggle">
+                                <input type="checkbox"
+                                       ng-model="vm.pushPreferences.updates"
+                                       ng-change="vm.updateNotificationPreferences()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="preference-info">
+                                <strong>App Updates</strong>
+                                <span>Notifications about app updates and new features</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PWA Install Section -->
+                    <div class="pwa-section" ng-if="!vm.isInstalled">
+                        <h4><i class="fa fa-mobile"></i> Install App</h4>
+                        <p>Get the full LCMTV experience by installing the app on your device.</p>
+                        <button type="button" class="btn btn-outline-primary" onclick="installPWA()" id="install-btn">
+                            <i class="fa fa-download"></i> Install LCMTV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Offline Downloads -->
+                <div class="profile-section">
+                    <h3><i class="fa fa-download"></i> Offline Downloads</h3>
+                    <p class="section-description">Download videos and content for offline viewing when you have limited connectivity.</p>
+
+                    <!-- Storage Status -->
+                    <div class="storage-status" ng-if="vm.storageStats">
+                        <div class="storage-item">
+                            <span class="storage-label">Downloaded Videos:</span>
+                            <span class="storage-value">{{vm.storageStats.videoCount}}</span>
+                        </div>
+                        <div class="storage-item">
+                            <span class="storage-label">Storage Used:</span>
+                            <span class="storage-value">{{vm.storageStats.formattedSize}}</span>
+                        </div>
+                        <div class="storage-item" ng-if="vm.storageStats.availableSpace">
+                            <span class="storage-label">Available Space:</span>
+                            <span class="storage-value" ng-if="vm.storageStats.availableSpace.quota">
+                                {{vm.formatBytes(vm.storageStats.availableSpace.quota - vm.storageStats.availableSpace.usage)}}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Download Settings -->
+                    <div class="download-settings">
+                        <h4>Download Preferences</h4>
+                        <div class="setting-item">
+                            <label class="setting-toggle">
+                                <input type="checkbox"
+                                       ng-model="vm.downloadSettings.autoDownload"
+                                       ng-change="vm.updateDownloadSettings()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="setting-info">
+                                <strong>Auto-download Favorites</strong>
+                                <span>Automatically download newly favorited videos</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-item">
+                            <label class="setting-toggle">
+                                <input type="checkbox"
+                                       ng-model="vm.downloadSettings.wifiOnly"
+                                       ng-change="vm.updateDownloadSettings()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="setting-info">
+                                <strong>Wi-Fi Only</strong>
+                                <span>Only download content when connected to Wi-Fi</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="quality-selector">
+                                <label for="download-quality">Download Quality:</label>
+                                <select id="download-quality"
+                                        ng-model="vm.downloadSettings.quality"
+                                        ng-change="vm.updateDownloadSettings()">
+                                    <option value="360p">360p (Smaller file)</option>
+                                    <option value="480p">480p (Standard)</option>
+                                    <option value="720p">720p (HD)</option>
+                                    <option value="1080p">1080p (Full HD)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Downloaded Content -->
+                    <div class="downloaded-content" ng-if="vm.offlineVideos.length > 0">
+                        <h4>Downloaded Videos</h4>
+                        <div class="downloads-list">
+                            <div class="download-item" ng-repeat="video in vm.offlineVideos track by $index">
+                                <div class="download-thumbnail">
+                                    <img ng-src="{{video.thumbnail_url}}" alt="{{video.title}}" loading="lazy">
+                                    <div class="offline-badge">
+                                        <i class="fa fa-check-circle"></i>
+                                        Offline
+                                    </div>
+                                </div>
+                                <div class="download-info">
+                                    <h5 class="download-title">{{video.title}}</h5>
+                                    <div class="download-meta">
+                                        <span class="download-size">{{vm.formatBytes(video.file_size)}}</span>
+                                        <span class="download-date">Downloaded {{vm.formatDate(video.downloaded_at)}}</span>
+                                    </div>
+                                </div>
+                                <div class="download-actions">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            ng-click="vm.playOfflineVideo(video.id)">
+                                        <i class="fa fa-play"></i> Play
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            ng-click="vm.removeOfflineVideo(video.id)">
+                                        <i class="fa fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="download-empty-state" ng-if="!vm.offlineVideos || vm.offlineVideos.length === 0">
+                        <div class="empty-downloads">
+                            <i class="fa fa-cloud-download fa-3x text-muted"></i>
+                            <h4>No Offline Content</h4>
+                            <p>Download videos from the video player to watch them offline.</p>
+                            <a href="#/" class="btn btn-outline-primary">
+                                <i class="fa fa-video-camera"></i> Browse Videos
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Clear All Downloads -->
+                    <div class="clear-downloads" ng-if="vm.offlineVideos && vm.offlineVideos.length > 0">
+                        <button class="btn btn-outline-danger"
+                                ng-click="vm.clearAllDownloads()">
+                            <i class="fa fa-trash"></i> Clear All Downloads
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Account Actions -->
                 <div class="profile-section">
                     <h3><i class="fa fa-cogs"></i> Account Actions</h3>
@@ -436,6 +698,436 @@
 
     .profile-content {
         padding: 30px 20px;
+    }
+}
+
+/* ===== PUSH NOTIFICATIONS STYLES ===== */
+.notification-status {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.status-value {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-value.supported {
+    color: #28a745;
+}
+
+.status-value.not-supported {
+    color: #dc3545;
+}
+
+.status-value.granted {
+    color: #28a745;
+}
+
+.status-value.denied {
+    color: #dc3545;
+}
+
+.status-value.default {
+    color: #ffc107;
+}
+
+.status-value.subscribed {
+    color: #28a745;
+}
+
+.status-value.not-subscribed {
+    color: #6c757d;
+}
+
+.notification-controls {
+    margin-bottom: 30px;
+}
+
+.control-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.permission-denied {
+    margin-top: 15px;
+}
+
+.notification-preferences {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.notification-preferences h4 {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.preferences-description {
+    color: #6c757d;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.preference-item {
+    display: flex;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.preference-item:last-child {
+    border-bottom: none;
+}
+
+.preference-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.preference-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: #6a0dad;
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.preference-info strong {
+    display: block;
+    color: #2c3e50;
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+
+.preference-info span {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.pwa-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.pwa-section h4 {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.pwa-section p {
+    color: #6c757d;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+#install-btn {
+    border-color: #6a0dad !important;
+    color: #6a0dad !important;
+}
+
+#install-btn:hover {
+    background: #6a0dad !important;
+    color: white !important;
+}
+
+/* ===== RESPONSIVE DESIGN FOR PUSH NOTIFICATIONS ===== */
+@media (max-width: 768px) {
+    .control-group {
+        flex-direction: column;
+    }
+
+    .control-group .btn {
+        width: 100%;
+    }
+
+    .preference-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .preference-toggle {
+        align-self: flex-end;
+    }
+}
+
+/* ===== OFFLINE DOWNLOADS STYLES ===== */
+.storage-status {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.storage-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.storage-item:last-child {
+    border-bottom: none;
+}
+
+.storage-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.storage-value {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.download-settings {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.download-settings h4 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.quality-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.quality-selector label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
+}
+
+.quality-selector select {
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: white;
+    font-size: 0.9rem;
+}
+
+.downloaded-content h4 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.downloads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.download-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.download-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.download-thumbnail {
+    position: relative;
+    width: 80px;
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.download-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.offline-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #28a745;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.download-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.download-title {
+    margin: 0 0 5px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.download-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.download-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 15px;
+}
+
+.download-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.empty-downloads i {
+    color: #dee2e6;
+    margin-bottom: 15px;
+}
+
+.empty-downloads h4 {
+    color: #6c757d;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.empty-downloads p {
+    color: #adb5bd;
+    margin-bottom: 20px;
+}
+
+.clear-downloads {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+    text-align: center;
+}
+
+/* ===== RESPONSIVE DESIGN FOR DOWNLOADS ===== */
+@media (max-width: 768px) {
+    .download-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .download-thumbnail {
+        width: 100%;
+        height: 120px;
+        margin-right: 0;
+    }
+
+    .download-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: center;
+    }
+
+    .download-actions .btn {
+        flex: 1;
+        max-width: 120px;
+    }
+
+    .storage-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
     }
 }
 </style>

@@ -15,16 +15,21 @@ try {
         'http' => [
             'method' => 'GET',
             'header' => 'Authorization: Bearer ' . ($_SESSION['admin_token'] ?? ''),
-            'timeout' => 10, // 10 second timeout
+            'timeout' => 15, // Increased timeout for comprehensive data
         ]
     ]);
 
     $response = file_get_contents($apiUrl, false, $context);
     if ($response) {
-        $analytics = json_decode($response, true);
-        // Check if the API returned an error
-        if (isset($analytics['success']) && !$analytics['success']) {
-            throw new Exception($analytics['message'] ?? 'API returned an error');
+        $data = json_decode($response, true);
+        // Check if the API returned success
+        if (isset($data['success']) && $data['success'] && isset($data['data'])) {
+            $analytics = $data['data'];
+        } elseif (isset($data['success']) && !$data['success']) {
+            throw new Exception($data['message'] ?? 'API returned an error');
+        } else {
+            // Fallback for old API format
+            $analytics = $data;
         }
     } else {
         throw new Exception('No response from analytics API');
@@ -32,8 +37,39 @@ try {
 } catch (Exception $e) {
     $message = 'Failed to load analytics data: ' . $e->getMessage();
     $messageType = 'error';
-    // Provide fallback empty data
-    $analytics = ['data' => null];
+    // Provide fallback empty data structure
+    $analytics = [
+        'overview' => [
+            'total_users' => 0,
+            'total_sessions' => 0,
+            'page_views' => 0,
+            'video_views' => 0,
+            'avg_session_duration' => 0,
+            'top_content' => []
+        ],
+        'demographics' => [
+            'devices' => [],
+            'browsers' => [],
+            'operating_systems' => [],
+            'geographic' => []
+        ],
+        'content_performance' => [
+            'video_performance' => [],
+            'engagement' => [],
+            'categories' => []
+        ],
+        'engagement' => [
+            'social_interactions' => [],
+            'hourly_activity' => [],
+            'daily_activity' => []
+        ],
+        'realtime' => [
+            'active_users' => 0,
+            'video_views_24h' => 0,
+            'page_views_24h' => 0,
+            'top_pages' => []
+        ]
+    ];
 }
 ?>
 
@@ -81,44 +117,166 @@ try {
     </div>
     <?php endif; ?>
 
+    <!-- Real-time Metrics Banner -->
+    <div class="bg-gradient-to-r from-green-500 to-blue-600 rounded-lg p-6 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold mb-1">Live Metrics</h3>
+                <p class="text-green-100 text-sm">Real-time activity in the last 24 hours</p>
+            </div>
+            <div class="flex space-x-6">
+                <div class="text-center">
+                    <div class="text-2xl font-bold"><?php echo number_format($analytics['realtime']['active_users'] ?? 0); ?></div>
+                    <div class="text-sm opacity-90">Active Users</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold"><?php echo number_format($analytics['realtime']['page_views_24h'] ?? 0); ?></div>
+                    <div class="text-sm opacity-90">Page Views</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold"><?php echo number_format($analytics['realtime']['video_views_24h'] ?? 0); ?></div>
+                    <div class="text-sm opacity-90">Video Views</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Overview Stats -->
-    <?php if (!empty($analytics['data'])): ?>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Page Views -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
+        <!-- Total Users -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div class="flex items-center">
-                <div class="p-2 bg-blue-100 rounded-lg">
-                    <i class="fas fa-eye text-blue-600 text-xl"></i>
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-users text-white text-sm"></i>
+                    </div>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Page Views</p>
-                    <p class="text-2xl font-semibold text-gray-900">
-                        <?php echo number_format($analytics['data']['page_views']['total_views'] ?? 0); ?>
-                    </p>
-                    <p class="text-sm text-gray-500">
-                        <?php echo number_format($analytics['data']['page_views']['unique_visitors'] ?? 0); ?> unique
-                    </p>
+                    <div class="text-sm font-medium text-gray-500">Total Users</div>
+                    <div class="text-2xl font-bold text-gray-900"><?php echo number_format($analytics['overview']['total_users'] ?? 0); ?></div>
+                    <div class="text-xs text-gray-500 mt-1">Last <?php echo $analytics['period_days'] ?? 30; ?> days</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Sessions -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-chart-line text-white text-sm"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-500">Total Sessions</div>
+                    <div class="text-2xl font-bold text-gray-900"><?php echo number_format($analytics['overview']['total_sessions'] ?? 0); ?></div>
+                    <div class="text-xs text-gray-500 mt-1">User visits</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Views -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-eye text-white text-sm"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-500">Page Views</div>
+                    <div class="text-2xl font-bold text-gray-900"><?php echo number_format($analytics['overview']['page_views'] ?? 0); ?></div>
+                    <div class="text-xs text-gray-500 mt-1">Total interactions</div>
                 </div>
             </div>
         </div>
 
         <!-- Video Views -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
             <div class="flex items-center">
-                <div class="p-2 bg-red-100 rounded-lg">
-                    <i class="fas fa-video text-red-600 text-xl"></i>
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-play-circle text-white text-sm"></i>
+                    </div>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Video Views</p>
-                    <p class="text-2xl font-semibold text-gray-900">
-                        <?php echo number_format($analytics['data']['video_views']['total_views'] ?? 0); ?>
-                    </p>
-                    <p class="text-sm text-gray-500">
-                        <?php echo number_format($analytics['data']['video_views']['unique_viewers'] ?? 0); ?> unique
-                    </p>
+                    <div class="text-sm font-medium text-gray-500">Video Views</div>
+                    <div class="text-2xl font-bold text-gray-900"><?php echo number_format($analytics['overview']['video_views'] ?? 0); ?></div>
+                    <div class="text-xs text-gray-500 mt-1">Content consumption</div>
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Additional Metrics Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Average Session Duration -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-indigo-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-clock text-white text-sm"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-500">Avg Session Duration</div>
+                    <div class="text-xl font-bold text-gray-900">
+                        <?php
+                        $duration = $analytics['overview']['avg_session_duration'] ?? 0;
+                        echo gmdate('i:s', round($duration));
+                        ?>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Time spent on site</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Interactions -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-pink-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-heart text-white text-sm"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-500">Social Interactions</div>
+                    <div class="text-xl font-bold text-gray-900">
+                        <?php
+                        $social = $analytics['engagement']['social_interactions'] ?? [];
+                        $total = 0;
+                        foreach ($social as $interaction) {
+                            $total += $interaction['count'] ?? 0;
+                        }
+                        echo number_format($total);
+                        ?>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Comments, reactions, shares</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Content Performance -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-teal-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-trophy text-white text-sm"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-500">Top Content</div>
+                    <div class="text-xl font-bold text-gray-900">
+                        <?php
+                        $topContent = $analytics['overview']['top_content'] ?? [];
+                        echo count($topContent) > 0 ? htmlspecialchars(substr($topContent[0]['video_title'] ?? 'None', 0, 20)) . '...' : 'No data';
+                        ?>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Most viewed content</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
         <!-- Watch Time -->
         <div class="bg-white rounded-lg shadow-sm p-6">

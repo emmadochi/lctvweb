@@ -108,32 +108,115 @@
             /**
              * Search videos
              */
-            service.searchVideos = function(query, category, page, limit) {
+            service.searchVideos = function(query, filters, page, limit) {
                 page = page || 1;
                 limit = limit || 24;
 
                 var params = {
-                    q: query,
-                    page: page,
+                    q: query || '',
+                    offset: (page - 1) * limit,
                     limit: limit
                 };
 
-                if (category) {
-                    params.category = category;
+                // Add filters
+                if (filters) {
+                    if (filters.category_id) params.category_id = filters.category_id;
+                    if (filters.speaker) params.speaker = filters.speaker;
+                    if (filters.date_from) params.date_from = filters.date_from;
+                    if (filters.date_to) params.date_to = filters.date_to;
+                    if (filters.duration_min) params.duration_min = filters.duration_min;
+                    if (filters.duration_max) params.duration_max = filters.duration_max;
+                    if (filters.content_type) params.content_type = filters.content_type;
+                    if (filters.language) params.language = filters.language;
+                    if (filters.tags && filters.tags.length > 0) params.tags = filters.tags;
                 }
 
                 return $http.get(API_BASE + '/search', {
                     params: params
                 }).then(function(response) {
                     var data = unwrap(response);
-                    if (data && data.videos) {
-                        data.videos = normalizeVideoList(data.videos);
-                        return data;
+                    if (data && data.results) {
+                        data.results = normalizeVideoList(data.results);
+                        return {
+                            videos: data.results,
+                            total: data.total || 0,
+                            page: page,
+                            total_pages: data.pagination ? data.pagination.total_pages : 0,
+                            pagination: data.pagination
+                        };
                     }
                     return { videos: [], total: 0, page: 1, total_pages: 0 };
                 }).catch(function(error) {
                     console.error('Error searching videos:', error);
                     return { videos: [], total: 0 };
+                });
+            };
+
+            /**
+             * Get search suggestions
+             */
+            service.getSearchSuggestions = function(query, limit) {
+                return $http.get(API_BASE + '/search/suggestions', {
+                    params: { q: query || '', limit: limit || 10 }
+                }).then(function(response) {
+                    return unwrap(response) || { suggestions: [] };
+                }).catch(function(error) {
+                    console.error('Error getting search suggestions:', error);
+                    return { suggestions: [] };
+                });
+            };
+
+            /**
+             * Get AI-powered recommendations
+             */
+            service.getRecommendations = function(limit, excludeWatched) {
+                return $http.get(API_BASE + '/recommendations', {
+                    params: {
+                        limit: limit || 10,
+                        exclude_watched: excludeWatched !== false
+                    }
+                }).then(function(response) {
+                    var data = unwrap(response);
+                    if (data && data.recommendations) {
+                        data.recommendations = normalizeVideoList(data.recommendations);
+                    }
+                    return data || { recommendations: [] };
+                }).catch(function(error) {
+                    console.error('Error getting recommendations:', error);
+                    return { recommendations: [] };
+                });
+            };
+
+            /**
+             * Get smart playlists
+             */
+            service.getSmartPlaylists = function(limit) {
+                return $http.get(API_BASE + '/playlists/smart', {
+                    params: { limit: limit || 10 }
+                }).then(function(response) {
+                    return unwrap(response) || { playlists: [] };
+                }).catch(function(error) {
+                    console.error('Error getting smart playlists:', error);
+                    return { playlists: [] };
+                });
+            };
+
+            /**
+             * Create smart playlist
+             */
+            service.createSmartPlaylist = function(playlistType, limit) {
+                return $http.post(API_BASE + '/playlists/smart', {
+                    playlist_type: playlistType,
+                    limit: limit || 20
+                }).then(function(response) {
+                    var data = unwrap(response);
+                    if (data && data.playlist && data.playlist.videos) {
+                        data.playlist.videos = normalizeVideoList(data.playlist.videos);
+                    }
+                    return data || { playlist: null };
+                }).catch(function(error) {
+                    console.error('Error creating smart playlist:', error);
+                    return { playlist: null };
                 });
             };
 

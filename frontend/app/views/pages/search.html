@@ -1,13 +1,13 @@
-<!-- Church TV Search Page -->
+<!-- Church TV Enhanced Search Page -->
 <div class="search-page" ng-controller="SearchController as vm">
     <!-- Search Header -->
     <section class="search-header">
         <div class="container">
             <div class="search-header-content">
                 <h1 class="search-title">
-                    <i class="fa fa-search"></i> Search Videos
+                    <i class="fa fa-search"></i> Enhanced Search
                 </h1>
-                <p class="search-subtitle">Find inspiring sermons, worship music, and church content</p>
+                <p class="search-subtitle">Find inspiring content with AI-powered search and recommendations</p>
 
                 <!-- Search Input -->
                 <div class="search-input-container">
@@ -17,7 +17,9 @@
                                    class="form-control search-input"
                                    placeholder="Search for videos, sermons, worship..."
                                    ng-model="vm.query"
-                                   ng-keyup="vm.getSuggestions()"
+                                   ng-keyup="vm.getSuggestions($event)"
+                                   ng-focus="vm.showSuggestions = true"
+                                   ng-blur="vm.hideSuggestions()"
                                    autocomplete="off"
                                    autofocus>
                             <span class="input-group-btn">
@@ -34,23 +36,245 @@
                         </button>
                     </form>
 
-                    <!-- Search Suggestions -->
-                    <div class="search-suggestions" ng-show="vm.showSuggestions && vm.suggestions.length > 0">
-                        <div class="suggestion-item"
-                             ng-repeat="suggestion in vm.suggestions"
-                             ng-click="vm.selectSuggestion(suggestion)">
-                            <i class="fa fa-search"></i>
-                            {{suggestion}}
+                    <!-- Enhanced Search Suggestions -->
+                    <div class="search-suggestions" ng-show="vm.showSuggestions && (vm.suggestions.length > 0 || vm.popularSearches.length > 0)">
+                        <!-- Popular searches when no query -->
+                        <div ng-if="!vm.query && vm.popularSearches.length > 0">
+                            <div class="suggestion-header">Popular Searches</div>
+                            <div class="suggestion-item"
+                                 ng-repeat="search in vm.popularSearches | limitTo: 5"
+                                 ng-click="vm.selectPopularSearch(search)">
+                                <i class="fa fa-fire"></i>
+                                {{search.query}}
+                                <span class="search-count">{{search.search_count}} searches</span>
+                            </div>
+                        </div>
+
+                        <!-- Query-based suggestions -->
+                        <div ng-if="vm.query && vm.suggestions.length > 0">
+                            <div class="suggestion-header">Suggestions</div>
+                            <div class="suggestion-item"
+                                 ng-repeat="suggestion in vm.suggestions | limitTo: 8"
+                                 ng-click="vm.selectSuggestion(suggestion)">
+                                <i class="fa fa-search"></i>
+                                <span ng-if="suggestion.type === 'content'">{{suggestion.suggestion}}</span>
+                                <span ng-if="!suggestion.type">{{suggestion}}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Advanced Search Toggle -->
+                <div class="search-options">
+                    <button type="button"
+                            class="btn btn-link advanced-toggle"
+                            ng-click="vm.toggleAdvancedSearch()">
+                        <i class="fa fa-sliders-h"></i>
+                        {{vm.showAdvanced ? 'Hide' : 'Show'}} Advanced Filters
+                    </button>
+
+                    <!-- Quick Filters -->
+                    <div class="quick-filters" ng-if="!vm.showAdvanced">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                ng-click="vm.setQuickFilter('sermons')"
+                                ng-class="{active: vm.filters.category_id === vm.getCategoryId('sermons')}">
+                            <i class="fa fa-church"></i> Sermons
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                ng-click="vm.setQuickFilter('worship')"
+                                ng-class="{active: vm.filters.category_id === vm.getCategoryId('worship')}">
+                            <i class="fa fa-music"></i> Worship
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                ng-click="vm.setQuickFilter('recent')"
+                                ng-class="{active: vm.filters.date_from === vm.getRecentDate()}">
+                            <i class="fa fa-clock"></i> Recent
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                ng-click="vm.setQuickFilter('short')"
+                                ng-class="{active: vm.filters.duration_max === 300}">
+                            <i class="fa fa-clock"></i> Short (< 5min)
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Search Stats -->
-                <div class="search-stats" ng-if="vm.query && !vm.isLoading">
+                <div class="search-stats" ng-if="vm.query && !vm.isLoading && vm.results.total > 0">
                     <span class="stats-results">{{vm.formatResultCount()}}</span>
                     <span class="stats-query" ng-if="vm.totalResults > 0">
                         for "<strong>{{vm.query}}</strong>"
                     </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advanced Search Filters -->
+    <section class="advanced-filters" ng-show="vm.showAdvanced">
+        <div class="container">
+            <div class="advanced-filters-content">
+                <h3><i class="fa fa-sliders-h"></i> Advanced Search Filters</h3>
+
+                <div class="filters-grid">
+                    <!-- Category Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">Category</label>
+                        <select class="form-control"
+                                ng-model="vm.filters.category_id"
+                                ng-options="category.id as category.name for category in vm.availableFilters.categories"
+                                ng-change="vm.applyFilters()">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+
+                    <!-- Speaker Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">Speaker</label>
+                        <select class="form-control"
+                                ng-model="vm.filters.speaker"
+                                ng-options="speaker as speaker for speaker in vm.availableFilters.speakers"
+                                ng-change="vm.applyFilters()">
+                            <option value="">Any Speaker</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="filter-group">
+                        <label class="filter-label">Date Range</label>
+                        <div class="date-range">
+                            <input type="date" class="form-control"
+                                   ng-model="vm.filters.date_from"
+                                   ng-change="vm.applyFilters()"
+                                   placeholder="From">
+                            <span class="date-separator">to</span>
+                            <input type="date" class="form-control"
+                                   ng-model="vm.filters.date_to"
+                                   ng-change="vm.applyFilters()"
+                                   placeholder="To">
+                        </div>
+                    </div>
+
+                    <!-- Duration Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">Duration</label>
+                        <select class="form-control"
+                                ng-model="vm.filters.duration_range"
+                                ng-change="vm.setDurationRange()">
+                            <option value="">Any Duration</option>
+                            <option value="short">Under 5 minutes</option>
+                            <option value="medium">5-30 minutes</option>
+                            <option value="long">30+ minutes</option>
+                        </select>
+                    </div>
+
+                    <!-- Content Type -->
+                    <div class="filter-group">
+                        <label class="filter-label">Content Type</label>
+                        <select class="form-control"
+                                ng-model="vm.filters.content_type"
+                                ng-options="type.id as type.name for type in vm.availableFilters.content_types"
+                                ng-change="vm.applyFilters()">
+                            <option value="">All Types</option>
+                        </select>
+                    </div>
+
+                    <!-- Language -->
+                    <div class="filter-group">
+                        <label class="filter-label">Language</label>
+                        <select class="form-control"
+                                ng-model="vm.filters.language"
+                                ng-options="lang as lang for lang in vm.availableFilters.languages"
+                                ng-change="vm.applyFilters()">
+                            <option value="">Any Language</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tags Filter -->
+                <div class="filter-group tags-filter">
+                    <label class="filter-label">Tags</label>
+                    <div class="tags-input">
+                        <input type="text" class="form-control"
+                               ng-model="vm.newTag"
+                               ng-keyup="vm.addTag($event)"
+                               placeholder="Add tags...">
+                        <div class="selected-tags">
+                            <span class="tag" ng-repeat="tag in vm.filters.tags">
+                                {{tag}}
+                                <i class="fa fa-times" ng-click="vm.removeTag(tag)"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <button class="btn btn-primary" ng-click="vm.applyFilters()">
+                        <i class="fa fa-search"></i> Apply Filters
+                    </button>
+                    <button class="btn btn-outline-secondary" ng-click="vm.clearFilters()">
+                        <i class="fa fa-times"></i> Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Recommendations Banner -->
+    <section class="ai-recommendations" ng-if="vm.recommendations.length > 0 && !vm.query">
+        <div class="container">
+            <div class="recommendations-header">
+                <h3><i class="fa fa-brain"></i> Recommended for You</h3>
+                <p>AI-powered suggestions based on your viewing history</p>
+            </div>
+
+            <div class="recommendations-grid">
+                <div class="recommendation-card"
+                     ng-repeat="rec in vm.recommendations | limitTo: 6"
+                     ng-click="vm.playVideo(rec)">
+                    <div class="video-thumbnail">
+                        <img ng-src="{{rec.thumbnail_url}}" alt="{{rec.title}}" loading="lazy">
+                        <div class="play-overlay">
+                            <i class="fa fa-play"></i>
+                        </div>
+                        <div class="video-duration">{{vm.formatDuration(rec.duration)}}</div>
+                    </div>
+                    <div class="video-info">
+                        <h4>{{rec.title}}</h4>
+                        <p class="video-meta">
+                            <span ng-if="rec.category_name">{{rec.category_name}}</span>
+                            <span ng-if="rec.view_count">{{rec.view_count | number}} views</span>
+                        </p>
+                        <div class="recommendation-reason">
+                            <i class="fa fa-lightbulb"></i> {{rec.reason}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Smart Playlists -->
+    <section class="smart-playlists" ng-if="vm.smartPlaylists.length > 0">
+        <div class="container">
+            <h3><i class="fa fa-list"></i> Smart Playlists</h3>
+            <div class="playlists-grid">
+                <div class="playlist-card"
+                     ng-repeat="playlist in vm.smartPlaylists"
+                     ng-click="vm.loadSmartPlaylist(playlist)">
+                    <div class="playlist-icon">
+                        <i class="fa" ng-class="playlist.icon"></i>
+                    </div>
+                    <div class="playlist-info">
+                        <h4>{{playlist.title}}</h4>
+                        <p>{{playlist.description}}</p>
+                    </div>
+                    <div class="playlist-action">
+                        <i class="fa fa-chevron-right"></i>
+                    </div>
                 </div>
             </div>
         </div>
@@ -61,31 +285,17 @@
         <div class="container">
             <div class="search-layout">
                 <!-- Filters Sidebar -->
-                <aside class="search-filters">
+                <aside class="search-filters" ng-show="vm.query || vm.getActiveFilterCount() > 0">
                     <div class="filters-header">
-                        <h3>Filters</h3>
+                        <h3>Active Filters</h3>
                         <span class="active-filters" ng-if="vm.getActiveFilterCount() > 0">
                             {{vm.getActiveFilterCount()}} active
                         </span>
                         <button class="btn btn-sm btn-link clear-filters"
-                                ng-click="vm.filters = {category: '', sort: 'relevance', duration: '', date: ''}; vm.applyFilters()"
+                                ng-click="vm.clearFilters()"
                                 ng-if="vm.getActiveFilterCount() > 0">
                             Clear all
                         </button>
-                    </div>
-
-                    <!-- Category Filter -->
-                    <div class="filter-group">
-                        <label class="filter-label">Category</label>
-                        <select class="form-control"
-                                ng-model="vm.filters.category"
-                                ng-change="vm.applyFilters()">
-                            <option value="">All Categories</option>
-                            <option ng-repeat="category in vm.categories"
-                                    value="{{category.slug}}">
-                                {{category.name}}
-                            </option>
-                        </select>
                     </div>
 
                     <!-- Sort Filter -->

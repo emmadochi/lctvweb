@@ -4,8 +4,7 @@
  * Handles analytics data collection and reporting
  */
 
-require_once __DIR__ . '/../models/PageView.php';
-require_once __DIR__ . '/../models/VideoView.php';
+require_once __DIR__ . '/../models/Analytics.php';
 require_once __DIR__ . '/../utils/Auth.php';
 require_once __DIR__ . '/../utils/Response.php';
 
@@ -48,7 +47,7 @@ class AnalyticsController {
                 'session_id' => $data['session_id'],
                 'page_url' => $data['page_url'],
                 'page_title' => $data['page_title'] ?? '',
-                'referrer_url' => $data['referrer_url'] ?? '',
+                'referrer' => $data['referrer_url'] ?? $data['referrer'] ?? '',
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'ip_address' => self::getClientIP(),
                 'country' => $data['country'] ?? null,
@@ -61,7 +60,7 @@ class AnalyticsController {
             ];
 
             // Record page view
-            $success = PageView::record($pageViewData);
+            $success = Analytics::trackPageView($pageViewData);
 
             if ($success) {
                 return Response::success(['message' => 'Page view recorded']);
@@ -120,10 +119,9 @@ class AnalyticsController {
                 'youtube_id' => $data['youtube_id'],
                 'watch_duration' => isset($data['watch_duration']) ? (int)$data['watch_duration'] : 0,
                 'total_duration' => isset($data['total_duration']) ? (int)$data['total_duration'] : 0,
-                'watch_percentage' => isset($data['watch_percentage']) ? (float)$data['watch_percentage'] : 0.0,
                 'quality' => $data['quality'] ?? null,
                 'playback_speed' => isset($data['playback_speed']) ? (float)$data['playback_speed'] : 1.0,
-                'referrer_url' => $data['referrer_url'] ?? '',
+                'referrer' => $data['referrer_url'] ?? '',
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'ip_address' => self::getClientIP(),
                 'device_type' => $deviceInfo['device_type'],
@@ -134,7 +132,7 @@ class AnalyticsController {
             ];
 
             // Record video view
-            $success = VideoView::record($videoViewData);
+            $success = Analytics::trackVideoView($videoViewData);
 
             if ($success) {
                 return Response::success(['message' => 'Video view recorded']);
@@ -158,74 +156,86 @@ class AnalyticsController {
      */
     public static function getDashboard() {
         try {
-            // Allow access for analytics dashboard - admin session is checked at page level
-            // This endpoint is called from admin pages which already validate admin access
+            // Require admin authentication for analytics dashboard
+            Auth::requireAuth();
+            $user = Auth::getUserFromToken();
 
-            $period = $_GET['period'] ?? '30 days';
+            if (!$user || $user['role'] !== 'admin') {
+                return Response::forbidden('Admin access required for analytics dashboard');
+            }
 
-            // Get page view stats
-            $pageStats = PageView::getStats($period);
+            $period = isset($_GET['period']) ? (int)$_GET['period'] : 30;
 
-            // Get video view stats
-            $videoStats = VideoView::getStats($period);
+            // Get comprehensive dashboard overview
+            $overview = Analytics::getDashboardOverview($period);
 
-            // Get views over time (last 30 days)
-            $viewsOverTime = PageView::getViewsOverTime(30);
-            $videoViewsOverTime = VideoView::getViewsOverTime(30);
+            // Get user demographics
+            $demographics = Analytics::getUserDemographics($period);
 
-            // Get real-time data
-            $realtimePageViews = PageView::getRealtimeViews(5);
-            $realtimeVideoViews = VideoView::getRealtimeViews(5);
+            // Get content performance metrics
+            $contentPerformance = Analytics::getContentPerformance($period);
 
-            // Ensure we always return valid data structure even when tables are empty
+            // Get engagement analytics
+            $engagement = Analytics::getEngagementAnalytics($period);
+
+            // Get real-time metrics
+            $realtime = Analytics::getRealtimeMetrics();
+
             $analytics = [
-                'page_views' => $pageStats ?: [
-                    'total_views' => 0,
-                    'unique_visitors' => 0,
-                    'top_pages' => [],
-                    'devices' => [],
-                    'hourly_activity' => []
-                ],
-                'video_views' => $videoStats ?: [
-                    'total_views' => 0,
-                    'unique_viewers' => 0,
-                    'top_videos' => [],
-                    'watch_stats' => [
-                        'total_watch_time' => 0,
-                        'avg_watch_time' => 0,
-                        'avg_completion_rate' => 0
-                    ],
-                    'devices' => []
-                ],
-                'views_over_time' => $viewsOverTime ?: [],
-                'video_views_over_time' => $videoViewsOverTime ?: [],
-                'realtime_page_views' => $realtimePageViews ?: [],
-                'realtime_video_views' => $realtimeVideoViews ?: [],
-                'period' => $period
+                'overview' => $overview,
+                'demographics' => $demographics,
+                'content_performance' => $contentPerformance,
+                'engagement' => $engagement,
+                'realtime' => $realtime,
+                'period_days' => $period
             ];
 
             return Response::success($analytics);
 
         } catch (Exception $e) {
-            return Response::error('Error fetching analytics: ' . $e->getMessage(), 500);
+            error_log("AnalyticsController::getDashboard - Error: " . $e->getMessage());
+            return Response::error('Error fetching analytics dashboard: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * Get video engagement metrics
+     * Get video engagement metrics (legacy endpoint)
      */
     public static function getVideoEngagement() {
         try {
-            // Allow access for analytics dashboard - admin session is checked at page level
+            // Require admin authentication
+            Auth::requireAuth();
+            $user = Auth::getUserFromToken();
+
+            if (!$user || $user['role'] !== 'admin') {
+                return Response::forbidden('Admin access required');
+            }
 
             $videoId = isset($_GET['video_id']) ? (int)$_GET['video_id'] : null;
-            $period = $_GET['period'] ?? '30 days';
+            $period = isset($_GET['period']) ? (int)$_GET['period'] : 30;
 
-            $engagement = VideoView::getEngagementMetrics($videoId, $period);
+            // Get content performance data which includes engagement metrics
+            $contentPerformance = Analytics::getContentPerformance($period);
+
+            if ($videoId) {
+                // Filter for specific video
+                $videoEngagement = array_filter($contentPerformance['video_performance'], function($video) use ($videoId) {
+                    return $video['video_id'] === $videoId;
+                });
+
+                $engagement = [
+                    'video_performance' => $videoEngagement ? array_values($videoEngagement)[0] : null,
+                    'engagement' => $contentPerformance['engagement'],
+                    'period_days' => $period
+                ];
+            } else {
+                $engagement = $contentPerformance;
+            }
 
             return Response::success($engagement);
 
         } catch (Exception $e) {
+            error_log("AnalyticsController::getVideoEngagement - Error: " . $e->getMessage());
             return Response::error('Error fetching engagement metrics: ' . $e->getMessage(), 500);
         }
     }

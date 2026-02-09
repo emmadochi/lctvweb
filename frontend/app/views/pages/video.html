@@ -96,6 +96,227 @@
             </div>
         </section>
 
+        <!-- Reactions Section -->
+        <section class="reactions-section">
+            <div class="container">
+                <div class="reactions-header">
+                    <h3 class="section-title">
+                        <i class="fa fa-heart"></i> Reactions
+                        <span class="reaction-count" ng-if="vm.reactions.total > 0">({{vm.reactions.total}})</span>
+                    </h3>
+                    <div class="reaction-summary" ng-if="vm.reactions.top_reaction">
+                        <span class="top-reaction">
+                            Most reactions: {{vm.reactions.top_reaction.emoji}} {{vm.reactions.top_reaction.count}}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="reactions-container">
+                    <!-- User's Reaction -->
+                    <div class="user-reaction" ng-if="vm.userReaction">
+                        <div class="current-reaction">
+                            <span class="reaction-badge">
+                                {{vm.userReaction.emoji}} {{vm.userReaction.type}}
+                            </span>
+                            <button class="btn btn-sm btn-outline-danger" ng-click="vm.removeReaction()">
+                                <i class="fa fa-times"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Reaction Buttons -->
+                    <div class="reaction-buttons" ng-if="!vm.userReaction">
+                        <button type="button"
+                                class="reaction-btn"
+                                ng-repeat="reaction in vm.reactionTypes"
+                                ng-click="vm.addReaction(reaction.type)"
+                                ng-disabled="!vm.canReact"
+                                title="{{reaction.name}}">
+                            <span class="reaction-emoji">{{reaction.emoji}}</span>
+                            <span class="reaction-name">{{reaction.name}}</span>
+                            <span class="reaction-count" ng-if="vm.reactions.reactions[reaction.type]">
+                                {{vm.reactions.reactions[reaction.type].count}}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Reaction Stats -->
+                    <div class="reaction-stats" ng-if="vm.reactions.total > 0">
+                        <div class="reaction-breakdown">
+                            <div class="reaction-stat" ng-repeat="(type, reaction) in vm.reactions.reactions">
+                                <span class="stat-emoji">{{reaction.emoji}}</span>
+                                <span class="stat-count">{{reaction.count}}</span>
+                                <span class="stat-type">{{type}}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Login Prompt -->
+                    <div class="reaction-login-prompt" ng-if="!vm.canReact">
+                        <i class="fa fa-sign-in"></i>
+                        <span><a href="#/login">Sign in</a> to react to this video</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Comments Section -->
+        <section class="comments-section">
+            <div class="container">
+                <div class="comments-header">
+                    <h3 class="section-title">
+                        <i class="fa fa-comments"></i> Comments
+                        <span class="comment-count" ng-if="vm.comments.total > 0">({{vm.comments.total}})</span>
+                    </h3>
+                </div>
+
+                <!-- Add Comment Form -->
+                <div class="add-comment" ng-if="vm.canComment">
+                    <div class="comment-form">
+                        <div class="user-avatar">
+                            <i class="fa fa-user-circle fa-2x"></i>
+                        </div>
+                        <div class="comment-input-container">
+                            <textarea class="comment-input"
+                                      ng-model="vm.newComment"
+                                      placeholder="Share your thoughts about this video..."
+                                      maxlength="1000"
+                                      rows="3"></textarea>
+                            <div class="comment-actions">
+                                <span class="character-count">{{vm.newComment.length || 0}}/1000</span>
+                                <button type="button"
+                                        class="btn btn-primary btn-sm"
+                                        ng-click="vm.postComment()"
+                                        ng-disabled="!vm.newComment || vm.newComment.trim().length < 2 || vm.postingComment">
+                                    <i class="fa fa-paper-plane"></i>
+                                    {{vm.postingComment ? 'Posting...' : 'Post Comment'}}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Login to Comment -->
+                <div class="comment-login-prompt" ng-if="!vm.canComment">
+                    <i class="fa fa-sign-in"></i>
+                    <span><a href="#/login">Sign in</a> to join the conversation</span>
+                </div>
+
+                <!-- Comments List -->
+                <div class="comments-list" ng-if="vm.comments.comments.length > 0">
+                    <div class="comment-thread"
+                         ng-repeat="comment in vm.comments.comments track by $index">
+
+                        <!-- Main Comment -->
+                        <div class="comment-item">
+                            <div class="comment-avatar">
+                                <i class="fa fa-user-circle"></i>
+                            </div>
+                            <div class="comment-content">
+                                <div class="comment-header">
+                                    <span class="comment-author">{{comment.user.name}}</span>
+                                    <span class="comment-date">{{vm.formatCommentDate(comment.created_at)}}</span>
+                                </div>
+                                <div class="comment-text">{{comment.content}}</div>
+                                <div class="comment-actions">
+                                    <button type="button" class="btn-reply" ng-click="vm.toggleReply($index)">
+                                        <i class="fa fa-reply"></i> Reply
+                                    </button>
+                                    <button type="button"
+                                            class="btn-edit"
+                                            ng-if="vm.canEditComment(comment)"
+                                            ng-click="vm.editComment(comment)">
+                                        <i class="fa fa-edit"></i> Edit
+                                    </button>
+                                    <button type="button"
+                                            class="btn-delete"
+                                            ng-if="vm.canDeleteComment(comment)"
+                                            ng-click="vm.deleteComment(comment.id)">
+                                        <i class="fa fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reply Form -->
+                        <div class="reply-form" ng-show="vm.showReply === $index && vm.canComment">
+                            <div class="comment-form reply-comment-form">
+                                <div class="user-avatar">
+                                    <i class="fa fa-user-circle"></i>
+                                </div>
+                                <div class="comment-input-container">
+                                    <textarea class="comment-input"
+                                              ng-model="vm.replyText"
+                                              placeholder="Write a reply..."
+                                              maxlength="1000"
+                                              rows="2"></textarea>
+                                    <div class="comment-actions">
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm"
+                                                ng-click="vm.cancelReply()">
+                                            Cancel
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm"
+                                                ng-click="vm.postReply(comment.id)"
+                                                ng-disabled="!vm.replyText || vm.replyText.trim().length < 2">
+                                            <i class="fa fa-paper-plane"></i> Reply
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Replies -->
+                        <div class="comment-replies" ng-if="comment.replies && comment.replies.length > 0">
+                            <div class="comment-reply" ng-repeat="reply in comment.replies track by $index">
+                                <div class="comment-avatar">
+                                    <i class="fa fa-user-circle"></i>
+                                </div>
+                                <div class="comment-content">
+                                    <div class="comment-header">
+                                        <span class="comment-author">{{reply.user.name}}</span>
+                                        <span class="comment-date">{{vm.formatCommentDate(reply.created_at)}}</span>
+                                    </div>
+                                    <div class="comment-text">{{reply.content}}</div>
+                                    <div class="comment-actions">
+                                        <button type="button"
+                                                class="btn-delete"
+                                                ng-if="vm.canDeleteComment(reply)"
+                                                ng-click="vm.deleteComment(reply.id)">
+                                            <i class="fa fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Load More Comments -->
+                    <div class="load-more-comments" ng-if="vm.comments.page < vm.comments.total_pages">
+                        <button type="button"
+                                class="btn btn-outline-primary"
+                                ng-click="vm.loadMoreComments()">
+                            <i class="fa fa-chevron-down"></i> Load More Comments
+                        </button>
+                    </div>
+                </div>
+
+                <!-- No Comments -->
+                <div class="no-comments" ng-if="vm.comments.comments.length === 0 && !vm.loadingComments">
+                    <i class="fa fa-comments fa-3x text-muted"></i>
+                    <h4>No comments yet</h4>
+                    <p>Be the first to share your thoughts about this video!</p>
+                </div>
+
+                <!-- Loading Comments -->
+                <div class="loading-comments" ng-if="vm.loadingComments">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    <p>Loading comments...</p>
+                </div>
+            </div>
+        </section>
+
         <!-- Related Videos Section -->
         <section class="related-videos-section">
             <h2 class="section-title">Related Videos</h2>
@@ -526,6 +747,456 @@
     .btn-action {
         padding: 6px 10px;
         font-size: 13px;
+    }
+}
+
+/* ===== REACTIONS SECTION STYLES ===== */
+.reactions-section {
+    padding: 40px 0;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.reactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.reactions-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.5rem;
+}
+
+.reaction-count {
+    background: #6a0dad;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    margin-left: 10px;
+}
+
+.reaction-summary {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.top-reaction {
+    background: rgba(106, 13, 173, 0.1);
+    padding: 4px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(106, 13, 173, 0.2);
+}
+
+.reactions-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* User Reaction */
+.user-reaction {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.current-reaction {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.reaction-badge {
+    background: linear-gradient(135deg, #6a0dad, #8b5cf6);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Reaction Buttons */
+.reaction-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.reaction-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.reaction-btn:hover:not(:disabled) {
+    border-color: #6a0dad;
+    background: rgba(106, 13, 173, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(106, 13, 173, 0.2);
+}
+
+.reaction-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.reaction-emoji {
+    font-size: 1.2rem;
+}
+
+.reaction-name {
+    font-weight: 500;
+}
+
+.reaction-btn .reaction-count {
+    background: #e9ecef;
+    color: #666;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Reaction Stats */
+.reaction-stats {
+    margin-top: 20px;
+}
+
+.reaction-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.reaction-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8f9fa;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.stat-emoji {
+    font-size: 1rem;
+}
+
+.stat-count {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Login Prompt */
+.reaction-login-prompt,
+.comment-login-prompt {
+    text-align: center;
+    padding: 30px 20px;
+    color: #6c757d;
+}
+
+.reaction-login-prompt i,
+.comment-login-prompt i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    opacity: 0.7;
+}
+
+/* ===== COMMENTS SECTION STYLES ===== */
+.comments-section {
+    padding: 40px 0;
+    background: white;
+}
+
+.comments-header h3 {
+    margin: 0 0 20px 0;
+    color: #2c3e50;
+    font-size: 1.5rem;
+}
+
+.comment-count {
+    background: #17a2b8;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    margin-left: 10px;
+}
+
+/* Add Comment Form */
+.add-comment {
+    margin-bottom: 30px;
+}
+
+.comment-form {
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+}
+
+.user-avatar {
+    color: #6a0dad;
+    flex-shrink: 0;
+}
+
+.comment-input-container {
+    flex: 1;
+}
+
+.comment-input {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    transition: border-color 0.3s ease;
+}
+
+.comment-input:focus {
+    outline: none;
+    border-color: #6a0dad;
+    box-shadow: 0 0 0 3px rgba(106, 13, 173, 0.1);
+}
+
+.comment-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.character-count {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Comments List */
+.comments-list {
+    margin-top: 30px;
+}
+
+.comment-thread {
+    margin-bottom: 30px;
+}
+
+.comment-item {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.comment-avatar {
+    color: #6a0dad;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.comment-content {
+    flex: 1;
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.comment-date {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.comment-text {
+    color: #495057;
+    line-height: 1.5;
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 15px;
+}
+
+.btn-reply,
+.btn-edit,
+.btn-delete {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-reply:hover,
+.btn-edit:hover {
+    color: #6a0dad;
+    background: rgba(106, 13, 173, 0.1);
+}
+
+.btn-delete:hover {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+/* Reply Form */
+.reply-form {
+    margin-left: 45px;
+    margin-top: 15px;
+}
+
+.reply-comment-form {
+    border-left: 2px solid #e9ecef;
+    padding-left: 20px;
+}
+
+/* Comment Replies */
+.comment-replies {
+    margin-left: 45px;
+    margin-top: 15px;
+}
+
+.comment-reply {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+    opacity: 0.9;
+}
+
+.comment-reply .comment-content {
+    font-size: 0.9rem;
+}
+
+/* Load More */
+.load-more-comments {
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* No Comments */
+.no-comments {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.no-comments i {
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.no-comments h4 {
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+/* Loading Comments */
+.loading-comments {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.loading-comments i {
+    margin-bottom: 15px;
+}
+
+/* ===== RESPONSIVE DESIGN FOR SOCIAL FEATURES ===== */
+@media (max-width: 768px) {
+    .reactions-header,
+    .comments-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .reaction-buttons {
+        justify-content: center;
+    }
+
+    .reaction-breakdown {
+        justify-content: center;
+    }
+
+    .comment-form {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .comment-item,
+    .comment-reply {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .comment-replies,
+    .reply-form {
+        margin-left: 20px;
+    }
+
+    .comment-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .reactions-section,
+    .comments-section {
+        padding: 30px 0;
+    }
+
+    .reaction-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .reaction-btn {
+        justify-content: center;
+        padding: 12px 16px;
+    }
+
+    .comment-input {
+        min-height: 100px;
+    }
+
+    .comment-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
     }
 }
 </style>

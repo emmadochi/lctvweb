@@ -7,8 +7,8 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .controller('VideoController', ['$scope', '$routeParams', '$location', '$timeout', 'VideoService', 'UserService',
-            function($scope, $routeParams, $location, $timeout, VideoService, UserService) {
+        .controller('VideoController', ['$scope', '$routeParams', '$location', '$timeout', 'VideoService', 'UserService', 'AuthService', 'CommentService', 'ReactionService',
+            function($scope, $routeParams, $location, $timeout, VideoService, UserService, AuthService, CommentService, ReactionService) {
 
             var vm = this;
 
@@ -21,6 +21,20 @@
             vm.likeCount = 0;
             vm.watchProgress = 0;
             vm.favoriteIds = {};
+
+            // Social features properties
+            vm.reactions = { total: 0, reactions: {}, top_reaction: null };
+            vm.userReaction = null;
+            vm.reactionTypes = [];
+            vm.canReact = false;
+
+            vm.comments = { comments: [], total: 0, page: 1, total_pages: 0 };
+            vm.loadingComments = false;
+            vm.canComment = false;
+            vm.newComment = '';
+            vm.postingComment = false;
+            vm.showReply = null;
+            vm.replyText = '';
 
             // Initialize controller
             init();
@@ -36,6 +50,7 @@
                 loadVideo(videoId);
                 loadRelatedVideos(videoId);
                 loadFavorites();
+                initializeSocialFeatures(videoId);
 
                 // Set page title
                 $scope.$root.setPageTitle('Loading...');
@@ -441,6 +456,255 @@
                 return (num < 10 ? '0' : '') + num;
             }
 
+
+            /**
+             * Initialize social features
+             */
+            function initializeSocialFeatures(videoId) {
+                // Check if user can interact
+                vm.canReact = ReactionService.canReact(videoId);
+                vm.canComment = !!AuthService.isAuthenticated();
+
+                // Load reactions
+                loadReactions(videoId);
+
+                // Load reaction types
+                ReactionService.getReactionTypes().then(function(data) {
+                    vm.reactionTypes = data.types;
+                });
+
+                // Load comments
+                loadComments(videoId, 1);
+            }
+
+            /**
+             * Load reactions for the video
+             */
+            function loadReactions(videoId) {
+                ReactionService.getReactionsByVideo(videoId).then(function(reactions) {
+                    vm.reactions = reactions;
+                });
+
+                if (vm.canReact) {
+                    ReactionService.getUserReaction(videoId).then(function(userReaction) {
+                        vm.userReaction = userReaction.reaction;
+                    });
+                }
+            }
+
+            /**
+             * Load comments for the video
+             */
+            function loadComments(videoId, page) {
+                vm.loadingComments = true;
+                CommentService.getCommentsByVideo(videoId, page, 10).then(function(comments) {
+                    if (page === 1) {
+                        vm.comments = comments;
+                    } else {
+                        // Append to existing comments
+                        vm.comments.comments = vm.comments.comments.concat(comments.comments);
+                        vm.comments.page = comments.page;
+                        vm.comments.total_pages = comments.total_pages;
+                    }
+                    vm.loadingComments = false;
+                }).catch(function(error) {
+                    console.error('Error loading comments:', error);
+                    vm.loadingComments = false;
+                });
+            }
+
+            /**
+             * Add a reaction
+             */
+            vm.addReaction = function(reactionType) {
+                if (!vm.canReact) return;
+
+                ReactionService.react(vm.video.id, reactionType).then(function(result) {
+                    vm.reactions = result.stats;
+                    vm.userReaction = {
+                        type: result.reaction_type,
+                        emoji: result.emoji
+                    };
+
+                    $scope.$root.showToast('Reaction added!', 'success');
+                }).catch(function(error) {
+                    $scope.$root.showToast('Failed to add reaction', 'error');
+                });
+            };
+
+            /**
+             * Remove user's reaction
+             */
+            vm.removeReaction = function() {
+                if (!vm.canReact || !vm.userReaction) return;
+
+                ReactionService.removeReaction(vm.video.id).then(function(result) {
+                    vm.reactions = result.stats;
+                    vm.userReaction = null;
+
+                    $scope.$root.showToast('Reaction removed', 'info');
+                }).catch(function(error) {
+                    $scope.$root.showToast('Failed to remove reaction', 'error');
+                });
+            };
+
+            /**
+             * Post a new comment
+             */
+            vm.postComment = function() {
+                if (!vm.canComment || !vm.newComment || vm.newComment.trim().length < 2) return;
+
+                var validation = CommentService.validateComment(vm.newComment);
+                if (!validation.valid) {
+                    $scope.$root.showToast(validation.error, 'warning');
+                    return;
+                }
+
+                vm.postingComment = true;
+
+                CommentService.createComment(vm.video.id, vm.newComment).then(function(comment) {
+                    // Add to comments list
+                    vm.comments.comments.unshift(comment);
+                    vm.comments.total++;
+                    vm.newComment = '';
+
+                    $scope.$root.showToast('Comment posted!', 'success');
+                }).catch(function(error) {
+                    $scope.$root.showToast('Failed to post comment', 'error');
+                }).finally(function() {
+                    vm.postingComment = false;
+                });
+            };
+
+            /**
+             * Toggle reply form
+             */
+            vm.toggleReply = function(index) {
+                vm.showReply = vm.showReply === index ? null : index;
+                vm.replyText = '';
+            };
+
+            /**
+             * Cancel reply
+             */
+            vm.cancelReply = function() {
+                vm.showReply = null;
+                vm.replyText = '';
+            };
+
+            /**
+             * Post a reply to a comment
+             */
+            vm.postReply = function(parentId) {
+                if (!vm.canComment || !vm.replyText || vm.replyText.trim().length < 2) return;
+
+                var validation = CommentService.validateComment(vm.replyText);
+                if (!validation.valid) {
+                    $scope.$root.showToast(validation.error, 'warning');
+                    return;
+                }
+
+                CommentService.createComment(vm.video.id, vm.replyText, parentId).then(function(reply) {
+                    // Find parent comment and add reply
+                    var parentIndex = vm.comments.comments.findIndex(function(c) {
+                        return c.id === parentId;
+                    });
+
+                    if (parentIndex !== -1) {
+                        if (!vm.comments.comments[parentIndex].replies) {
+                            vm.comments.comments[parentIndex].replies = [];
+                        }
+                        vm.comments.comments[parentIndex].replies.push(reply);
+                    }
+
+                    vm.cancelReply();
+                    $scope.$root.showToast('Reply posted!', 'success');
+                }).catch(function(error) {
+                    $scope.$root.showToast('Failed to post reply', 'error');
+                });
+            };
+
+            /**
+             * Edit a comment
+             */
+            vm.editComment = function(comment) {
+                var newContent = prompt('Edit your comment:', comment.content);
+                if (newContent && newContent !== comment.content) {
+                    var validation = CommentService.validateComment(newContent);
+                    if (!validation.valid) {
+                        $scope.$root.showToast(validation.error, 'warning');
+                        return;
+                    }
+
+                    CommentService.updateComment(comment.id, newContent).then(function(updatedComment) {
+                        comment.content = updatedComment.content;
+                        $scope.$root.showToast('Comment updated!', 'success');
+                    }).catch(function(error) {
+                        $scope.$root.showToast('Failed to update comment', 'error');
+                    });
+                }
+            };
+
+            /**
+             * Delete a comment
+             */
+            vm.deleteComment = function(commentId) {
+                if (!confirm('Are you sure you want to delete this comment?')) return;
+
+                CommentService.deleteComment(commentId, vm.video.id).then(function() {
+                    // Remove from comments list
+                    vm.comments.comments = vm.comments.comments.filter(function(c) {
+                        return c.id !== commentId;
+                    });
+                    vm.comments.total--;
+
+                    $scope.$root.showToast('Comment deleted', 'info');
+                }).catch(function(error) {
+                    $scope.$root.showToast('Failed to delete comment', 'error');
+                });
+            };
+
+            /**
+             * Check if user can edit a comment
+             */
+            vm.canEditComment = function(comment) {
+                return vm.canComment && comment.user_id === getCurrentUserId();
+            };
+
+            /**
+             * Check if user can delete a comment
+             */
+            vm.canDeleteComment = function(comment) {
+                return vm.canComment && comment.user_id === getCurrentUserId();
+            };
+
+            /**
+             * Load more comments
+             */
+            vm.loadMoreComments = function() {
+                if (vm.comments.page < vm.comments.total_pages) {
+                    loadComments(vm.video.id, vm.comments.page + 1);
+                }
+            };
+
+            /**
+             * Format comment date
+             */
+            vm.formatCommentDate = function(dateString) {
+                return CommentService.formatCommentDate(dateString);
+            };
+
+            /**
+             * Get current user ID
+             */
+            function getCurrentUserId() {
+                try {
+                    var user = JSON.parse(localStorage.getItem('churchtv_user'));
+                    return user ? user.id : null;
+                } catch (e) {
+                    return null;
+                }
+            }
 
             // Cleanup on destroy
             $scope.$on('$destroy', function() {

@@ -7,8 +7,8 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .controller('ProfileController', ['$scope', '$location', 'AuthService', '$timeout',
-            function($scope, $location, AuthService, $timeout) {
+        .controller('ProfileController', ['$scope', '$location', 'AuthService', 'PushService', 'OfflineStorageService', '$timeout',
+            function($scope, $location, AuthService, PushService, OfflineStorageService, $timeout) {
 
             var vm = this;
 
@@ -19,6 +19,20 @@
             vm.successMessage = '';
             vm.errorMessage = '';
             vm.profileForm = {};
+
+            // Push notification properties
+            vm.pushStatus = null;
+            vm.pushPreferences = null;
+            vm.isInstalled = false;
+
+            // Offline storage properties
+            vm.storageStats = null;
+            vm.offlineVideos = [];
+            vm.downloadSettings = {
+                autoDownload: false,
+                wifiOnly: true,
+                quality: '720p'
+            };
 
             // Profile data
             vm.profileData = {
@@ -44,6 +58,9 @@
                 }
 
                 loadProfile();
+                initializePushNotifications();
+                checkPWAInstallStatus();
+                initializeOfflineStorage();
             }
 
             /**
@@ -184,6 +201,261 @@
             vm.logout = function() {
                 AuthService.logout();
                 $location.path('/');
+            };
+
+            /**
+             * Initialize offline storage
+             */
+            function initializeOfflineStorage() {
+                // Load download settings
+                vm.downloadSettings = getDownloadSettings();
+
+                // Load offline videos
+                loadOfflineVideos();
+
+                // Load storage stats
+                loadStorageStats();
+            }
+
+            /**
+             * Load offline videos
+             */
+            function loadOfflineVideos() {
+                OfflineStorageService.getAllOfflineVideos()
+                    .then(function(videos) {
+                        vm.offlineVideos = videos;
+                    })
+                    .catch(function(error) {
+                        console.error('Error loading offline videos:', error);
+                        vm.offlineVideos = [];
+                    });
+            }
+
+            /**
+             * Load storage statistics
+             */
+            function loadStorageStats() {
+                OfflineStorageService.getStorageStats()
+                    .then(function(stats) {
+                        vm.storageStats = stats;
+                    })
+                    .catch(function(error) {
+                        console.error('Error loading storage stats:', error);
+                    });
+            }
+
+            /**
+             * Get download settings from localStorage
+             */
+            function getDownloadSettings() {
+                try {
+                    var settings = localStorage.getItem('lcmtv_download_settings');
+                    return settings ? JSON.parse(settings) : vm.downloadSettings;
+                } catch (error) {
+                    console.error('Error loading download settings:', error);
+                    return vm.downloadSettings;
+                }
+            }
+
+            /**
+             * Update download settings
+             */
+            vm.updateDownloadSettings = function() {
+                try {
+                    localStorage.setItem('lcmtv_download_settings', JSON.stringify(vm.downloadSettings));
+                    vm.showSuccessMessage('Download settings updated!');
+                } catch (error) {
+                    vm.showErrorMessage('Failed to save download settings.');
+                    console.error('Error saving download settings:', error);
+                }
+            };
+
+            /**
+             * Play offline video
+             */
+            vm.playOfflineVideo = function(videoId) {
+                // Navigate to video player with offline flag
+                $location.path('/video/' + videoId).search({ offline: true });
+            };
+
+            /**
+             * Remove offline video
+             */
+            vm.removeOfflineVideo = function(videoId) {
+                if (confirm('Are you sure you want to remove this video from offline storage?')) {
+                    OfflineStorageService.removeOfflineVideo(videoId)
+                        .then(function() {
+                            vm.showSuccessMessage('Video removed from offline storage.');
+                            loadOfflineVideos(); // Refresh the list
+                            loadStorageStats(); // Update storage stats
+                        })
+                        .catch(function(error) {
+                            vm.showErrorMessage('Failed to remove video from offline storage.');
+                            console.error('Error removing offline video:', error);
+                        });
+                }
+            };
+
+            /**
+             * Clear all downloads
+             */
+            vm.clearAllDownloads = function() {
+                if (confirm('Are you sure you want to remove ALL downloaded content? This action cannot be undone.')) {
+                    OfflineStorageService.clearAllOfflineData()
+                        .then(function() {
+                            vm.showSuccessMessage('All offline content cleared.');
+                            vm.offlineVideos = [];
+                            loadStorageStats(); // Update storage stats
+                        })
+                        .catch(function(error) {
+                            vm.showErrorMessage('Failed to clear offline content.');
+                            console.error('Error clearing offline data:', error);
+                        });
+                }
+            };
+
+            /**
+             * Format bytes utility
+             */
+            vm.formatBytes = function(bytes) {
+                if (!bytes || bytes === 0) return '0 B';
+                var k = 1024;
+                var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                var i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            };
+
+            /**
+             * Initialize push notifications
+             */
+            function initializePushNotifications() {
+                // Check push notification support and status
+                PushService.getSubscriptionStatus()
+                    .then(function(status) {
+                        vm.pushStatus = status;
+                    })
+                    .catch(function(error) {
+                        console.error('Error checking push status:', error);
+                        vm.pushStatus = { supported: false, subscribed: false };
+                    });
+
+                // Load notification preferences
+                vm.pushPreferences = PushService.getPreferences();
+            }
+
+            /**
+             * Check if PWA is installed
+             */
+            function checkPWAInstallStatus() {
+                // Check if running in standalone mode (installed PWA)
+                vm.isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
+                                window.navigator.standalone === true ||
+                                document.referrer.includes('android-app://');
+            }
+
+            /**
+             * Request notification permission
+             */
+            vm.requestNotificationPermission = function() {
+                PushService.requestPermission()
+                    .then(function() {
+                        vm.showSuccessMessage('Notification permission granted!');
+                        initializePushNotifications(); // Refresh status
+                    })
+                    .catch(function(error) {
+                        vm.showErrorMessage('Notification permission was denied. You can enable it in your browser settings.');
+                        console.error('Permission request failed:', error);
+                    });
+            };
+
+            /**
+             * Subscribe to push notifications
+             */
+            vm.subscribeToNotifications = function() {
+                vm.isLoading = true;
+
+                PushService.subscribe()
+                    .then(function() {
+                        vm.showSuccessMessage('Successfully subscribed to notifications!');
+                        initializePushNotifications(); // Refresh status
+                    })
+                    .catch(function(error) {
+                        vm.showErrorMessage('Failed to subscribe to notifications. Please try again.');
+                        console.error('Subscription failed:', error);
+                    })
+                    .finally(function() {
+                        vm.isLoading = false;
+                    });
+            };
+
+            /**
+             * Unsubscribe from push notifications
+             */
+            vm.unsubscribeFromNotifications = function() {
+                vm.isLoading = true;
+
+                PushService.unsubscribe()
+                    .then(function() {
+                        vm.showSuccessMessage('Successfully unsubscribed from notifications.');
+                        initializePushNotifications(); // Refresh status
+                    })
+                    .catch(function(error) {
+                        vm.showErrorMessage('Failed to unsubscribe from notifications. Please try again.');
+                        console.error('Unsubscription failed:', error);
+                    })
+                    .finally(function() {
+                        vm.isLoading = false;
+                    });
+            };
+
+            /**
+             * Update notification preferences
+             */
+            vm.updateNotificationPreferences = function() {
+                PushService.updatePreferences(vm.pushPreferences)
+                    .then(function() {
+                        vm.showSuccessMessage('Notification preferences updated successfully!');
+                    })
+                    .catch(function(error) {
+                        vm.showErrorMessage('Failed to update preferences, but they were saved locally.');
+                        console.error('Preference update failed:', error);
+                    });
+            };
+
+            /**
+             * Send test notification
+             */
+            vm.testNotification = function() {
+                PushService.sendTestNotification()
+                    .then(function() {
+                        vm.showSuccessMessage('Test notification sent! Check your notifications.');
+                    })
+                    .catch(function(error) {
+                        vm.showErrorMessage('Failed to send test notification.');
+                        console.error('Test notification failed:', error);
+                    });
+            };
+
+            /**
+             * Show success message
+             */
+            vm.showSuccessMessage = function(message) {
+                vm.successMessage = message;
+                vm.errorMessage = '';
+                $timeout(function() {
+                    vm.successMessage = '';
+                }, 5000);
+            };
+
+            /**
+             * Show error message
+             */
+            vm.showErrorMessage = function(message) {
+                vm.errorMessage = message;
+                vm.successMessage = '';
+                $timeout(function() {
+                    vm.errorMessage = '';
+                }, 5000);
             };
 
             // Expose controller to scope

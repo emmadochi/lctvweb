@@ -27,6 +27,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../utils/Response.php';
 require_once __DIR__ . '/../utils/Auth.php';
 require_once __DIR__ . '/../controllers/AnalyticsController.php'; // Added for direct access to static methods
+require_once __DIR__ . '/../controllers/SearchController.php'; // Added for search functionality
 
 // Enable error logging but don't display errors (they break JSON responses)
 ini_set('display_errors', 0);
@@ -181,6 +182,18 @@ try {
             handleLivestreamRoutes($controller, $method);
             break;
 
+        case '/comments':
+            require_once '../controllers/CommentController.php';
+            $controller = new CommentController();
+            handleCommentRoutes($controller, $method, $path);
+            break;
+
+        case '/reactions':
+            require_once '../controllers/ReactionController.php';
+            $controller = new ReactionController();
+            handleReactionRoutes($controller, $method, $path);
+            break;
+
         case (preg_match('/^\/users\/profile$/', $path) ? true : false):
             require_once '../controllers/UserController.php';
             $controller = new UserController();
@@ -283,6 +296,63 @@ try {
             require_once '../controllers/AnalyticsController.php';
             if ($method === 'GET') {
                 AnalyticsController::getDashboard();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        // Search endpoints
+        case '/search':
+            require_once '../controllers/SearchController.php';
+            if ($method === 'GET') {
+                SearchController::search();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/search/suggestions':
+            require_once '../controllers/SearchController.php';
+            if ($method === 'GET') {
+                SearchController::suggestions();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/search/advanced':
+            require_once '../controllers/SearchController.php';
+            if ($method === 'GET') {
+                SearchController::advancedSearch();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/search/popular':
+            require_once '../controllers/SearchController.php';
+            if ($method === 'GET') {
+                SearchController::popularSearches();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/recommendations':
+            require_once '../controllers/SearchController.php';
+            if ($method === 'GET') {
+                SearchController::recommendations();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/playlists/smart':
+            require_once '../controllers/SearchController.php';
+            if ($method === 'GET') {
+                SearchController::getSmartPlaylists();
+            } elseif ($method === 'POST') {
+                SearchController::createSmartPlaylist();
             } else {
                 Response::methodNotAllowed();
             }
@@ -710,5 +780,148 @@ function handleAISearchRoutes($controller, $method) {
     } else {
             Response::methodNotAllowed();
     }
+}
+
+function handleCommentRoutes($controller, $method, $path) {
+    // Extract video ID from path: /comments/video/{id}
+    if (preg_match('/^\/comments\/video\/(\d+)$/', $path, $matches)) {
+        $videoId = $matches[1];
+
+        switch ($method) {
+            case 'GET':
+                $controller->getByVideo($videoId);
+                break;
+            case 'POST':
+                $controller->create();
+                break;
+            default:
+                Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Extract comment ID from path: /comments/{id}
+    if (preg_match('/^\/comments\/(\d+)$/', $path, $matches)) {
+        $commentId = $matches[1];
+
+        switch ($method) {
+            case 'GET':
+                $controller->show($commentId);
+                break;
+            case 'PUT':
+                $controller->update($commentId);
+                break;
+            case 'DELETE':
+                $controller->delete($commentId);
+                break;
+            default:
+                Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Admin moderation routes
+    if (preg_match('/^\/comments\/moderation$/', $path)) {
+        if ($method === 'GET') {
+            $controller->getForModeration();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Admin moderation by ID
+    if (preg_match('/^\/comments\/(\d+)\/(approve|reject)$/', $path, $matches)) {
+        $commentId = $matches[1];
+        $action = $matches[2];
+
+        if ($method === 'POST') {
+            if ($action === 'approve') {
+                $controller->approve($commentId);
+            } elseif ($action === 'reject') {
+                $controller->reject($commentId);
+            }
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Default comments endpoint
+    switch ($method) {
+        case 'GET':
+            // Could return recent comments or require video ID
+            Response::badRequest('Video ID required for comments');
+            break;
+        default:
+            Response::methodNotAllowed();
+    }
+}
+
+function handleReactionRoutes($controller, $method, $path) {
+    // Extract video ID from path: /reactions/video/{id}
+    if (preg_match('/^\/reactions\/video\/(\d+)$/', $path, $matches)) {
+        $videoId = $matches[1];
+
+        switch ($method) {
+            case 'GET':
+                $controller->getByVideo($videoId);
+                break;
+            case 'POST':
+                $controller->react($videoId);
+                break;
+            case 'DELETE':
+                $controller->removeReaction($videoId);
+                break;
+            default:
+                Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Get user's reaction for a video: /reactions/video/{id}/user
+    if (preg_match('/^\/reactions\/video\/(\d+)\/user$/', $path, $matches)) {
+        $videoId = $matches[1];
+
+        if ($method === 'GET') {
+            $controller->getUserReaction($videoId);
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Bulk stats endpoint
+    if (preg_match('/^\/reactions\/bulk$/', $path)) {
+        if ($method === 'POST') {
+            $controller->getBulkStats();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Reaction types endpoint
+    if (preg_match('/^\/reactions\/types$/', $path)) {
+        if ($method === 'GET') {
+            $controller->getReactionTypes();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Leaderboard endpoint
+    if (preg_match('/^\/reactions\/leaderboard$/', $path)) {
+        if ($method === 'GET') {
+            $controller->getLeaderboard();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Default reactions endpoint
+    Response::badRequest('Invalid reaction endpoint');
 }
 ?>

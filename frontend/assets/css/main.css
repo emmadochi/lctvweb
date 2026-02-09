@@ -674,3 +674,37 @@ body {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
 }
+
+/* ===== PWA ANIMATIONS ===== */
+@keyframes slideUpPrompt {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideDownPrompt {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+    .hero-section,
+    .slider-nav,
+    .slider-progress,
+    .update-notification,
+    #install-prompt {
+        display: none !important;
+    }
+}
