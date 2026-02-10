@@ -435,10 +435,16 @@
 
 <style>
 /* Profile Page Styles */
+/* Slightly reduce global main content padding when profile page is visible */
+main.main-content {
+    padding-top: 8px;
+}
+
 .profile-page {
     min-height: 100vh;
     background-color: #f8f9fa;
-    padding: 60px 0 40px;
+    /* Almost no extra top padding so content starts immediately under the app header */
+    padding: 0 0 24px;
 }
 
 .profile-container {
@@ -450,38 +456,55 @@
     overflow: hidden;
 }
 
-.profile-header {
-    background: linear-gradient(135deg, #6a0dad 0%, #8b5cf6 100%);
-    color: white;
-    padding: 40px;
+/* Compact, clean header inside the card (scoped to profile page only) */
+.profile-page .profile-header {
+    background: #ffffff;
+    color: #1e293b;
+    padding: 16px 20px;
     display: flex;
     align-items: center;
-    gap: 30px;
+    gap: 16px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.profile-avatar {
-    color: rgba(255,255,255,0.8);
+/* Avatar chip with purple gradient, but much smaller height */
+.profile-page .profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6a0dad 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
 }
 
-.profile-info h1 {
-    margin-bottom: 5px;
-    font-size: 2rem;
+.profile-page .profile-avatar .fa {
+    font-size: 24px;
+}
+
+.profile-page .profile-info h1 {
+    margin-bottom: 4px;
+    font-size: 1.4rem;
     font-weight: 600;
 }
 
-.profile-info p {
+.profile-page .profile-info p {
     margin-bottom: 0;
-    opacity: 0.9;
-    font-size: 1.1rem;
+    opacity: 0.8;
+    font-size: 0.95rem;
 }
 
-.profile-content {
-    padding: 40px;
+.profile-page .profile-content {
+    /* Compact inner padding so more fields are visible above the fold */
+    padding: 14px 14px 20px;
 }
 
 /* Form Styles */
 .profile-section {
-    margin-bottom: 40px;
+    /* Slightly tighter vertical rhythm between sections */
+    margin-bottom: 28px;
 }
 
 .profile-section h3 {
@@ -672,15 +695,18 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .profile-header {
-        padding: 30px 20px;
-        flex-direction: column;
-        text-align: center;
-        gap: 20px;
+    /* Even tighter main content padding on small screens */
+    main.main-content {
+        padding-top: 4px;
     }
 
-    .profile-info h1 {
-        font-size: 1.8rem;
+    /* On mobile, hide the profile header row to reclaim vertical space */
+    .profile-page .profile-header {
+        display: none;
+    }
+
+    .profile-page .profile-info h1 {
+        font-size: 1.25rem;
     }
 
     .form-row {
@@ -696,8 +722,9 @@
         flex-direction: column;
     }
 
-    .profile-content {
-        padding: 30px 20px;
+    .profile-page .profile-content {
+        /* Tighter padding on mobile so key fields and buttons appear earlier */
+        padding: 10px 10px 18px;
     }
 }
 

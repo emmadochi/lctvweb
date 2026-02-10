@@ -63,6 +63,12 @@ if ($backendApiSegmentPos !== false) {
     }
 }
 
+// Some Apache rewrite rules route /api/* to /api/index.php/* which makes the router
+// see paths like /index.php/reactions/... . Normalize that away.
+if (strpos($path, '/index.php') === 0) {
+    $path = substr($path, strlen('/index.php'));
+}
+
 // Debug logging for push routes
 if (strpos($originalPath, 'push') !== false || strpos($path, 'push') !== false) {
     error_log("Push route detected - Original: $originalPath, Parsed: $path, Method: $method");
@@ -185,13 +191,13 @@ try {
             handleLivestreamRoutes($controller, $method);
             break;
 
-        case '/comments':
+        case (preg_match('/^\/comments(\/|$)/', $path) ? true : false):
             require_once '../controllers/CommentController.php';
             $controller = new CommentController();
             handleCommentRoutes($controller, $method, $path);
             break;
 
-        case '/reactions':
+        case (preg_match('/^\/reactions(\/|$)/', $path) ? true : false):
             require_once '../controllers/ReactionController.php';
             $controller = new ReactionController();
             handleReactionRoutes($controller, $method, $path);

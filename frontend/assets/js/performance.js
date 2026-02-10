@@ -111,7 +111,8 @@
     // Service worker registration for caching (basic implementation)
     function registerServiceWorker() {
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
+            // Register relative to current path/scope.
+            navigator.serviceWorker.register('sw.js')
                 .then(function(registration) {
                     console.log('ServiceWorker registration successful');
                 })

@@ -12,6 +12,10 @@
 
             var vm = this;
 
+            // Expose $location to templates (used by ng-class active checks)
+            // Example in template: ng-class="{active: $location.path() === '/search'}"
+            $scope.$location = $location;
+
             // Controller properties
             vm.categories = [];
             vm.currentUser = null;

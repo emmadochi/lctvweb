@@ -1,0 +1,8 @@
+# Redirect project root to frontend app
+# http://localhost/LCMTVWebNew/ -> http://localhost/LCMTVWebNew/frontend/
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Use relative redirect so it works on localhost + production domains
+    RewriteRule ^$ frontend/ [L,R=302]
+</IfModule>

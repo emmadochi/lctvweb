@@ -211,27 +211,13 @@ class Search {
                     ORDER BY relevance DESC
                     LIMIT ?";
         } else {
-            // Return fuzzy matches and suggestions with video IDs - more permissive search
-            $sql = "SELECT DISTINCT
-                        CASE
-                            WHEN title LIKE CONCAT('%', ?, '%') THEN title
-                            WHEN channel_title LIKE CONCAT('%', ?, '%') THEN CONCAT('by ', channel_title)
-                            WHEN tags LIKE CONCAT('%', ?, '%') THEN tags
-                        END as suggestion,
-                        'content' as type,
-                        COUNT(*) as relevance,
-                        -- Get the most viewed video ID that matches this suggestion pattern
-                        (SELECT id FROM videos v2
-                         WHERE v2.is_active = 1
-                         AND ((v.title LIKE CONCAT('%', ?, '%') AND v2.title = v.title)
-                              OR (v.channel_title LIKE CONCAT('%', ?, '%') AND v2.channel_title = v.channel_title)
-                              OR (v.tags LIKE CONCAT('%', ?, '%') AND v2.tags LIKE CONCAT('%', v.tags, '%')))
-                         ORDER BY v2.view_count DESC LIMIT 1) as video_id
+            // Return fuzzy matches and suggestions - much simpler approach
+            $sql = "SELECT DISTINCT title as suggestion, 'content' as type, COUNT(*) as relevance, MAX(id) as video_id
                     FROM videos v
-                    WHERE (title LIKE CONCAT('%', ?, '%') OR channel_title LIKE CONCAT('%', ?, '%') OR tags LIKE CONCAT('%', ?, '%'))
+                    WHERE title LIKE CONCAT('%', ?, '%')
                     AND is_active = 1
-                    GROUP BY suggestion
-                    ORDER BY relevance DESC, suggestion
+                    GROUP BY title
+                    ORDER BY relevance DESC, title
                     LIMIT ?";
         }
 
@@ -241,7 +227,7 @@ class Search {
             $stmt->bind_param("i", $limit);
         } else {
             $fuzzyQuery = $query . '%';
-                    $stmt->bind_param("sssssssi", $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $fuzzyQuery, $limit);
+            $stmt->bind_param("si", $fuzzyQuery, $limit);
         }
 
         $stmt->execute();

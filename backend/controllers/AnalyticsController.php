@@ -20,13 +20,16 @@ class AnalyticsController {
             // Validate JSON parsing
             if (json_last_error() !== JSON_ERROR_NONE) {
                 error_log("AnalyticsController::trackPageView - JSON decode error: " . json_last_error_msg());
-                return Response::error('Invalid JSON data', 400);
+                // Analytics should never break the frontend UX
+                return Response::success(['message' => 'Invalid JSON data']);
             }
 
-            // Validate required fields
-            if (empty($data['session_id']) || empty($data['page_url'])) {
-                error_log("AnalyticsController::trackPageView - Missing required fields");
-                return Response::error('Missing required fields: session_id, page_url', 400);
+            // Handle both single event and batch events (analytics service may batch page views)
+            $events = [];
+            if (isset($data[0]) && is_array($data[0])) {
+                $events = $data;
+            } else {
+                $events = [$data];
             }
 
             // Get user info if authenticated (may return null if not authenticated)
@@ -41,35 +44,52 @@ class AnalyticsController {
             // Detect device info
             $deviceInfo = self::detectDeviceInfo();
 
-            // Prepare page view data
-            $pageViewData = [
-                'user_id' => $userId,
-                'session_id' => $data['session_id'],
-                'page_url' => $data['page_url'],
-                'page_title' => $data['page_title'] ?? '',
-                'referrer' => $data['referrer_url'] ?? $data['referrer'] ?? '',
-                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'ip_address' => self::getClientIP(),
-                'country' => $data['country'] ?? null,
-                'city' => $data['city'] ?? null,
-                'device_type' => $deviceInfo['device_type'],
-                'browser' => $deviceInfo['browser'],
-                'os' => $deviceInfo['os'],
-                'screen_resolution' => $data['screen_resolution'] ?? null,
-                'time_on_page' => isset($data['time_on_page']) ? (int)$data['time_on_page'] : 0
-            ];
+            $recordedCount = 0;
+            $failedCount = 0;
+            $skippedInvalid = 0;
 
-            // Record page view
-            $success = Analytics::trackPageView($pageViewData);
+            foreach ($events as $event) {
+                // Validate required fields (skip invalid events rather than failing the app)
+                if (empty($event['session_id']) || empty($event['page_url'])) {
+                    $skippedInvalid++;
+                    error_log("AnalyticsController::trackPageView - Skipping invalid event (missing session_id/page_url): " . json_encode($event));
+                    continue;
+                }
 
-            if ($success) {
-                return Response::success(['message' => 'Page view recorded']);
-            } else {
-                // Log error but return success to prevent breaking the frontend
-                error_log("AnalyticsController::trackPageView - Failed to record page view");
-                // Return success anyway - analytics failures shouldn't break the app
-                return Response::success(['message' => 'Page view recording attempted']);
+                // Prepare page view data
+                $pageViewData = [
+                    'user_id' => $userId,
+                    'session_id' => $event['session_id'],
+                    'page_url' => $event['page_url'],
+                    'page_title' => $event['page_title'] ?? '',
+                    'referrer' => $event['referrer_url'] ?? $event['referrer'] ?? '',
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                    'ip_address' => self::getClientIP(),
+                    'country' => $event['country'] ?? null,
+                    'city' => $event['city'] ?? null,
+                    'device_type' => $deviceInfo['device_type'],
+                    'browser' => $deviceInfo['browser'],
+                    'os' => $deviceInfo['os'],
+                    'screen_resolution' => $event['screen_resolution'] ?? null,
+                    'time_on_page' => isset($event['time_on_page']) ? (int)$event['time_on_page'] : (isset($event['time_spent']) ? (int)$event['time_spent'] : 0)
+                ];
+
+                $success = Analytics::trackPageView($pageViewData);
+                if ($success) {
+                    $recordedCount++;
+                } else {
+                    $failedCount++;
+                    error_log("AnalyticsController::trackPageView - Failed to record page view: " . json_encode($pageViewData));
+                }
             }
+
+            // Always return success - analytics should never break the frontend UX
+            return Response::success([
+                'message' => 'Page view events processed',
+                'recorded' => $recordedCount,
+                'failed' => $failedCount,
+                'skipped_invalid' => $skippedInvalid
+            ]);
 
         } catch (Exception $e) {
             error_log("AnalyticsController::trackPageView - Exception: " . $e->getMessage());
@@ -90,13 +110,16 @@ class AnalyticsController {
             // Validate JSON parsing
             if (json_last_error() !== JSON_ERROR_NONE) {
                 error_log("AnalyticsController::trackVideoView - JSON decode error: " . json_last_error_msg());
-                return Response::error('Invalid JSON data', 400);
+                // Analytics should never break the frontend UX
+                return Response::success(['message' => 'Invalid JSON data']);
             }
 
-            // Validate required fields
-            if (empty($data['video_id']) || empty($data['session_id']) || empty($data['youtube_id'])) {
-                error_log("AnalyticsController::trackVideoView - Missing required fields");
-                return Response::error('Missing required fields: video_id, session_id, youtube_id', 400);
+            // Handle both single event and batch events (frontend may batch video analytics)
+            $events = [];
+            if (isset($data[0]) && is_array($data[0])) {
+                $events = $data;
+            } else {
+                $events = [$data];
             }
 
             // Get user info if authenticated (may return null if not authenticated)
@@ -111,37 +134,52 @@ class AnalyticsController {
             // Detect device info
             $deviceInfo = self::detectDeviceInfo();
 
-            // Prepare video view data
-            $videoViewData = [
-                'video_id' => (int)$data['video_id'],
-                'user_id' => $userId,
-                'session_id' => $data['session_id'],
-                'youtube_id' => $data['youtube_id'],
-                'watch_duration' => isset($data['watch_duration']) ? (int)$data['watch_duration'] : 0,
-                'total_duration' => isset($data['total_duration']) ? (int)$data['total_duration'] : 0,
-                'quality' => $data['quality'] ?? null,
-                'playback_speed' => isset($data['playback_speed']) ? (float)$data['playback_speed'] : 1.0,
-                'referrer' => $data['referrer_url'] ?? '',
-                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'ip_address' => self::getClientIP(),
-                'device_type' => $deviceInfo['device_type'],
-                'browser' => $deviceInfo['browser'],
-                'os' => $deviceInfo['os'],
-                'country' => $data['country'] ?? null,
-                'city' => $data['city'] ?? null
-            ];
+            $recordedCount = 0;
+            $failedCount = 0;
+            $skippedInvalid = 0;
 
-            // Record video view
-            $success = Analytics::trackVideoView($videoViewData);
+            foreach ($events as $event) {
+                // Required fields: session_id + video_id. youtube_id is optional for progress/complete events.
+                if (empty($event['video_id']) || empty($event['session_id'])) {
+                    $skippedInvalid++;
+                    error_log("AnalyticsController::trackVideoView - Skipping invalid event (missing video_id/session_id): " . json_encode($event));
+                    continue;
+                }
 
-            if ($success) {
-                return Response::success(['message' => 'Video view recorded']);
-            } else {
-                // Log error but return success to prevent breaking the frontend
-                error_log("AnalyticsController::trackVideoView - Failed to record video view");
-                // Return success anyway - analytics failures shouldn't break the app
-                return Response::success(['message' => 'Video view recording attempted']);
+                $videoViewData = [
+                    'video_id' => (int)$event['video_id'],
+                    'user_id' => $userId,
+                    'session_id' => $event['session_id'],
+                    'youtube_id' => $event['youtube_id'] ?? '',
+                    'watch_duration' => isset($event['watch_duration']) ? (int)$event['watch_duration'] : (isset($event['total_watch_time']) ? (int)$event['total_watch_time'] : 0),
+                    'total_duration' => isset($event['total_duration']) ? (int)$event['total_duration'] : 0,
+                    'quality' => $event['quality'] ?? null,
+                    'playback_speed' => isset($event['playback_speed']) ? (float)$event['playback_speed'] : 1.0,
+                    'referrer' => $event['referrer_url'] ?? $event['referrer'] ?? '',
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                    'ip_address' => self::getClientIP(),
+                    'device_type' => $deviceInfo['device_type'],
+                    'browser' => $deviceInfo['browser'],
+                    'os' => $deviceInfo['os'],
+                    'country' => $event['country'] ?? null,
+                    'city' => $event['city'] ?? null
+                ];
+
+                $success = Analytics::trackVideoView($videoViewData);
+                if ($success) {
+                    $recordedCount++;
+                } else {
+                    $failedCount++;
+                    error_log("AnalyticsController::trackVideoView - Failed to record video view: " . json_encode($videoViewData));
+                }
             }
+
+            return Response::success([
+                'message' => 'Video view events processed',
+                'recorded' => $recordedCount,
+                'failed' => $failedCount,
+                'skipped_invalid' => $skippedInvalid
+            ]);
 
         } catch (Exception $e) {
             error_log("AnalyticsController::trackVideoView - Exception: " . $e->getMessage());
@@ -209,13 +247,18 @@ class AnalyticsController {
             // Validate JSON parsing
             if (json_last_error() !== JSON_ERROR_NONE) {
                 error_log("AnalyticsController::trackEngagement - JSON decode error: " . json_last_error_msg());
-                return Response::error('Invalid JSON data', 400);
+                // Analytics should never break the frontend UX
+                return Response::success(['message' => 'Invalid JSON data']);
             }
 
-            // Validate required fields
-            if (empty($data['session_id']) || empty($data['event_type'])) {
-                error_log("AnalyticsController::trackEngagement - Missing required fields");
-                return Response::error('Missing required fields: session_id, event_type', 400);
+            // Handle both single event and batch events
+            $events = [];
+            if (isset($data[0]) && is_array($data[0])) {
+                // Batch of events
+                $events = $data;
+            } else {
+                // Single event
+                $events = [$data];
             }
 
             // Get user info if authenticated (may return null if not authenticated)
@@ -230,34 +273,76 @@ class AnalyticsController {
             // Detect device info
             $deviceInfo = self::detectDeviceInfo();
 
-            // Prepare engagement data
-            $engagementData = [
-                'user_id' => $userId,
-                'session_id' => $data['session_id'],
-                'event_type' => $data['event_type'],
-                'event_data' => $data['event_data'] ?? [],
-                'page_url' => $data['page_url'] ?? '',
-                'referrer' => $data['referrer_url'] ?? $data['referrer'] ?? '',
-                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'ip_address' => self::getClientIP(),
-                'device_type' => $deviceInfo['device_type'],
-                'browser' => $deviceInfo['browser'],
-                'os' => $deviceInfo['os'],
-                'country' => $data['country'] ?? null,
-                'city' => $data['city'] ?? null
-            ];
+            $recordedCount = 0;
+            $failedCount = 0;
+            $skippedInvalid = 0;
 
-            // Record engagement event
-            $success = Analytics::trackEngagement($engagementData);
+            // Process each event
+            foreach ($events as $event) {
+                // Try to normalize common field naming differences
+                if (empty($event['event_type']) && !empty($event['type'])) {
+                    $event['event_type'] = $event['type'];
+                }
+                if (empty($event['session_id']) && !empty($event['sessionId'])) {
+                    $event['session_id'] = $event['sessionId'];
+                }
 
-            if ($success) {
-                return Response::success(['message' => 'Engagement event recorded']);
-            } else {
-                // Log error but return success to prevent breaking the frontend
-                error_log("AnalyticsController::trackEngagement - Failed to record engagement event");
-                // Return success anyway - analytics failures shouldn't break the app
-                return Response::success(['message' => 'Engagement event recording attempted']);
+                if (empty($event['session_id']) || empty($event['event_type'])) {
+                    $skippedInvalid++;
+                    error_log("AnalyticsController::trackEngagement - Skipping invalid event (missing session_id/event_type): " . json_encode($event));
+                    continue;
+                }
+
+                // If frontend sent a flat payload (no event_data), treat remaining keys as event_data
+                $eventData = $event['event_data'] ?? null;
+                if ($eventData === null || !is_array($eventData)) {
+                    $eventData = $event;
+                    $stripKeys = [
+                        'user_id', 'session_id', 'event_type', 'event_data',
+                        'page_url', 'referrer', 'referrer_url',
+                        'user_agent', 'timestamp',
+                        'country', 'city', 'latitude', 'longitude'
+                    ];
+                    foreach ($stripKeys as $k) {
+                        unset($eventData[$k]);
+                    }
+                }
+
+                // Prepare engagement data
+                $engagementData = [
+                    'user_id' => $userId,
+                    'session_id' => $event['session_id'],
+                    'event_type' => $event['event_type'],
+                    'event_data' => $eventData,
+                    'page_url' => $event['page_url'] ?? '',
+                    'referrer' => $event['referrer_url'] ?? $event['referrer'] ?? '',
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                    'ip_address' => self::getClientIP(),
+                    'device_type' => $deviceInfo['device_type'],
+                    'browser' => $deviceInfo['browser'],
+                    'os' => $deviceInfo['os'],
+                    'country' => $event['country'] ?? null,
+                    'city' => $event['city'] ?? null
+                ];
+
+                // Record engagement event
+                $success = Analytics::trackEngagement($engagementData);
+
+                if ($success) {
+                    $recordedCount++;
+                } else {
+                    $failedCount++;
+                    error_log("AnalyticsController::trackEngagement - Failed to record event: " . json_encode($engagementData));
+                }
             }
+
+            // Return success with summary
+            return Response::success([
+                'message' => 'Engagement events processed',
+                'recorded' => $recordedCount,
+                'failed' => $failedCount,
+                'skipped_invalid' => $skippedInvalid
+            ]);
 
         } catch (Exception $e) {
             error_log("AnalyticsController::trackEngagement - Exception: " . $e->getMessage());

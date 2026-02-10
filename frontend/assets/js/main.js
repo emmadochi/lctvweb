@@ -49,7 +49,9 @@
     function registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/LCMTVWebNew/frontend/sw.js?v=1.1')
+                // Register relative to the current scope so it works
+                // whether the app is hosted at domain root or a subfolder.
+                navigator.serviceWorker.register('sw.js?v=1.1')
                     .then(function(registration) {
                         console.log('Service Worker registered successfully:', registration.scope);
 

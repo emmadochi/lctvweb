@@ -1,10 +1,10 @@
 {
-  "name": "LCMTV - Church TV Streaming",
+  "name": "LCM TV – Church Streaming",
   "short_name": "LCMTV",
   "description": "A modern church media streaming platform with live services, sermons, and community features",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#6a0dad",
+  "background_color": "#1a1a2e",
   "theme_color": "#6a0dad",
   "orientation": "portrait-primary",
   "scope": "/",

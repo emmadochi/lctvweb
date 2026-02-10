@@ -219,6 +219,24 @@
             };
 
             /**
+             * Get popular searches (for enhanced search page)
+             */
+            service.getPopularSearches = function(limit, days) {
+                return $http.get(API_BASE + '/search/popular', {
+                    params: {
+                        limit: limit || 20,
+                        days: days || 30
+                    }
+                }).then(function(response) {
+                    // Backend returns { popular_searches: [...], period_days: N }
+                    return unwrap(response) || { popular_searches: [], period_days: days || 30 };
+                }).catch(function(error) {
+                    console.error('Error getting popular searches:', error);
+                    return { popular_searches: [], period_days: days || 30 };
+                });
+            };
+
+            /**
              * Create smart playlist
              */
             service.createSmartPlaylist = function(playlistType, limit) {

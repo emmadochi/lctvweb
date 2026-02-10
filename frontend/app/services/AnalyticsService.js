@@ -106,18 +106,49 @@ angular.module('ChurchTVApp').factory('AnalyticsService', ['$http', 'API_BASE', 
             timestamp: new Date().toISOString()
         };
 
-        // Get geolocation if available
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                data.latitude = position.coords.latitude;
-                data.longitude = position.coords.longitude;
-                service.sendEvent('page_view', data);
-            }, function() {
-                service.sendEvent('page_view', data);
-            });
-        } else {
+        // Geolocation (optional)
+        // IMPORTANT:
+        // - Do NOT repeatedly prompt users for location just for analytics.
+        // - Only request location if permission is already granted.
+        // - If blocked/denied/unavailable, silently continue without location.
+        function sendWithoutLocation() {
             service.sendEvent('page_view', data);
         }
+
+        function attachAndSend(position) {
+            data.latitude = position.coords.latitude;
+            data.longitude = position.coords.longitude;
+            service.sendEvent('page_view', data);
+        }
+
+        // Some deployments explicitly disable geolocation via Permissions-Policy headers.
+        // In that case, any call will fail; skip entirely.
+        if (!$window.navigator || !$window.navigator.geolocation) {
+            return sendWithoutLocation();
+        }
+
+        // Use Permissions API when available to avoid prompting.
+        if ($window.navigator.permissions && typeof $window.navigator.permissions.query === 'function') {
+            $window.navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+                // Only fetch location if already granted.
+                if (result && result.state === 'granted') {
+                    $window.navigator.geolocation.getCurrentPosition(
+                        attachAndSend,
+                        sendWithoutLocation,
+                        { enableHighAccuracy: false, timeout: 2000, maximumAge: 5 * 60 * 1000 }
+                    );
+                } else {
+                    sendWithoutLocation();
+                }
+            }).catch(function() {
+                // If permissions query fails, fall back to no-location (avoid prompting).
+                sendWithoutLocation();
+            });
+            return;
+        }
+
+        // No Permissions API support: don't prompt; just send without location.
+        return sendWithoutLocation();
     };
 
     // Track page exit

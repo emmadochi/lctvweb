@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Church TV - Modern Streaming Platform</title>
+    <title>LCM TV - Modern Streaming Platform</title>
 
     <!-- Meta Tags for SEO and Mobile -->
     <meta name="description" content="A modern TV-style platform that organizes the best church content into easy-to-watch channels.">
-    <meta name="author" content="Church TV Team">
+    <meta name="author" content="LCM TV Team">
     <meta name="keywords" content="church, christian, tv, streaming, sermons, worship, videos">
 
     <!-- Mobile Web App -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Church TV">
+    <meta name="apple-mobile-web-app-title" content="LCM TV">
     <meta name="format-detection" content="telephone=no">
 
     <!-- Favicon -->
@@ -23,8 +23,9 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
 
-    <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" href="assets/images/logo.png">
+    <!-- Apple Touch Icons for iOS PWA -->
+    <link rel="apple-touch-icon" href="/LCMTVWebNew/lctv-logo-white.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/LCMTVWebNew/lctv-logo-white.png">
 
     <!-- Theme Color for Mobile Browsers -->
     <meta name="theme-color" content="#6a0dad">
@@ -64,6 +65,9 @@
 
         <!-- Footer -->
         <footer ng-include="'app/views/components/footer.html'" class="main-footer"></footer>
+
+        <!-- Mobile Bottom Navigation (visible only on small screens) -->
+        <div ng-include="'app/views/components/mobile-bottom-nav.html'"></div>
     </div>
 
     <!-- Error Modal -->
@@ -105,7 +109,7 @@
     <script src="app/app.js?v=1.1"></script>
 
     <!-- Services -->
-    <script src="app/services/VideoService.js"></script>
+    <script src="app/services/VideoService.js?v=1.1"></script>
     <script src="app/services/LivestreamService.js"></script>
     <script src="app/services/PushService.js"></script>
     <script src="app/services/OfflineStorageService.js"></script>
@@ -134,6 +138,7 @@
     <script src="app/controllers/PlaylistController.js"></script>
     <script src="app/controllers/HeroSliderController.js"></script>
     <script src="app/controllers/HeaderController.js"></script>
+    <script src="app/controllers/MobileBottomNavController.js"></script>
     <script src="app/controllers/LoginController.js"></script>
     <script src="app/controllers/ProfileController.js"></script>
     <script src="app/controllers/FooterController.js"></script>
@@ -141,6 +146,7 @@
     <script src="app/controllers/AdminDashboardController.js"></script>
     <script src="app/controllers/AdminVideosController.js"></script>
     <script src="app/controllers/AdminCategoriesController.js"></script>
+    <script src="app/controllers/NotFoundController.js"></script>
 
     <!-- Directives -->
     <script src="app/directives/videoThumbnail.js"></script>

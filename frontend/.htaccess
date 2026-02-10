@@ -1,0 +1,4 @@
+# Church TV Frontend - Prevent directory listing
+# Invalid or unknown URLs will not show a file/directory listing.
+
+Options -Indexes

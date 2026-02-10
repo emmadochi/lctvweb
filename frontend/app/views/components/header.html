@@ -7,11 +7,8 @@
                 <img src="../../../../LCMTVWebNew/lctv-logo-white.png" alt="LCTV Logo" class="logo-image">
             </a>
 
-            <!-- Language Switcher -->
-            <language-switcher class="language-switcher-mobile"></language-switcher>
-
-            <!-- Navigation Links -->
-            <nav class="nav-links">
+            <!-- Desktop: Navigation Links (hidden on mobile) -->
+            <nav class="nav-links header-nav-desktop">
                 <a href="#/" ng-class="{active: $location.path() === '/'}">
                     <i class="fa fa-home"></i> Home
                 </a>
@@ -65,9 +62,8 @@
                 </div>
             </nav>
 
-
-            <!-- Search Bar -->
-            <div class="search-bar-container">
+            <!-- Desktop: Search Bar (hidden on mobile) -->
+            <div class="search-bar-container header-search-desktop">
                 <form class="search-bar" ng-submit="headerCtrl.performHeaderSearch()">
                     <input type="text"
                            ng-model="headerCtrl.searchQuery"
@@ -80,9 +76,6 @@
                         <i class="fa fa-search"></i>
                     </button>
                 </form>
-
-
-                <!-- Search Suggestions Dropdown -->
                 <div class="search-suggestions-dropdown" ng-show="headerCtrl.showSearchSuggestions">
                     <div class="search-suggestion-item"
                          ng-repeat="suggestion in headerCtrl.searchSuggestions track by $index"
@@ -97,6 +90,113 @@
 
             <!-- Language Switcher (Desktop) -->
             <language-switcher class="language-switcher-desktop"></language-switcher>
+
+            <!-- Mobile: Language + Hamburger (visible only on mobile) -->
+            <div class="header-mobile-actions">
+                <language-switcher class="language-switcher-mobile"></language-switcher>
+                <button type="button" class="hamburger-btn" ng-click="headerCtrl.toggleMobileMenu()" ng-class="{active: headerCtrl.mobileMenuOpen}" aria-label="Toggle menu">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile menu panel (slide-down, only on small screens) -->
+        <div class="header-mobile-menu" ng-class="{open: headerCtrl.mobileMenuOpen}">
+            <div class="mobile-menu-inner">
+                <!-- Search (primary action) -->
+                <div class="mobile-menu-search">
+                    <label class="mobile-menu-search-label">Search</label>
+                    <form class="search-bar" ng-submit="headerCtrl.performHeaderSearch()">
+                        <input type="text"
+                               ng-model="headerCtrl.searchQuery"
+                               ng-keyup="headerCtrl.onSearchInputChange($event)"
+                               ng-keydown="headerCtrl.onSearchKeyDown($event)"
+                               ng-focus="headerCtrl.showSearchSuggestions = headerCtrl.searchSuggestions.length > 0"
+                               placeholder="Videos, categories..."
+                               autocomplete="off">
+                        <button type="submit" aria-label="Search"><i class="fa fa-search"></i></button>
+                    </form>
+                    <div class="search-suggestions-dropdown" ng-show="headerCtrl.showSearchSuggestions">
+                        <div class="search-suggestion-item"
+                             ng-repeat="suggestion in headerCtrl.searchSuggestions track by $index"
+                             ng-class="{selected: $index === headerCtrl.selectedSuggestionIndex}"
+                             ng-click="headerCtrl.selectSearchSuggestion(suggestion)">
+                            <i class="fa fa-search"></i>
+                            <span class="suggestion-text">{{suggestion.suggestion || suggestion}}</span>
+                            <span class="suggestion-type" ng-if="suggestion.type">{{suggestion.type}}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Browse section -->
+                <div class="mobile-menu-block">
+                    <p class="mobile-menu-section-title">Browse</p>
+                    <nav class="mobile-menu-nav" aria-label="Main navigation">
+                        <a href="#/" class="mobile-menu-item" ng-class="{active: $location.path() === '/'}" ng-click="headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-home"></i></span>
+                            <span class="mobile-menu-text">Home</span>
+                        </a>
+                        <a href="#/search" class="mobile-menu-item" ng-class="{active: $location.path() === '/search'}" ng-click="headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-search"></i></span>
+                            <span class="mobile-menu-text">Search</span>
+                        </a>
+                        <div class="mobile-menu-section" ng-if="headerCtrl.categories.length > 0">
+                            <button type="button" class="mobile-menu-item mobile-menu-toggle" ng-click="headerCtrl.toggleCategoriesDropdown()" aria-expanded="{{headerCtrl.showCategoriesDropdown}}">
+                                <span class="mobile-menu-icon"><i class="fa fa-th-large"></i></span>
+                                <span class="mobile-menu-text">Categories</span>
+                                <span class="mobile-menu-badge" ng-if="headerCtrl.categories.length">{{headerCtrl.categories.length}}</span>
+                                <i class="fa fa-chevron-down mobile-menu-chevron" ng-class="{rotated: headerCtrl.showCategoriesDropdown}"></i>
+                            </button>
+                            <div class="mobile-menu-sub" ng-show="headerCtrl.showCategoriesDropdown" role="list">
+                                <a href="#/category/{{category.slug}}" class="mobile-menu-subitem"
+                                   ng-repeat="category in headerCtrl.categories"
+                                   ng-click="headerCtrl.navigateToCategory(category.slug)"
+                                   role="listitem">
+                                    <span class="mobile-menu-subicon"><i class="fa {{headerCtrl.getCategoryIcon(category.slug)}}"></i></span>
+                                    <span>{{category.name}}</span>
+                                </a>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Account section (when logged in) -->
+                <div class="mobile-menu-block" ng-if="headerCtrl.isAuthenticated">
+                    <div class="mobile-menu-divider" role="presentation"></div>
+                    <p class="mobile-menu-section-title">My account</p>
+                    <nav class="mobile-menu-nav" aria-label="Account">
+                        <a href="#/favorites" class="mobile-menu-item" ng-class="{active: $location.path() === '/favorites'}" ng-click="headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-heart"></i></span>
+                            <span class="mobile-menu-text">Favourites</span>
+                        </a>
+                        <a href="#/profile" class="mobile-menu-item" ng-class="{active: $location.path() === '/profile'}" ng-click="headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-user"></i></span>
+                            <span class="mobile-menu-text">Profile</span>
+                        </a>
+                        <a href="#/favorites?tab=history" class="mobile-menu-item" ng-click="headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-history"></i></span>
+                            <span class="mobile-menu-text">Watch History</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Sign in / Logout -->
+                <div class="mobile-menu-block mobile-menu-actions">
+                    <div class="mobile-menu-divider" role="presentation"></div>
+                    <nav class="mobile-menu-nav" aria-label="Account actions">
+                        <button type="button" class="mobile-menu-item mobile-menu-login" ng-if="!headerCtrl.authLoading && !headerCtrl.isAuthenticated" ng-click="headerCtrl.goToLogin(); headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-sign-in"></i></span>
+                            <span class="mobile-menu-text">Sign in</span>
+                        </button>
+                        <button type="button" class="mobile-menu-item mobile-menu-logout" ng-if="headerCtrl.isAuthenticated" ng-click="headerCtrl.logout(); headerCtrl.closeMobileMenu()">
+                            <span class="mobile-menu-icon"><i class="fa fa-sign-out"></i></span>
+                            <span class="mobile-menu-text">Sign out</span>
+                        </button>
+                    </nav>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -344,6 +444,10 @@
         display: none;
     }
 
+    .header-mobile-actions {
+        display: none;
+    }
+
     .language-btn {
         color: #fff;
         padding: 8px 12px;
@@ -473,20 +577,345 @@
         margin-left: 8px;
     }
 
+    /* ===== HAMBURGER & MOBILE MENU ===== */
+    .hamburger-btn {
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        margin: 0 0 0 12px;
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    .hamburger-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    .hamburger-btn:active {
+        transform: scale(0.96);
+    }
+
+    .hamburger-line {
+        display: block;
+        width: 22px;
+        height: 2px;
+        background: #fff;
+        border-radius: 1px;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .hamburger-btn .hamburger-line:nth-child(1) {
+        margin-bottom: 6px;
+    }
+
+    .hamburger-btn .hamburger-line:nth-child(2) {
+        margin-bottom: 6px;
+    }
+
+    .hamburger-btn.active .hamburger-line:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+    }
+
+    .hamburger-btn.active .hamburger-line:nth-child(2) {
+        opacity: 0;
+    }
+
+    .hamburger-btn.active .hamburger-line:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+    }
+
+    .header-mobile-menu {
+        display: none;
+        overflow: hidden;
+        background: rgba(74, 25, 120, 0.98);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        max-height: 0;
+        transition: max-height 0.35s ease-out;
+    }
+
+    .header-mobile-menu.open {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .mobile-menu-inner {
+        padding: 20px 16px 28px;
+        max-width: 100%;
+    }
+
+    /* Search block */
+    .mobile-menu-search {
+        margin-bottom: 24px;
+    }
+
+    .mobile-menu-search-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 8px;
+        padding: 0 4px;
+    }
+
+    .mobile-menu-search .search-bar {
+        background: rgba(255, 255, 255, 0.18);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin: 0;
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .mobile-menu-search .search-bar:focus-within {
+        background: rgba(255, 255, 255, 0.22);
+        border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .mobile-menu-search .search-bar input {
+        width: 100%;
+        color: #fff;
+        font-size: 16px;
+    }
+
+    .mobile-menu-search .search-bar input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .mobile-menu-search .search-suggestions-dropdown {
+        left: 0;
+        right: 0;
+        margin-top: 8px;
+    }
+
+    /* Section blocks */
+    .mobile-menu-block {
+        margin-bottom: 20px;
+    }
+
+    .mobile-menu-block:last-child {
+        margin-bottom: 0;
+    }
+
+    .mobile-menu-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.5);
+        margin: 0 0 10px 0;
+        padding: 0 16px 0 0;
+    }
+
+    .mobile-menu-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.12);
+        margin: 16px 0 20px 0;
+        border: none;
+    }
+
+    .mobile-menu-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    /* Menu items: 48px min-height for touch (Apple HIG), aligned icons */
+    .mobile-menu-item,
+    .mobile-menu-subitem {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        min-height: 48px;
+        padding: 0 16px;
+        color: rgba(255, 255, 255, 0.95);
+        text-decoration: none;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        font-size: 16px;
+        font-weight: 500;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-menu-item:hover,
+    .mobile-menu-subitem:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+    }
+
+    .mobile-menu-item.active {
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .mobile-menu-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        min-width: 40px;
+        margin-right: 12px;
+        font-size: 18px;
+        opacity: 0.9;
+    }
+
+    .mobile-menu-icon i {
+        font-size: 18px;
+    }
+
+    .mobile-menu-text {
+        flex: 1;
+    }
+
+    .mobile-menu-toggle {
+        justify-content: flex-start;
+    }
+
+    .mobile-menu-toggle .mobile-menu-text {
+        flex: 1;
+    }
+
+    .mobile-menu-badge {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.15);
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-right: 8px;
+    }
+
+    .mobile-menu-chevron {
+        font-size: 12px;
+        opacity: 0.7;
+        transition: transform 0.25s ease;
+    }
+
+    .mobile-menu-chevron.rotated {
+        transform: rotate(180deg);
+    }
+
+    .mobile-menu-sub {
+        padding: 6px 0 10px 0;
+        margin-left: 52px;
+        margin-bottom: 4px;
+        border-left: 2px solid rgba(255, 255, 255, 0.15);
+        padding-left: 14px;
+    }
+
+    .mobile-menu-subitem {
+        min-height: 44px;
+        padding: 0 12px 0 0;
+        font-size: 15px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.88);
+    }
+
+    .mobile-menu-subicon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        min-width: 28px;
+        margin-right: 12px;
+        font-size: 15px;
+        opacity: 0.85;
+    }
+
+    .mobile-menu-actions .mobile-menu-nav {
+        gap: 2px;
+    }
+
+    .mobile-menu-login {
+        color: rgba(255, 255, 255, 0.95);
+    }
+
+    .mobile-menu-login .mobile-menu-icon {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .mobile-menu-logout {
+        color: rgba(255, 235, 235, 0.95);
+    }
+
+    .mobile-menu-logout .mobile-menu-icon {
+        color: rgba(255, 200, 200, 0.95);
+    }
+
+    .mobile-menu-logout:hover {
+        background: rgba(220, 53, 69, 0.3);
+        color: #ffcccc;
+    }
+
+    .mobile-menu-logout:hover .mobile-menu-icon {
+        color: #ffb3b3;
+    }
+
     /* Mobile Styles */
     @media (max-width: 768px) {
+        .header-nav-desktop,
+        .header-search-desktop,
         .language-switcher-desktop {
-            display: none;
+            display: none !important;
+        }
+
+        .header-mobile-actions {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .hamburger-btn {
+            display: flex;
+        }
+
+        .header-mobile-menu {
+            display: block;
         }
 
         .language-switcher-mobile {
             display: block;
-            margin-top: 10px;
+            margin-top: 0;
+            margin-right: 0;
         }
 
         .language-menu {
             left: auto;
             right: 0;
+        }
+
+        .header-content {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 8px;
+            /* More compact header on mobile */
+            padding: 8px 12px;
+        }
+
+        .main-header .logo {
+            flex-shrink: 0;
+        }
+
+        .main-header .logo-image {
+            /* Larger logo on mobile for better visibility */
+            height: 60px;
+            max-width: 230px;
         }
 
         .search-suggestions-dropdown {

@@ -7,10 +7,15 @@ const CACHE_NAME = 'lcmtv-v1.0.0';
 const STATIC_CACHE_NAME = 'lcmtv-static-v1.0.0';
 const DYNAMIC_CACHE_NAME = 'lcmtv-dynamic-v1.0.0';
 
+// Derive paths from the service worker registration scope so this works
+// whether the app is deployed at domain root or inside a subfolder.
+const SCOPE_PATH = new URL(self.registration.scope).pathname; // e.g. "/LCMTVWebNew/frontend/"
+const ROOT_PATH = SCOPE_PATH.replace(/frontend\/$/, ''); // e.g. "/LCMTVWebNew/"
+
 // Resources to cache immediately (minimal set to avoid errors)
 const STATIC_ASSETS = [
-    '/LCMTVWebNew/frontend/index.html',
-    '/LCMTVWebNew/frontend/manifest.json'
+    `${SCOPE_PATH}index.html`,
+    `${SCOPE_PATH}manifest.json`
 ];
 
 // API endpoints to cache with network-first strategy
@@ -98,8 +103,8 @@ self.addEventListener('push', (event) => {
 
     const options = {
         body: data.body || 'New content available!',
-        icon: '/LCMTVWebNew/lctv-logo-white.png',
-        badge: '/LCMTVWebNew/lctv-logo-white.png',
+        icon: `${ROOT_PATH}lctv-logo-white.png`,
+        badge: `${ROOT_PATH}lctv-logo-white.png`,
         vibrate: [100, 50, 100],
         data: {
             url: data.url || '/'
@@ -117,7 +122,7 @@ self.addEventListener('push', (event) => {
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title || 'Church TV', options)
+        self.registration.showNotification(data.title || 'LCM TV', options)
     );
 });
 
@@ -191,7 +196,7 @@ function cacheFirstStrategy(request) {
                 .catch(() => {
                     // Return offline fallback for documents
                     if (request.destination === 'document') {
-                        return caches.match('/offline.html');
+                        return caches.match(`${SCOPE_PATH}offline.html`);
                     }
                 });
         });
@@ -218,7 +223,7 @@ function networkFirstStrategy(request) {
 
                     // Return offline page for navigation requests
                     if (request.destination === 'document') {
-                        return caches.match('/offline.html');
+                        return caches.match(`${SCOPE_PATH}offline.html`);
                     }
                 });
         });
