@@ -84,11 +84,19 @@ body {
     z-index: 100;
 }
 
-.header-content {
+.main-header .header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 15px 20px;
+}
+
+/* Desktop: slightly tighter header height (mobile overrides exist elsewhere) */
+@media (min-width: 769px) {
+    .main-header .header-content {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
 }
 
 .logo {
@@ -502,7 +510,7 @@ body {
         padding: 15px;
     }
 
-    .header-content {
+    .main-header .header-content {
         flex-direction: column;
         gap: 15px;
     }

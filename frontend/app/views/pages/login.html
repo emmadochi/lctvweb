@@ -144,6 +144,40 @@
                            ng-keypress="vm.onKeyPress($event)">
                 </div>
 
+                <!-- Forgot Password Link (Login) -->
+                <div class="text-right mt-2" ng-if="vm.isLogin">
+                    <button type="button"
+                            class="btn-link toggle-link"
+                            ng-click="vm.openForgotPassword()">
+                        Forgot your password?
+                    </button>
+                </div>
+
+                <!-- Forgot Password Panel -->
+                <div class="form-group" ng-if="vm.showForgotPassword">
+                    <label for="forgotEmail">Reset password</label>
+                    <input type="email"
+                           id="forgotEmail"
+                           name="forgotEmail"
+                           ng-model="vm.forgotPasswordEmail"
+                           class="form-control"
+                           placeholder="Enter your account email">
+                    <div class="mt-2">
+                        <button type="button"
+                                class="btn btn-primary"
+                                ng-disabled="vm.isLoading"
+                                ng-click="vm.submitForgotPassword()">
+                            <i class="fa fa-spinner fa-spin" ng-if="vm.isLoading"></i>
+                            {{vm.isLoading ? 'Please wait...' : 'Send reset link'}}
+                        </button>
+                        <button type="button"
+                                class="btn-link toggle-link"
+                                ng-click="vm.closeForgotPassword()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Submit Button -->
                 <button type="submit"
                         class="btn btn-primary btn-block"

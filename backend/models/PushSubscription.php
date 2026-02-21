@@ -6,6 +6,15 @@
 
 require_once __DIR__ . '/../config/database.php';
 
+// Load Composer autoloader for Web Push library (if installed)
+// Make sure to run "composer install" in the backend directory.
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
+use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\WebPush;
+
 class PushSubscription {
     private $conn;
 
@@ -128,72 +137,77 @@ class PushSubscription {
     }
 
     /**
-     * Send push notification to a subscription
+     * Get configured WebPush instance using VAPID keys from environment.
      */
-    public static function sendPushNotification($subscription, $payload) {
-        $endpoint = $subscription['endpoint'];
+    private static function getWebPush(): ?WebPush {
+        if (!class_exists(WebPush::class)) {
+            error_log('WebPush library not installed. Run "composer require minishlink/web-push" in backend directory.');
+            return null;
+        }
 
-        // For development/demo purposes, we'll send a basic notification
-        // In production, you'd use proper VAPID encryption with a library like web-push-php
+        $publicKey  = getenv('VAPID_PUBLIC_KEY');
+        $privateKey = getenv('VAPID_PRIVATE_KEY');
+        $subject    = getenv('VAPID_SUBJECT') ?: 'mailto:admin@lcmtv.com';
 
-        $postData = json_encode([
-            'title' => $payload['title'] ?? 'LCMTV Notification',
-            'body' => $payload['body'] ?? 'You have a new notification',
-            'icon' => $payload['icon'] ?? '/icon-192x192.png',
-            'badge' => $payload['badge'] ?? '/icon-192x192.png',
-            'data' => $payload['data'] ?? [],
-            'requireInteraction' => true,
-            'silent' => false
-        ]);
+        if (!$publicKey || !$privateKey) {
+            error_log('VAPID keys are not configured in environment.');
+            return null;
+        }
 
-        // For demo purposes, we'll use curl to send to push services
-        // In production, you should use proper encrypted payloads
-        return self::sendViaCurl($endpoint, $postData);
+        $auth = [
+            'VAPID' => [
+                'subject' => $subject,
+                'publicKey' => $publicKey,
+                'privateKey' => $privateKey,
+            ],
+        ];
+
+        return new WebPush($auth);
     }
 
     /**
-     * Send push notification via curl (fallback method)
+     * Send push notification to a subscription using Web Push (VAPID).
      */
-    private static function sendViaCurl($endpoint, $payload) {
-        $ch = curl_init();
-
-        $headers = [
-            'Content-Type: application/json',
-            'TTL: 86400', // 24 hours
-        ];
-
-        curl_setopt($ch, CURLOPT_URL, $endpoint);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
-        // For encrypted payloads, we would need proper VAPID implementation
-        // For now, sending basic payload (this works with some push services for testing)
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-
-        curl_close($ch);
-
-        if ($error) {
-            error_log("Push notification failed: $error");
+    public static function sendPushNotification($subscription, $payload) {
+        $webPush = self::getWebPush();
+        if ($webPush === null) {
             return false;
         }
 
-        // 201 = Created (success), 410 = Gone (subscription expired)
-        if ($httpCode === 201 || $httpCode === 200) {
-            return true;
-        } elseif ($httpCode === 410) {
-            // Subscription expired, deactivate it
-            self::deactivateByEndpoint($endpoint);
+        try {
+            $sub = Subscription::create([
+                'endpoint' => $subscription['endpoint'],
+                'publicKey' => $subscription['p256dh_key'],
+                'authToken' => $subscription['auth_key'],
+            ]);
+
+            $report = $webPush->sendOneNotification($sub, json_encode([
+                'title' => $payload['title'] ?? 'LCMTV Notification',
+                'body' => $payload['body'] ?? 'You have a new notification',
+                'icon' => $payload['icon'] ?? '/icon-192x192.png',
+                'badge' => $payload['badge'] ?? '/icon-192x192.png',
+                'data' => $payload['data'] ?? [],
+                'requireInteraction' => true,
+                'silent' => false,
+            ]));
+
+            if ($report->isSuccess()) {
+                return true;
+            }
+
+            $endpoint = $subscription['endpoint'];
+
+            // If subscription is gone/expired, deactivate it
+            if ($report->getResponse() && $report->getResponse()->getStatusCode() === 410) {
+                self::deactivateByEndpoint($endpoint);
+            }
+
+            error_log('Push notification failed: ' . $report->getReason());
+            return false;
+        } catch (\Exception $e) {
+            error_log('Push notification exception: ' . $e->getMessage());
             return false;
         }
-
-        error_log("Push notification failed with HTTP $httpCode");
-        return false;
     }
 
     /**

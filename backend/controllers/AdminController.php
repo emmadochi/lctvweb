@@ -8,6 +8,7 @@ require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../utils/Auth.php';
 require_once __DIR__ . '/../utils/Response.php';
 require_once __DIR__ . '/../utils/JWT.php';
+require_once __DIR__ . '/../utils/Mailer.php';
 
 class AdminController {
     /**
@@ -57,6 +58,25 @@ class AdminController {
                 ];
 
                 $token = JWT::encode($tokenPayload);
+
+                // Send admin login notification email (best-effort)
+                try {
+                    $subject = 'Admin login to LCMTV dashboard';
+                    $ip      = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+                    $agent   = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown device';
+                    $body    = '<p>Hello ' . htmlspecialchars($user['name'] ?? $user['email'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ',</p>'
+                             . '<p>An admin account just logged in to the LCMTV dashboard.</p>'
+                             . '<ul>'
+                             . '<li><strong>Time:</strong> ' . date('Y-m-d H:i:s') . '</li>'
+                             . '<li><strong>IP address:</strong> ' . htmlspecialchars($ip, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</li>'
+                             . '<li><strong>Device:</strong> ' . htmlspecialchars($agent, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</li>'
+                             . '</ul>'
+                             . '<p>If this was not you, please secure your account immediately.</p>'
+                             . '<p>LCMTV Security Team</p>';
+                    Mailer::send($user['email'], $subject, $body);
+                } catch (\Throwable $e) {
+                    error_log('AdminController login notification email failed: ' . $e->getMessage());
+                }
 
                 // Return success response
                 return Response::success([

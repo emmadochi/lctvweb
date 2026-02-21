@@ -276,6 +276,95 @@ class YouTubeAPI {
     }
 
     /**
+     * Get channel playlists
+     */
+    public function getChannelPlaylists($channelId, $maxResults = 50) {
+        try {
+            $params = [
+                'part' => 'snippet,contentDetails',
+                'channelId' => $channelId,
+                'maxResults' => min($maxResults, 50)
+            ];
+            
+            $data = $this->makeRequest('playlists', $params);
+            
+            $playlists = [];
+            foreach ($data['items'] ?? [] as $item) {
+                $playlists[] = [
+                    'playlist_id' => $item['id'],
+                    'title' => $item['snippet']['title'],
+                    'description' => $item['snippet']['description'],
+                    'thumbnail_url' => $item['snippet']['thumbnails']['medium']['url'] ?? $item['snippet']['thumbnails']['default']['url'],
+                    'video_count' => (int)($item['contentDetails']['itemCount'] ?? 0),
+                    'published_at' => $item['snippet']['publishedAt'],
+                    'channel_id' => $item['snippet']['channelId'],
+                    'channel_title' => $item['snippet']['channelTitle']
+                ];
+            }
+            
+            return $playlists;
+            
+        } catch (Exception $e) {
+            error_log("YouTube channel playlists error: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Get videos from specific playlist with pagination
+     */
+    public function getPlaylistVideosPaginated($playlistId, $maxResults = 50, $pageToken = null) {
+        try {
+            $params = [
+                'part' => 'snippet',
+                'playlistId' => $playlistId,
+                'maxResults' => min($maxResults, 50)
+            ];
+            
+            if ($pageToken) {
+                $params['pageToken'] = $pageToken;
+            }
+            
+            $data = $this->makeRequest('playlistItems', $params);
+            
+            $result = [
+                'videos' => $this->formatPlaylistResults($data['items'] ?? []),
+                'nextPageToken' => $data['nextPageToken'] ?? null,
+                'prevPageToken' => $data['prevPageToken'] ?? null,
+                'totalResults' => $data['pageInfo']['totalResults'] ?? 0
+            ];
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            error_log("YouTube playlist pagination error: " . $e->getMessage());
+            return ['videos' => [], 'nextPageToken' => null, 'prevPageToken' => null, 'totalResults' => 0];
+        }
+    }
+    
+    /**
+     * Get all playlists for a channel with full details
+     */
+    public function getChannelPlaylistsWithVideos($channelId, $maxPlaylists = 20, $maxVideosPerPlaylist = 10) {
+        try {
+            $playlists = $this->getChannelPlaylists($channelId, $maxPlaylists);
+            
+            foreach ($playlists as &$playlist) {
+                // Get first few videos from each playlist
+                $videosData = $this->getPlaylistVideosPaginated($playlist['playlist_id'], $maxVideosPerPlaylist);
+                $playlist['videos'] = $videosData['videos'];
+                $playlist['video_count_actual'] = count($videosData['videos']);
+            }
+            
+            return $playlists;
+            
+        } catch (Exception $e) {
+            error_log("YouTube channel playlists with videos error: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
      * Get trending videos
      */
     public function getTrendingVideos($regionCode = 'US', $maxResults = 10) {

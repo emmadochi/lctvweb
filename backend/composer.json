@@ -1,0 +1,14 @@
+{
+    "name": "lcmtv/backend",
+    "description": "LCMTV backend API with real Web Push support",
+    "require": {
+        "php": ">=7.4",
+        "minishlink/web-push": "^9.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "LCMTV\\": "src/"
+        }
+    }
+}
+

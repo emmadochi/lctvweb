@@ -5,6 +5,8 @@
 
 session_start();
 
+require_once __DIR__ . '/../config/database.php';
+
 // Redirect if already logged in
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
     header('Location: index.php');
@@ -14,17 +16,52 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // Simple authentication (in production, use proper password hashing)
-    if ($email === 'admin@lcmtv.com' && $password === 'admin123') {
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_email'] = $email;
-        header('Location: index.php');
-        exit();
+    if ($email === '' || $password === '') {
+        $error = 'Email and password are required';
     } else {
-        $error = 'Invalid email or password';
+        try {
+            $conn = getDBConnection();
+
+            $stmt = $conn->prepare("
+                SELECT id, email, password_hash, role, is_active
+                FROM users
+                WHERE email = ?
+                LIMIT 1
+            ");
+
+            if ($stmt) {
+                $stmt->bind_param("s", $email);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $user = $result->fetch_assoc();
+                $stmt->close();
+
+                if (
+                    $user &&
+                    !empty($user['is_active']) &&
+                    in_array($user['role'], ['admin', 'super_admin'], true) &&
+                    password_verify($password, $user['password_hash'])
+                ) {
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['admin_email'] = $user['email'];
+                    $_SESSION['admin_id'] = $user['id'];
+                    $_SESSION['admin_role'] = $user['role'];
+
+                    header('Location: index.php');
+                    exit();
+                } else {
+                    $error = 'Invalid email or password';
+                }
+            } else {
+                $error = 'Unable to process login at this time.';
+            }
+        } catch (Exception $e) {
+            error_log('Admin login error: ' . $e->getMessage());
+            $error = 'An error occurred while logging in.';
+        }
     }
 }
 ?>
@@ -62,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     name="email"
                     required
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
-                    placeholder="admin@lcmtv.com"
+                    placeholder="you@example.com"
                 >
             </div>
 
@@ -74,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     name="password"
                     required
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
-                    placeholder="admin123"
+                    placeholder="Enter your password"
                 >
             </div>
 
@@ -85,12 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Sign In
             </button>
         </form>
-
-        <div class="mt-6 text-center text-sm text-gray-600">
-            <p>Demo Credentials:</p>
-            <p><strong>Email:</strong> admin@lcmtv.com</p>
-            <p><strong>Password:</strong> admin123</p>
-        </div>
     </div>
 </body>
 </html>

@@ -109,6 +109,7 @@
                     case 'categories':
                         $location.path('/admin/categories');
                         break;
+
                     case 'users':
                         $scope.$root.showToast('User management coming soon', 'info');
                         break;

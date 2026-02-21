@@ -5,6 +5,60 @@ if (!defined('ADMIN_ACCESS') && !isset($_SESSION['admin_logged_in'])) {
     exit();
 }
 
+// Determine current admin role (only super_admin can create admins)
+$currentAdminRole = $_SESSION['admin_role'] ?? 'admin';
+$canManageAdmins = ($currentAdminRole === 'super_admin');
+
+// Handle create admin form submission
+$createAdminError = '';
+$createAdminSuccess = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_admin') {
+    if (!$canManageAdmins) {
+        $createAdminError = 'You do not have permission to create admin users.';
+    } else {
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $firstName = trim($_POST['first_name'] ?? '');
+        $lastName = trim($_POST['last_name'] ?? '');
+        $role = $_POST['role'] ?? 'admin';
+        $allowedRoles = ['admin', 'super_admin'];
+
+        // Basic validation
+        if (empty($email) || empty($password)) {
+            $createAdminError = 'Email and password are required.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $createAdminError = 'Please enter a valid email address.';
+        } elseif (strlen($password) < 6) {
+            $createAdminError = 'Password must be at least 6 characters long.';
+        } elseif (!in_array($role, $allowedRoles, true)) {
+            $createAdminError = 'Invalid role selected.';
+        } else {
+            // Check if user already exists
+            if (User::findByEmail($email)) {
+                $createAdminError = 'A user with this email already exists.';
+            } else {
+                // Create admin user
+                $userData = [
+                    'email' => $email,
+                    'password' => password_hash($password, PASSWORD_DEFAULT),
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'role' => $role
+                ];
+
+                $newUserId = User::create($userData);
+
+                if ($newUserId) {
+                    $createAdminSuccess = 'Admin user created successfully.';
+                } else {
+                    $createAdminError = 'Failed to create admin user. Please try again.';
+                }
+            }
+        }
+    }
+}
+
 // Get users for management
 $conn = getDBConnection();
 $result = $conn->query("
@@ -24,9 +78,21 @@ $totalUsers = count($users);
 
 <div class="space-y-6">
     <!-- Page Header -->
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Users Management</h1>
-        <p class="text-gray-600">Manage user accounts and permissions</p>
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Users Management</h1>
+            <p class="text-gray-600">Manage user accounts and permissions</p>
+        </div>
+        <?php if ($canManageAdmins): ?>
+            <button
+                type="button"
+                onclick="openCreateAdminModal()"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+            >
+                <i class="fas fa-user-shield mr-2"></i>
+                Add Admin
+            </button>
+        <?php endif; ?>
     </div>
 
     <!-- Stats -->
@@ -170,9 +236,167 @@ $totalUsers = count($users);
             </table>
         </div>
     </div>
+
+    <!-- Create Admin Modal -->
+    <?php if ($canManageAdmins): ?>
+    <div
+        id="createAdminModal"
+        class="fixed inset-0 z-50 overflow-y-auto <?php echo (!empty($createAdminError) || !empty($createAdminSuccess)) ? '' : 'hidden'; ?>"
+        aria-labelledby="createAdminTitle"
+        role="dialog"
+        aria-modal="true"
+    >
+        <div class="flex items-center justify-center min-h-screen px-4 text-center">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeCreateAdminModal()"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-medium text-gray-900" id="createAdminTitle">Add Admin User</h2>
+                        <p class="text-sm text-gray-600">Create additional admin accounts with access to this dashboard.</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="text-gray-400 hover:text-gray-600"
+                        onclick="closeCreateAdminModal()"
+                    >
+                        <span class="sr-only">Close</span>
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="px-6 py-4">
+                    <?php if (!empty($createAdminError)): ?>
+                        <div class="mb-4 rounded-md bg-red-50 p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-red-700"><?php echo htmlspecialchars($createAdminError); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($createAdminSuccess)): ?>
+                        <div class="mb-4 rounded-md bg-green-50 p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-green-700"><?php echo htmlspecialchars($createAdminSuccess); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <form method="POST" id="createAdminForm" class="space-y-4">
+                        <input type="hidden" name="action" value="create_admin">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="admin_first_name" class="block text-sm font-medium text-gray-700">First Name</label>
+                                <input
+                                    type="text"
+                                    id="admin_first_name"
+                                    name="first_name"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                                    placeholder="John"
+                                >
+                            </div>
+
+                            <div>
+                                <label for="admin_last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
+                                <input
+                                    type="text"
+                                    id="admin_last_name"
+                                    name="last_name"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                                    placeholder="Doe"
+                                >
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="admin_email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input
+                                type="email"
+                                id="admin_email"
+                                name="email"
+                                required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                                placeholder="admin@example.com"
+                            >
+                        </div>
+
+                        <div>
+                            <label for="admin_password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input
+                                type="password"
+                                id="admin_password"
+                                name="password"
+                                required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                                placeholder="Minimum 6 characters"
+                            >
+                        </div>
+
+                        <div>
+                            <label for="admin_role" class="block text-sm font-medium text-gray-700">Role</label>
+                            <select
+                                id="admin_role"
+                                name="role"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                            >
+                                <option value="admin" selected>Admin</option>
+                                <option value="super_admin">Super Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+                    <button
+                        type="button"
+                        class="inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                        onclick="closeCreateAdminModal()"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        form="createAdminForm"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                    >
+                        <i class="fas fa-user-shield mr-2"></i>
+                        Create Admin
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <script>
+function openCreateAdminModal() {
+    var modal = document.getElementById('createAdminModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeCreateAdminModal() {
+    var modal = document.getElementById('createAdminModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
 function viewUserDetails(userId) {
     // TODO: Implement user details modal
     alert('User details view - Coming soon!');

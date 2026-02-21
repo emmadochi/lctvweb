@@ -32,6 +32,8 @@
                 label: '',
                 color: ''
             };
+            vm.showForgotPassword = false;
+            vm.forgotPasswordEmail = '';
 
             // Check if already authenticated
             if (AuthService.isAuthenticated()) {
@@ -265,6 +267,57 @@
                         vm.isLoading = false;
                         vm.errorMessage = error.message || 'Registration failed. Please try again.';
                         console.error('User registration error:', error);
+                    });
+            };
+
+            /**
+             * Open forgot-password panel
+             */
+            vm.openForgotPassword = function() {
+                vm.showForgotPassword = true;
+                vm.errorMessage = '';
+                vm.successMessage = '';
+                vm.forgotPasswordEmail = vm.credentials.email || '';
+            };
+
+            /**
+             * Close forgot-password panel
+             */
+            vm.closeForgotPassword = function() {
+                vm.showForgotPassword = false;
+                vm.forgotPasswordEmail = '';
+            };
+
+            /**
+             * Submit forgot-password request
+             */
+            vm.submitForgotPassword = function() {
+                vm.errorMessage = '';
+                vm.successMessage = '';
+
+                var email = (vm.forgotPasswordEmail || '').trim();
+                if (!email) {
+                    vm.errorMessage = 'Please enter your email address';
+                    return;
+                }
+                if (!vm.isValidEmail(email)) {
+                    vm.errorMessage = 'Please enter a valid email address';
+                    return;
+                }
+
+                vm.isLoading = true;
+
+                AuthService.requestPasswordReset(email)
+                    .then(function(message) {
+                        vm.isLoading = false;
+                        vm.successMessage = message;
+                        // Keep the panel open but clear the email
+                        vm.forgotPasswordEmail = '';
+                    })
+                    .catch(function(error) {
+                        vm.isLoading = false;
+                        vm.errorMessage = error.message || 'Failed to request password reset. Please try again.';
+                        console.error('Forgot password error:', error);
                     });
             };
 

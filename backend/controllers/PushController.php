@@ -128,16 +128,20 @@ class PushController {
      * Get VAPID public key
      */
     public function getVapidPublicKey() {
-        // For demo purposes, using a valid base64url-encoded VAPID public key
-        // In production, generate proper VAPID keys
-        // For testing, using a minimal valid VAPID key
-        $publicKey = 'BLr9o3-m8aWp24xN0g_yC4u1e4d5F6B7C8D9E0F1G2H3I4J5K6L7M8N9O0P1Q2R3S4T5U6V7W8X9Y0Z1A2B3C4D5E6F7G8H9I0';
+        // Read VAPID public key from environment
+        $publicKey = getenv('VAPID_PUBLIC_KEY');
+
+        if (!$publicKey) {
+            error_log("VAPID_PUBLIC_KEY is not configured in environment");
+            Response::error('VAPID public key not configured', 500);
+            return;
+        }
 
         error_log("VAPID endpoint called, returning key: " . substr($publicKey, 0, 20) . "...");
 
-        Response::success([
-            'publicKey' => $publicKey
-        ]);
+        // Frontend expects the raw key in the top-level "data" field
+        // PushService.js reads response.data.data, which will be this string.
+        Response::success($publicKey);
     }
 
     /**

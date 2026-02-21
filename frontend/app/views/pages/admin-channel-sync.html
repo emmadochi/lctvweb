@@ -1,0 +1,416 @@
+<!-- Channel Sync Management Page -->
+<div class="channel-sync-page" ng-controller="ChannelSyncController as vm">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="container-fluid">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="page-title">
+                        <i class="fa fa-refresh"></i> Channel Synchronization
+                    </h1>
+                    <p class="page-subtitle">Automatically import videos from YouTube channels</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-success" ng-click="vm.runAllSync()">
+                        <i class="fa fa-play"></i> Run All Sync
+                    </button>
+                    <button class="btn btn-primary" ng-click="vm.openAddModal()">
+                        <i class="fa fa-plus"></i> Add Channel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-section">
+        <div class="container-fluid">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fa fa-tv"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{vm.stats.active_channels || 0}}</div>
+                        <div class="stat-label">Active Channels</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fa fa-video-camera"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{vm.totalImported}}</div>
+                        <div class="stat-label">Videos Imported</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fa fa-clock-o"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{vm.lastSync}}</div>
+                        <div class="stat-label">Last Sync</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fa fa-history"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{vm.syncLogs.length}}</div>
+                        <div class="stat-label">Recent Syncs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channels Table -->
+    <div class="channels-section">
+        <div class="container-fluid">
+            <!-- Loading State -->
+            <div class="loading-state" ng-if="vm.isLoading">
+                <div class="loading-container">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    <p>Loading channel configurations...</p>
+                </div>
+            </div>
+
+            <!-- Channels Table -->
+            <div class="channels-table-container" ng-if="!vm.isLoading && vm.channels.length > 0">
+                <table class="table table-hover channels-table">
+                    <thead>
+                        <tr>
+                            <th>Channel</th>
+                            <th>Category</th>
+                            <th>Frequency</th>
+                            <th>Status</th>
+                            <th>Last Sync</th>
+                            <th>Auto Import</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="channel in vm.channels">
+                            <td class="channel-info">
+                                <div class="channel-name">{{channel.channel_name}}</div>
+                                <div class="channel-id">ID: {{channel.channel_id}}</div>
+                            </td>
+                            <td>{{channel.category_name}}</td>
+                            <td>
+                                <span class="frequency-badge" ng-class="channel.sync_frequency">
+                                    {{channel.sync_frequency}}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge" ng-class="channel.is_active ? 'active' : 'inactive'">
+                                    {{channel.is_active ? 'Active' : 'Inactive'}}
+                                </span>
+                            </td>
+                            <td>{{channel.last_sync | date:'short'}}</td>
+                            <td>
+                                <span class="import-badge" ng-class="channel.auto_import ? 'enabled' : 'disabled'">
+                                    {{channel.auto_import ? 'Enabled' : 'Disabled'}}
+                                </span>
+                            </td>
+                            <td class="actions-cell">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            ng-click="vm.runChannelSync(channel.id)"
+                                            title="Run sync for this channel">
+                                        <i class="fa fa-refresh"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            ng-click="vm.openEditModal(channel)"
+                                            title="Edit configuration">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            ng-click="vm.deleteChannel(channel.id)"
+                                            title="Remove channel">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" ng-if="!vm.isLoading && vm.channels.length === 0">
+                <div class="empty-container">
+                    <i class="fa fa-refresh fa-3x text-muted"></i>
+                    <h3>No channels configured</h3>
+                    <p>Start by adding YouTube channels to automatically sync their videos.</p>
+                    <button class="btn btn-primary" ng-click="vm.openAddModal()">
+                        <i class="fa fa-plus"></i> Add Your First Channel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Logs -->
+    <div class="logs-section">
+        <div class="container-fluid">
+            <div class="section-header">
+                <h3>Recent Synchronization Logs</h3>
+            </div>
+            
+            <div class="logs-table-container">
+                <table class="table table-sm logs-table">
+                    <thead>
+                        <tr>
+                            <th>Channel</th>
+                            <th>Status</th>
+                            <th>Found</th>
+                            <th>Imported</th>
+                            <th>Skipped</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="log in vm.syncLogs | limitTo:10">
+                            <td>{{log.channel_name}}</td>
+                            <td>
+                                <span class="log-status" ng-class="log.status">
+                                    {{log.status}}
+                                </span>
+                            </td>
+                            <td>{{log.videos_found}}</td>
+                            <td>{{log.videos_imported}}</td>
+                            <td>{{log.videos_skipped}}</td>
+                            <td>{{log.started_at | date:'short'}}</td>
+                        </tr>
+                        <tr ng-if="vm.syncLogs.length === 0">
+                            <td colspan="6" class="text-center text-muted">
+                                No synchronization logs available
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Channel Modal -->
+    <div class="modal fade" id="addChannelModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" ng-click="vm.closeAddModal()">
+                        <span>&times;</span>
+                    </button>
+                    <h4 class="modal-title">
+                        <i class="fa fa-plus"></i> Add YouTube Channel
+                    </h4>
+                </div>
+                <form ng-submit="vm.addChannel()">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="channel_id">YouTube Channel ID *</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="channel_id"
+                                           ng-model="vm.newChannel.channel_id"
+                                           placeholder="e.g., UC4QobU6STFB0P71PMvOGN5A"
+                                           required>
+                                    <small class="help-block">
+                                        Find channel ID in YouTube URL or use @handle
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="category_id">Category *</label>
+                                    <select class="form-control"
+                                            id="category_id"
+                                            ng-model="vm.newChannel.category_id"
+                                            required>
+                                        <option value="">Select a category</option>
+                                        <option ng-repeat="category in vm.categories" value="{{category.id}}">
+                                            {{category.name}}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="channel_name">Channel Name</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="channel_name"
+                                   ng-model="vm.newChannel.channel_name"
+                                   placeholder="Optional - will auto-detect if left blank">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="sync_frequency">Sync Frequency</label>
+                                    <select class="form-control"
+                                            id="sync_frequency"
+                                            ng-model="vm.newChannel.sync_frequency">
+                                        <option value="hourly">Hourly</option>
+                                        <option value="daily" selected>Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="max_videos">Max Videos per Sync</label>
+                                    <input type="number"
+                                           class="form-control"
+                                           id="max_videos"
+                                           ng-model="vm.newChannel.max_videos_per_sync"
+                                           min="1"
+                                           max="50"
+                                           value="10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.newChannel.auto_import" checked>
+                                    Automatically import new videos
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.newChannel.require_approval">
+                                    Require admin approval before publishing
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.newChannel.is_active" checked>
+                                    Enable synchronization
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal" ng-click="vm.closeAddModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-plus"></i> Add Channel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Channel Modal -->
+    <div class="modal fade" id="editChannelModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" ng-click="vm.closeEditModal()">
+                        <span>&times;</span>
+                    </button>
+                    <h4 class="modal-title">
+                        <i class="fa fa-edit"></i> Edit Channel Configuration
+                    </h4>
+                </div>
+                <form ng-submit="vm.updateChannel()" ng-if="vm.editingChannel">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Channel ID</label>
+                            <input type="text" class="form-control" value="{{vm.editingChannel.channel_id}}" readonly>
+                            <small class="help-block">Channel ID cannot be changed</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_channel_name">Channel Name</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="edit_channel_name"
+                                           ng-model="vm.editingChannel.channel_name">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_category_id">Category</label>
+                                    <select class="form-control"
+                                            id="edit_category_id"
+                                            ng-model="vm.editingChannel.category_id">
+                                        <option ng-repeat="category in vm.categories" value="{{category.id}}">
+                                            {{category.name}}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_sync_frequency">Sync Frequency</label>
+                                    <select class="form-control"
+                                            id="edit_sync_frequency"
+                                            ng-model="vm.editingChannel.sync_frequency">
+                                        <option value="hourly">Hourly</option>
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_max_videos">Max Videos per Sync</label>
+                                    <input type="number"
+                                           class="form-control"
+                                           id="edit_max_videos"
+                                           ng-model="vm.editingChannel.max_videos_per_sync"
+                                           min="1"
+                                           max="50">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.editingChannel.auto_import">
+                                    Automatically import new videos
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.editingChannel.require_approval">
+                                    Require admin approval before publishing
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" ng-model="vm.editingChannel.is_active">
+                                    Enable synchronization
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal" ng-click="vm.closeEditModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-save"></i> Update Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

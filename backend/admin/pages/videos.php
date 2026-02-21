@@ -5,6 +5,8 @@ if (!defined('ADMIN_ACCESS') && !isset($_SESSION['admin_logged_in'])) {
     exit();
 }
 
+require_once __DIR__ . '/../../services/ChannelSyncService.php';
+
 // Handle actions
 $message = '';
 $messageType = '';
@@ -38,6 +40,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 } else {
                     throw new Exception('Failed to delete selected videos');
                 }
+                break;
+                
+            case 'manual_override':
+                $videoId = (int)$_POST['video_id'];
+                $newCategoryId = (int)$_POST['category_id'];
+                $reason = trim($_POST['reason']);
+                $userId = $_SESSION['admin_id'] ?? null;
+                
+                $channelSyncService = new ChannelSyncService();
+                $channelSyncService->overrideVideoCategory($videoId, $newCategoryId, $reason, $userId);
+                
+                $message = "Video category overridden successfully!";
+                $messageType = 'success';
                 break;
 
             case 'toggle_active':
@@ -227,6 +242,13 @@ $totalPages = ceil($totalVideos / $perPage);
                                 >
                                     <i class="fas fa-external-link-alt"></i>
                                 </a>
+                                <button type="button" 
+                                        class="text-orange-600 hover:text-orange-900 manual-override-btn" 
+                                        title="Override Category"
+                                        data-video-id="<?php echo $video['id']; ?>"
+                                        data-video-title="<?php echo htmlspecialchars($video['title']); ?>">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </button>
                                 <button type="button" class="text-red-600 hover:text-red-900 delete-single-btn" title="Delete Video" data-video-id="<?php echo $video['id']; ?>">
                                     <i class="fas fa-trash"></i>
                                 </button>
@@ -385,9 +407,109 @@ $totalPages = ceil($totalVideos / $perPage);
                     }
                 });
             });
+            
+            // Handle manual override buttons
+            document.querySelectorAll('.manual-override-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const videoId = this.getAttribute('data-video-id');
+                    const videoTitle = this.getAttribute('data-video-title');
+                    
+                    // Set the video ID in the modal
+                    document.getElementById('override_video_id').value = videoId;
+                    document.getElementById('override_video_title').textContent = videoTitle;
+                    
+                    // Show the modal
+                    document.getElementById('overrideModal').classList.remove('hidden');
+                });
+            });
+            
+            // Close modal functions
+            function closeOverrideModal() {
+                document.getElementById('overrideModal').classList.add('hidden');
+            }
+            
+            function saveOverride() {
+                const form = document.getElementById('overrideForm');
+                const formData = new FormData(form);
+                
+                fetch('', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        closeOverrideModal();
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error saving override');
+                });
+            }
+            
+            // Modal close button
+            document.querySelector('#overrideModal .modal-close')?.addEventListener('click', closeOverrideModal);
+            
+            // Close on backdrop click
+            document.getElementById('overrideModal')?.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeOverrideModal();
+                }
+            });
 
             // Initial state
             updateDeleteButton();
         });
     </script>
+    
+    <!-- Manual Override Modal -->
+    <div id="overrideModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Manual Category Override</h3>
+                    <button class="modal-close text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">Video: <span id="override_video_title" class="font-medium"></span></p>
+                </div>
+                
+                <form id="overrideForm" method="POST">
+                    <input type="hidden" name="action" value="manual_override">
+                    <input type="hidden" name="video_id" id="override_video_id">
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">New Category</label>
+                        <select name="category_id" id="override_category_id" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select a category</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Override</label>
+                        <textarea name="reason" id="override_reason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Explain why this category change is needed..."></textarea>
+                    </div>
+                </form>
+                
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeOverrideModal()" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="saveOverride()" class="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        Apply Override
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

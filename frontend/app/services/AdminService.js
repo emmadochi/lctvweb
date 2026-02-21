@@ -304,6 +304,100 @@
                     });
             };
 
+            /**
+             * Channel Synchronization Methods
+             */
+            
+            /**
+             * Get all channel sync configurations
+             */
+            service.getChannelSyncConfigs = function() {
+                return $http.get(API_BASE + '/admin/channel-sync')
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Get specific channel sync configuration
+             */
+            service.getChannelSyncConfig = function(id) {
+                return $http.get(API_BASE + '/admin/channel-sync/' + id)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Create new channel sync configuration
+             */
+            service.createChannelSync = function(channelData) {
+                return $http.post(API_BASE + '/admin/channel-sync', channelData)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Update channel sync configuration
+             */
+            service.updateChannelSync = function(id, channelData) {
+                return $http.put(API_BASE + '/admin/channel-sync/' + id, channelData)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Delete channel sync configuration
+             */
+            service.deleteChannelSync = function(id) {
+                return $http.delete(API_BASE + '/admin/channel-sync/' + id)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Run synchronization for all channels
+             */
+            service.runAllChannelSync = function() {
+                return $http.post(API_BASE + '/admin/channel-sync/run')
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Run synchronization for specific channel
+             */
+            service.runChannelSync = function(id) {
+                return $http.post(API_BASE + '/admin/channel-sync/' + id)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Get channel synchronization statistics
+             */
+            service.getChannelSyncStats = function() {
+                return $http.get(API_BASE + '/admin/channel-sync/stats')
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Get synchronization logs
+             */
+            service.getChannelSyncLogs = function() {
+                return $http.get(API_BASE + '/admin/channel-sync/logs')
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
             return service;
         }]);
 })();

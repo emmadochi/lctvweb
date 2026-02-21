@@ -374,7 +374,7 @@ class Video {
     /**
      * Format video data for API response
      */
-    private static function formatVideoData($video) {
+    public static function formatVideoData($video) {
         return [
             'id' => $video['id'],
             'youtube_id' => $video['youtube_id'],
@@ -401,7 +401,7 @@ class Video {
      * Get video with translations for a specific language
      */
     public static function getWithTranslations($videoId, $languageCode = null) {
-        $video = self::find($videoId);
+        $video = self::getById($videoId);
 
         if (!$video || !$languageCode || $languageCode === 'en') {
             return $video;
@@ -471,9 +471,10 @@ class Video {
      * Set content translation for a video
      */
     public static function setTranslation($videoId, $languageCode, $field, $translatedText) {
-        require_once __DIR__ . '/Language.php';
-
-        return Language::setContentTranslation('video', $videoId, $languageCode, $field, $translatedText);
+        // For now, we'll store this in a separate translations table or video metadata
+        // This would typically use a content_translations table in the database
+        error_log("Video translation feature is not implemented yet: video={$videoId}, language={$languageCode}, field={$field}");
+        return false;
     }
 
     /**

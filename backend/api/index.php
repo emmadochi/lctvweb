@@ -742,6 +742,301 @@ try {
             }
             break;
 
+        // Admin Channel Sync Routes
+        case (preg_match('/^\/admin\/channel-sync(\/(\d+))?$/', $path, $matches) ? true : false):
+            require_once '../controllers/ChannelSyncController.php';
+            
+            $method = $_SERVER['REQUEST_METHOD'];
+            $channelId = isset($matches[2]) ? (int)$matches[2] : null;
+            
+            switch ($method) {
+                case 'GET':
+                    if ($channelId) {
+                        ChannelSyncController::show($channelId);
+                    } else {
+                        ChannelSyncController::index();
+                    }
+                    break;
+                    
+                case 'POST':
+                    if ($channelId) {
+                        ChannelSyncController::runChannelSync($channelId);
+                    } else {
+                        ChannelSyncController::create();
+                    }
+                    break;
+                    
+                case 'PUT':
+                    if ($channelId) {
+                        ChannelSyncController::update($channelId);
+                    } else {
+                        Response::methodNotAllowed();
+                    }
+                    break;
+                    
+                case 'DELETE':
+                    if ($channelId) {
+                        ChannelSyncController::delete($channelId);
+                    } else {
+                        Response::methodNotAllowed();
+                    }
+                    break;
+                    
+                default:
+                    Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/admin/channel-sync/run':
+            require_once '../controllers/ChannelSyncController.php';
+            if ($method === 'POST') {
+                ChannelSyncController::runSync();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/admin/channel-sync/stats':
+            require_once '../controllers/ChannelSyncController.php';
+            if ($method === 'GET') {
+                ChannelSyncController::getStats();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/admin/channel-sync/logs':
+            require_once '../controllers/ChannelSyncController.php';
+            if ($method === 'GET') {
+                ChannelSyncController::getLogs();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        // Admin Videos Management Routes
+        case (preg_match('/^\/admin\/videos(\/(\d+))?$/', $path, $matches) ? true : false):
+            require_once '../models/Video.php';
+            
+            // Require admin authentication
+            Auth::requireAdmin();
+            
+            $method = $_SERVER['REQUEST_METHOD'];
+            $videoId = isset($matches[2]) ? (int)$matches[2] : null;
+            
+            switch ($method) {
+                case 'GET':
+                    if ($videoId) {
+                        // Get specific video
+                        $video = Video::getById($videoId);
+                        if ($video) {
+                            Response::success($video);
+                        } else {
+                            Response::notFound('Video not found');
+                        }
+                    } else {
+                        // Get all videos with pagination and filters
+                        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+                        $limit = isset($_GET['limit']) ? max(1, min(100, (int)$_GET['limit'])) : 20;
+                        $offset = ($page - 1) * $limit;
+                        
+                        $conn = getDBConnection();
+                        
+                        // Build query with filters
+                        $whereClause = "WHERE 1=1";
+                        $params = [];
+                        $types = "";
+                        
+                        if (isset($_GET['category_id']) && $_GET['category_id'] !== '') {
+                            $whereClause .= " AND v.category_id = ?";
+                            $params[] = (int)$_GET['category_id'];
+                            $types .= "i";
+                        }
+                        
+                        if (isset($_GET['is_active']) && $_GET['is_active'] !== '') {
+                            $whereClause .= " AND v.is_active = ?";
+                            $params[] = (int)$_GET['is_active'];
+                            $types .= "i";
+                        }
+                        
+                        if (isset($_GET['search']) && $_GET['search'] !== '') {
+                            $searchTerm = '%' . $_GET['search'] . '%';
+                            $whereClause .= " AND (v.title LIKE ? OR v.description LIKE ? OR v.tags LIKE ?)";
+                            $params[] = $searchTerm;
+                            $params[] = $searchTerm;
+                            $params[] = $searchTerm;
+                            $types .= "sss";
+                        }
+                        
+                        // Get total count
+                        $countSql = "SELECT COUNT(*) as total FROM videos v $whereClause";
+                        $countStmt = $conn->prepare($countSql);
+                        if (!empty($params)) {
+                            $countStmt->bind_param($types, ...$params);
+                        }
+                        $countStmt->execute();
+                        $total = $countStmt->get_result()->fetch_assoc()['total'];
+                        
+                        // Get videos
+                        $sql = "SELECT v.*, c.name as category_name, c.slug as category_slug
+                                FROM videos v
+                                LEFT JOIN categories c ON v.category_id = c.id
+                                $whereClause
+                                ORDER BY v.created_at DESC
+                                LIMIT ? OFFSET ?";
+                        $params[] = $limit;
+                        $params[] = $offset;
+                        $types .= "ii";
+                        
+                        $stmt = $conn->prepare($sql);
+                        if (!empty($params)) {
+                            $stmt->bind_param($types, ...$params);
+                        }
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        
+                        $videos = [];
+                        while ($row = $result->fetch_assoc()) {
+                            $videos[] = Video::formatVideoData($row);
+                        }
+                        
+                        Response::success([
+                            'videos' => $videos,
+                            'total' => (int)$total,
+                            'page' => $page,
+                            'total_pages' => max(1, (int)ceil($total / $limit)),
+                            'limit' => $limit
+                        ]);
+                    }
+                    break;
+                    
+                case 'POST':
+                    if ($videoId) {
+                        Response::methodNotAllowed();
+                        break;
+                    }
+                    
+                    // Add new video
+                    $rawInput = file_get_contents('php://input');
+                    $data = json_decode($rawInput, true);
+                    
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        Response::error('Invalid JSON data', 400);
+                        break;
+                    }
+                    
+                    // Validate required fields
+                    if (empty($data['youtube_id']) || empty($data['title'])) {
+                        Response::error('YouTube ID and title are required', 400);
+                        break;
+                    }
+                    
+                    // Check if video already exists
+                    $existingVideo = Video::getByYouTubeId($data['youtube_id']);
+                    if ($existingVideo) {
+                        Response::error('Video with this YouTube ID already exists', 409);
+                        break;
+                    }
+                    
+                    // Prepare video data
+                    $videoData = [
+                        'youtube_id' => $data['youtube_id'],
+                        'title' => $data['title'],
+                        'description' => $data['description'] ?? '',
+                        'thumbnail_url' => "https://img.youtube.com/vi/{$data['youtube_id']}/hqdefault.jpg",
+                        'duration' => $data['duration'] ?? 0,
+                        'category_id' => $data['category_id'] ?? null,
+                        'tags' => json_encode(explode(',', $data['tags'] ?? '')),
+                        'channel_title' => $data['channel_title'] ?? '',
+                        'channel_id' => $data['channel_id'] ?? '',
+                        'published_at' => date('Y-m-d H:i:s'),
+                        'view_count' => 0,
+                        'like_count' => 0,
+                        'is_active' => 1
+                    ];
+                    
+                    $videoId = Video::create($videoData);
+                    
+                    if ($videoId) {
+                        $newVideo = Video::getById($videoId);
+                        Response::success($newVideo, 201);
+                    } else {
+                        Response::error('Failed to create video', 500);
+                    }
+                    break;
+                    
+                case 'PUT':
+                    if (!$videoId) {
+                        Response::methodNotAllowed();
+                        break;
+                    }
+                    
+                    // Update video
+                    $rawInput = file_get_contents('php://input');
+                    $data = json_decode($rawInput, true);
+                    
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        Response::error('Invalid JSON data', 400);
+                        break;
+                    }
+                    
+                    // Check if video exists
+                    $existingVideo = Video::getById($videoId);
+                    if (!$existingVideo) {
+                        Response::notFound('Video not found');
+                        break;
+                    }
+                    
+                    // Prepare update data
+                    $updateData = [
+                        'title' => $data['title'] ?? $existingVideo['title'],
+                        'description' => $data['description'] ?? $existingVideo['description'],
+                        'thumbnail_url' => $data['thumbnail_url'] ?? $existingVideo['thumbnail_url'],
+                        'duration' => $data['duration'] ?? $existingVideo['duration'],
+                        'category_id' => $data['category_id'] ?? $existingVideo['category']['id'],
+                        'tags' => json_encode(explode(',', $data['tags'] ?? '')),
+                        'channel_title' => $data['channel_title'] ?? $existingVideo['channel_title'],
+                        'channel_id' => $data['channel_id'] ?? $existingVideo['channel_id'],
+                        'published_at' => $data['published_at'] ?? $existingVideo['published_at']
+                    ];
+                    
+                    $success = Video::update($videoId, $updateData);
+                    
+                    if ($success) {
+                        $updatedVideo = Video::getById($videoId);
+                        Response::success($updatedVideo);
+                    } else {
+                        Response::error('Failed to update video', 500);
+                    }
+                    break;
+                    
+                case 'DELETE':
+                    if (!$videoId) {
+                        Response::methodNotAllowed();
+                        break;
+                    }
+                    
+                    // Delete video (soft delete)
+                    $existingVideo = Video::getById($videoId);
+                    if (!$existingVideo) {
+                        Response::notFound('Video not found');
+                        break;
+                    }
+                    
+                    $success = Video::delete($videoId);
+                    
+                    if ($success) {
+                        Response::success(['message' => 'Video deleted successfully']);
+                    } else {
+                        Response::error('Failed to delete video', 500);
+                    }
+                    break;
+                    
+                default:
+                    Response::methodNotAllowed();
+            }
+            break;
+
         case '/debug/database':
             if ($method === 'GET') {
                 try {
@@ -990,6 +1285,12 @@ function handleUserRoutes($controller, $method) {
                         break;
                     case 'register':
                         $controller->register($data);
+                        break;
+                    case 'forgot_password':
+                        $controller->requestPasswordReset($data);
+                        break;
+                    case 'reset_password':
+                        $controller->resetPassword($data);
                         break;
                     default:
                         Response::badRequest('Invalid action');

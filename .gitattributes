@@ -1,0 +1,16 @@
+* text=auto
+
+# Keep source files with LF in the repo; Git will convert to CRLF in working tree on Windows when configured.
+*.js   text eol=lf
+*.ts   text eol=lf
+*.php  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+
+# Binary files
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary

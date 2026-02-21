@@ -203,6 +203,55 @@
             };
 
             /**
+             * Request password reset email
+             */
+            service.requestPasswordReset = function(email) {
+                var payload = {
+                    action: 'forgot_password',
+                    email: email
+                };
+
+                return $http.post(API_BASE + '/users', payload)
+                    .then(function(response) {
+                        var data = response.data;
+                        if (data.success) {
+                            return data.message || 'If an account exists for that email, a reset link has been sent.';
+                        } else {
+                            throw new Error(data.message || 'Failed to request password reset');
+                        }
+                    })
+                    .catch(function(error) {
+                        var message = (error.data && error.data.message) || 'Failed to request password reset';
+                        throw new Error(message);
+                    });
+            };
+
+            /**
+             * Reset password using a token
+             */
+            service.resetPassword = function(token, newPassword) {
+                var payload = {
+                    action: 'reset_password',
+                    token: token,
+                    password: newPassword
+                };
+
+                return $http.post(API_BASE + '/users', payload)
+                    .then(function(response) {
+                        var data = response.data;
+                        if (data.success) {
+                            return data.message || 'Password reset successful';
+                        } else {
+                            throw new Error(data.message || 'Failed to reset password');
+                        }
+                    })
+                    .catch(function(error) {
+                        var message = (error.data && error.data.message) || 'Failed to reset password';
+                        throw new Error(message);
+                    });
+            };
+
+            /**
              * Logout user
              */
             service.logout = function() {

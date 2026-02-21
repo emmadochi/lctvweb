@@ -138,6 +138,11 @@
                         }]
                     }
                 })
+                .when('/reset-password', {
+                    templateUrl: 'app/views/pages/reset-password.html',
+                    controller: 'ResetPasswordController',
+                    controllerAs: 'vm'
+                })
                 .when('/login', {
                     templateUrl: 'app/views/pages/login.html',
                     controller: 'LoginController',
@@ -182,6 +187,7 @@
                     controller: 'AdminCategoriesController',
                     controllerAs: 'vm'
                 })
+
                 .when('/watchlater', {
                     templateUrl: 'app/views/pages/favorites.html',
                     controller: 'FavoritesController',
