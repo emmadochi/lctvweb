@@ -31,6 +31,7 @@ require_once __DIR__ . '/../controllers/SearchController.php'; // Added for sear
 require_once __DIR__ . '/../controllers/DonationController.php'; // Added for donation processing
 require_once __DIR__ . '/../controllers/LanguageController.php'; // Added for language management
 require_once __DIR__ . '/../controllers/AdminController.php'; // Added for admin functions
+require_once __DIR__ . '/../controllers/TranslationController.php'; // Added for Google Translate integration
 
 // Enable error logging but don't display errors (they break JSON responses)
 ini_set('display_errors', 0);
@@ -1545,4 +1546,68 @@ function handleReactionRoutes($controller, $method, $path) {
     // Default reactions endpoint
     Response::badRequest('Invalid reaction endpoint');
 }
+
+// Translation API Routes
+if (preg_match('/^\/translate(\/|$)/', $path)) {
+    $controller = new TranslationController();
+    
+    // Remove /translate prefix for cleaner routing
+    $translatePath = substr($path, strlen('/translate'));
+    
+    switch ($translatePath) {
+        case '':
+        case '/':
+            if ($method === 'POST') {
+                $controller->translate();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/batch':
+            if ($method === 'POST') {
+                $controller->translateBatch();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/detect':
+            if ($method === 'POST') {
+                $controller->detectLanguage();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/languages':
+            if ($method === 'GET') {
+                $controller->getLanguages();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/status':
+            if ($method === 'GET') {
+                $controller->getStatus();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        case '/cache/clear':
+            if ($method === 'POST') {
+                $controller->clearCache();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+            
+        default:
+            Response::notFound('Translation endpoint not found');
+    }
+    return;
+}
+
 ?>

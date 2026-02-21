@@ -88,114 +88,10 @@
                 </div>
             </div>
 
-            <!-- Language Switcher (Desktop) -->
-            <language-switcher class="language-switcher-desktop"></language-switcher>
 
-            <!-- Mobile: Language + Hamburger (visible only on mobile) -->
+
+            <!-- Mobile: Clean header (no navigation elements) -->
             <div class="header-mobile-actions">
-                <language-switcher class="language-switcher-mobile"></language-switcher>
-                <button type="button" class="hamburger-btn" ng-click="headerCtrl.toggleMobileMenu()" ng-class="{active: headerCtrl.mobileMenuOpen}" aria-label="Toggle menu">
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Mobile menu panel (slide-down, only on small screens) -->
-        <div class="header-mobile-menu" ng-class="{open: headerCtrl.mobileMenuOpen}">
-            <div class="mobile-menu-inner">
-                <!-- Search (primary action) -->
-                <div class="mobile-menu-search">
-                    <label class="mobile-menu-search-label">Search</label>
-                    <form class="search-bar" ng-submit="headerCtrl.performHeaderSearch()">
-                        <input type="text"
-                               ng-model="headerCtrl.searchQuery"
-                               ng-keyup="headerCtrl.onSearchInputChange($event)"
-                               ng-keydown="headerCtrl.onSearchKeyDown($event)"
-                               ng-focus="headerCtrl.showSearchSuggestions = headerCtrl.searchSuggestions.length > 0"
-                               placeholder="Videos, categories..."
-                               autocomplete="off">
-                        <button type="submit" aria-label="Search"><i class="fa fa-search"></i></button>
-                    </form>
-                    <div class="search-suggestions-dropdown" ng-show="headerCtrl.showSearchSuggestions">
-                        <div class="search-suggestion-item"
-                             ng-repeat="suggestion in headerCtrl.searchSuggestions track by $index"
-                             ng-class="{selected: $index === headerCtrl.selectedSuggestionIndex}"
-                             ng-click="headerCtrl.selectSearchSuggestion(suggestion)">
-                            <i class="fa fa-search"></i>
-                            <span class="suggestion-text">{{suggestion.suggestion || suggestion}}</span>
-                            <span class="suggestion-type" ng-if="suggestion.type">{{suggestion.type}}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Browse section -->
-                <div class="mobile-menu-block">
-                    <p class="mobile-menu-section-title">Browse</p>
-                    <nav class="mobile-menu-nav" aria-label="Main navigation">
-                        <a href="#/" class="mobile-menu-item" ng-class="{active: $location.path() === '/'}" ng-click="headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-home"></i></span>
-                            <span class="mobile-menu-text">Home</span>
-                        </a>
-                        <a href="#/search" class="mobile-menu-item" ng-class="{active: $location.path() === '/search'}" ng-click="headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-search"></i></span>
-                            <span class="mobile-menu-text">Search</span>
-                        </a>
-                        <div class="mobile-menu-section" ng-if="headerCtrl.categories.length > 0">
-                            <button type="button" class="mobile-menu-item mobile-menu-toggle" ng-click="headerCtrl.toggleCategoriesDropdown()" aria-expanded="{{headerCtrl.showCategoriesDropdown}}">
-                                <span class="mobile-menu-icon"><i class="fa fa-th-large"></i></span>
-                                <span class="mobile-menu-text">Categories</span>
-                                <span class="mobile-menu-badge" ng-if="headerCtrl.categories.length">{{headerCtrl.categories.length}}</span>
-                                <i class="fa fa-chevron-down mobile-menu-chevron" ng-class="{rotated: headerCtrl.showCategoriesDropdown}"></i>
-                            </button>
-                            <div class="mobile-menu-sub" ng-show="headerCtrl.showCategoriesDropdown" role="list">
-                                <a href="#/category/{{category.slug}}" class="mobile-menu-subitem"
-                                   ng-repeat="category in headerCtrl.categories"
-                                   ng-click="headerCtrl.navigateToCategory(category.slug)"
-                                   role="listitem">
-                                    <span class="mobile-menu-subicon"><i class="fa {{headerCtrl.getCategoryIcon(category.slug)}}"></i></span>
-                                    <span>{{category.name}}</span>
-                                </a>
-                            </div>
-                        </div>
-                    </nav>
-                </div>
-
-                <!-- Account section (when logged in) -->
-                <div class="mobile-menu-block" ng-if="headerCtrl.isAuthenticated">
-                    <div class="mobile-menu-divider" role="presentation"></div>
-                    <p class="mobile-menu-section-title">My account</p>
-                    <nav class="mobile-menu-nav" aria-label="Account">
-                        <a href="#/favorites" class="mobile-menu-item" ng-class="{active: $location.path() === '/favorites'}" ng-click="headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-heart"></i></span>
-                            <span class="mobile-menu-text">Favourites</span>
-                        </a>
-                        <a href="#/profile" class="mobile-menu-item" ng-class="{active: $location.path() === '/profile'}" ng-click="headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-user"></i></span>
-                            <span class="mobile-menu-text">Profile</span>
-                        </a>
-                        <a href="#/favorites?tab=history" class="mobile-menu-item" ng-click="headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-history"></i></span>
-                            <span class="mobile-menu-text">Watch History</span>
-                        </a>
-                    </nav>
-                </div>
-
-                <!-- Sign in / Logout -->
-                <div class="mobile-menu-block mobile-menu-actions">
-                    <div class="mobile-menu-divider" role="presentation"></div>
-                    <nav class="mobile-menu-nav" aria-label="Account actions">
-                        <button type="button" class="mobile-menu-item mobile-menu-login" ng-if="!headerCtrl.authLoading && !headerCtrl.isAuthenticated" ng-click="headerCtrl.goToLogin(); headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-sign-in"></i></span>
-                            <span class="mobile-menu-text">Sign in</span>
-                        </button>
-                        <button type="button" class="mobile-menu-item mobile-menu-logout" ng-if="headerCtrl.isAuthenticated" ng-click="headerCtrl.logout(); headerCtrl.closeMobileMenu()">
-                            <span class="mobile-menu-icon"><i class="fa fa-sign-out"></i></span>
-                            <span class="mobile-menu-text">Sign out</span>
-                        </button>
-                    </nav>
-                </div>
             </div>
         </div>
     </div>
@@ -239,10 +135,11 @@
         position: absolute;
         top: 100%;
         left: 0;
-        background: white;
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
         border-radius: 8px;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        min-width: 200px;
+        min-width: 220px;
         z-index: 1000;
         opacity: 1;
         visibility: visible;
@@ -260,18 +157,21 @@
     .dropdown-item {
         display: block;
         padding: 12px 16px;
-        color: #2c3e50;
+        color: #333333;
         text-decoration: none;
-        border-bottom: 1px solid #f8f9fa;
-        transition: background-color 0.3s ease;
+        border-bottom: 1px solid #f0f0f0;
+        transition: all 0.2s ease;
         display: flex;
         align-items: center;
         gap: 10px;
+        font-weight: 500;
     }
 
     .dropdown-item:hover {
-        background-color: #f8f9fa;
-        color: #3498db;
+        background-color: #6a0dad;
+        color: #ffffff;
+        border-left: 3px solid #6a0dad;
+        padding-left: 13px;
     }
 
     .dropdown-item:last-child {
@@ -281,6 +181,11 @@
     .dropdown-item i {
         width: 16px;
         text-align: center;
+        color: #6a0dad;
+    }
+
+    .dropdown-item:hover i {
+        color: #ffffff;
     }
 
     /* User Authentication Styles */
@@ -433,87 +338,6 @@
         .auth-links {
             margin-left: 10px;
         }
-    }
-
-    /* Language Switcher */
-    .language-switcher {
-        margin-left: 15px;
-    }
-
-    .language-switcher-mobile {
-        display: none;
-    }
-
-    .header-mobile-actions {
-        display: none;
-    }
-
-    .language-btn {
-        color: #fff;
-        padding: 8px 12px;
-        border-radius: 5px;
-        transition: background-color 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 14px;
-    }
-
-    .language-btn:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: #fff;
-        text-decoration: none;
-    }
-
-    .flag {
-        font-size: 16px;
-        line-height: 1;
-    }
-
-    .language-menu {
-        min-width: 180px;
-        border-radius: 8px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        border: none;
-        margin-top: 5px;
-    }
-
-    .language-menu .dropdown-item {
-        padding: 10px 15px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: background-color 0.3s ease;
-    }
-
-    .language-menu .dropdown-item:hover {
-        background-color: #f8f9fa;
-    }
-
-    .language-menu .dropdown-item.active {
-        background-color: #e3f2fd;
-        color: #1976d2;
-    }
-
-    .lang-name {
-        font-weight: 500;
-        flex: 1;
-    }
-
-    .lang-english {
-        font-size: 12px;
-        color: #6c757d;
-        font-weight: normal;
-    }
-
-    /* RTL Support */
-    .rtl .language-menu {
-        text-align: right;
-    }
-
-    .rtl .flag {
-        margin-left: 8px;
-        margin-right: 0;
     }
 
     /* Search Suggestions */
@@ -868,8 +692,7 @@
     /* Mobile Styles */
     @media (max-width: 768px) {
         .header-nav-desktop,
-        .header-search-desktop,
-        .language-switcher-desktop {
+        .header-search-desktop {
             display: none !important;
         }
 
@@ -877,25 +700,6 @@
             display: flex;
             align-items: center;
             flex-shrink: 0;
-        }
-
-        .hamburger-btn {
-            display: flex;
-        }
-
-        .header-mobile-menu {
-            display: block;
-        }
-
-        .language-switcher-mobile {
-            display: block;
-            margin-top: 0;
-            margin-right: 0;
-        }
-
-        .language-menu {
-            left: auto;
-            right: 0;
         }
 
         .header-content {

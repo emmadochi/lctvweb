@@ -36,11 +36,6 @@
     margin-right: 20px;
 }
 
-.rtl .main-header .language-switcher-desktop {
-    margin-left: 0;
-    margin-right: 15px;
-}
-
 .rtl .main-header .user-dropdown,
 .rtl .main-header .auth-links {
     margin-left: 0;
@@ -226,17 +221,6 @@
 /* Pagination RTL */
 .rtl .pagination {
     flex-direction: row-reverse;
-}
-
-/* Language Switcher RTL */
-.rtl .language-menu .dropdown-item {
-    flex-direction: row-reverse;
-    text-align: right;
-}
-
-.rtl .language-menu .flag {
-    margin-left: 8px;
-    margin-right: 0;
 }
 
 /* Loading States RTL */

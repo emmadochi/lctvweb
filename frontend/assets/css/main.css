@@ -498,6 +498,7 @@ body {
         /* Disable sticky header on mobile to save vertical space */
         position: relative;
         top: auto;
+        min-height: 50px;
     }
 
     .video-grid {

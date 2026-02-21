@@ -7,10 +7,25 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .factory('I18nService', ['$rootScope', '$window',
-            function($rootScope, $window) {
+        .factory('I18nService', ['$rootScope', '$window', '$injector',
+            function($rootScope, $window, $injector) {
 
             var service = {};
+            
+            // Lazy load GoogleTranslateService to avoid circular dependency
+            var googleTranslateService = null;
+            
+            function getGoogleTranslateService() {
+                if (!googleTranslateService) {
+                    try {
+                        googleTranslateService = $injector.get('GoogleTranslateService');
+                    } catch (e) {
+                        console.warn('GoogleTranslateService not available');
+                        googleTranslateService = null;
+                    }
+                }
+                return googleTranslateService;
+            }
 
             // Supported languages configuration
             service.supportedLanguages = [
@@ -276,7 +291,7 @@
             };
 
             /**
-             * Get translation for key
+             * Get translation for key with Google Translate fallback
              */
             service.translate = function(key, params) {
                 // If no current translations loaded, try to load from global object synchronously
@@ -300,11 +315,37 @@
 
                 var translation = translations[key] || key;
 
-                // Simple parameter replacement
-                if (params) {
+                // If translation is missing and Google Translate is available, try to translate
+                if ((translation === key || !translation) && service.currentLanguage !== 'en') {
+                    var googleService = getGoogleTranslateService();
+                    if (googleService) {
+                        // Return promise for dynamic translation
+                        return googleService.translate(key, service.currentLanguage, 'en')
+                            .then(function(translatedText) {
+                                // Cache the translation
+                                if (!service.currentTranslations) {
+                                    service.currentTranslations = {};
+                                }
+                                service.currentTranslations[key] = translatedText;
+                                return translatedText;
+                            })
+                            .catch(function() {
+                                // Fallback to original key
+                                return key;
+                            });
+                    }
+                }
+
+                // Simple parameter replacement for static translations
+                if (params && typeof translation === 'string') {
                     Object.keys(params).forEach(function(param) {
                         translation = translation.replace(new RegExp('{{' + param + '}}', 'g'), params[param]);
                     });
+                }
+
+                // If it's a promise (from Google Translate), return as-is
+                if (translation && typeof translation.then === 'function') {
+                    return translation;
                 }
 
                 return translation;
@@ -396,12 +437,21 @@
             return service;
         }]);
 
-    // Register translate filter
+    // Register translate filter with promise handling
     angular.module('ChurchTVApp')
-        .filter('translate', ['I18nService', function(I18nService) {
+        .filter('translate', ['I18nService', '$sce', function(I18nService, $sce) {
             return function(key, params) {
                 if (!key) return '';
-                return I18nService.translate(key, params);
+                
+                var translation = I18nService.translate(key, params);
+                
+                // Handle promise-based translations
+                if (translation && typeof translation.then === 'function') {
+                    // Return a placeholder while translation loads
+                    return '...'; // or return key as placeholder
+                }
+                
+                return translation || key;
             };
         }]);
 })();

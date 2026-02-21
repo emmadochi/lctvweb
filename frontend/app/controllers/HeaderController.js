@@ -21,7 +21,6 @@
             vm.showCategoriesDropdown = false;
             vm.showUserDropdown = false;
             vm.currentUser = null;
-            vm.mobileMenuOpen = false;
 
             // Authentication state property (updated when auth state changes)
             vm.isAuthenticated = false;
@@ -95,33 +94,10 @@
             };
 
             /**
-             * Toggle mobile hamburger menu
-             */
-            vm.toggleMobileMenu = function() {
-                vm.mobileMenuOpen = !vm.mobileMenuOpen;
-                if (vm.mobileMenuOpen) {
-                    vm.showCategoriesDropdown = false;
-                    vm.showUserDropdown = false;
-                    document.body.style.overflow = 'hidden';
-                } else {
-                    document.body.style.overflow = '';
-                }
-            };
-
-            /**
-             * Close mobile menu (e.g. after navigation)
-             */
-            vm.closeMobileMenu = function() {
-                vm.mobileMenuOpen = false;
-                document.body.style.overflow = '';
-            };
-
-            /**
              * Navigate to category page
              */
             vm.navigateToCategory = function(categorySlug) {
                 vm.showCategoriesDropdown = false; // Close dropdown
-                vm.closeMobileMenu();
                 $location.path('/category/' + categorySlug);
             };
 
@@ -147,7 +123,6 @@
              */
             vm.navigateTo = function(path, searchParams) {
                 vm.showUserDropdown = false;
-                vm.closeMobileMenu();
                 $location.path(path);
                 if (searchParams) {
                     $location.search(searchParams);
@@ -160,7 +135,6 @@
             vm.performHeaderSearch = function() {
                 if (vm.searchQuery && vm.searchQuery.trim()) {
                     vm.hideSearchSuggestions();
-                    vm.closeMobileMenu();
                     $location.path('/search').search({q: vm.searchQuery.trim()});
                 }
             };
@@ -264,11 +238,10 @@
                 return CategoryService.getCategoryIcon(slug);
             };
 
-            // Close dropdown and mobile menu when route changes
+            // Close dropdown when route changes
             $scope.$on('$locationChangeStart', function() {
                 vm.showCategoriesDropdown = false;
                 vm.showUserDropdown = false;
-                vm.closeMobileMenu();
                 updateAuthState();
             });
 
@@ -278,7 +251,6 @@
             angular.element(document).on('click', function(event) {
                 var target = event.target;
                 var dropdownElement = null;
-                var mobileCategoriesElement = null;
                 var userDropdownElement = null;
                 var searchContainer = null;
 
@@ -286,9 +258,6 @@
                 while (target && target !== document) {
                     if (angular.element(target).hasClass('nav-dropdown')) {
                         dropdownElement = target;
-                    }
-                    if (angular.element(target).hasClass('mobile-menu-section')) {
-                        mobileCategoriesElement = target;
                     }
                     if (angular.element(target).hasClass('user-dropdown')) {
                         userDropdownElement = target;
@@ -299,8 +268,8 @@
                     target = target.parentNode;
                 }
 
-                // Categories: don't close if click was inside desktop nav-dropdown OR mobile categories section
-                if (!dropdownElement && !mobileCategoriesElement && vm.showCategoriesDropdown) {
+                // Categories: don't close if click was inside desktop nav-dropdown
+                if (!dropdownElement && vm.showCategoriesDropdown) {
                     vm.showCategoriesDropdown = false;
                     $scope.$apply();
                 }
