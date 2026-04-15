@@ -11,6 +11,7 @@
  * php import_content.php trending 1 10
  * php import_content.php livestream_url "https://www.youtube.com/watch?v=LIVESTREAM_ID" 1
  * php import_content.php livestream_channel "CHANNEL_ID" 1 5
+ * php import_content.php livestream_channel "CHANNEL_ID" 1 5 [target_role]
  * php import_content.php initial
  */
 
@@ -42,7 +43,8 @@ switch ($command) {
         echo "Importing video from URL: $videoUrl\n";
         echo "Category ID: $categoryId\n\n";
 
-        $count = $ingestion->importByUrl($videoUrl, $categoryId);
+        $targetRole = isset($argv[4]) ? $argv[4] : 'general';
+        $count = $ingestion->importByUrl($videoUrl, $categoryId, $targetRole);
         echo "\nImport complete: $count video imported\n";
         break;
 
@@ -61,7 +63,8 @@ switch ($command) {
         echo "Category ID: $categoryId\n";
         echo "Limit: $limit\n\n";
 
-        $count = $ingestion->importByKeyword($keyword, $categoryId, $limit);
+        $targetRole = isset($argv[5]) ? $argv[5] : 'general';
+        $count = $ingestion->importByKeyword($keyword, $categoryId, $limit, $targetRole);
         echo "\nImport complete: $count videos imported\n";
         break;
 

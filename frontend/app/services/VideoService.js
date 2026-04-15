@@ -273,6 +273,23 @@
             };
 
             /**
+             * Get exclusive leadership videos
+             */
+            service.getExclusiveVideos = function(limit) {
+                limit = limit || 24;
+
+                return $http.get(API_BASE + '/videos/exclusive', {
+                    params: { limit: limit }
+                }).then(function(response) {
+                    var data = unwrap(response);
+                    return normalizeVideoList(Array.isArray(data) ? data : []);
+                }).catch(function(error) {
+                    console.error('Error fetching exclusive videos:', error);
+                    return [];
+                });
+            };
+
+            /**
              * Track video view
              */
             service.trackView = function(videoId, userId) {

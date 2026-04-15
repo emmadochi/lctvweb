@@ -11,9 +11,13 @@ class HomeController {
 
     public function index() {
         try {
+            // Get active role
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+
             // Get featured categories and recent videos
             $categories = Category::getActiveCategories(8);
-            $featuredVideos = Video::getFeaturedVideos(12);
+            $featuredVideos = Video::getFeaturedVideos(12, $userRole);
 
             Response::success([
                 'message' => 'Welcome to LCMTV API',

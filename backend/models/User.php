@@ -396,4 +396,32 @@ class User {
 
         return $categories;
     }
+    /**
+     * Get email addresses for users based on target role visibility
+     * 'general' -> All active users
+     * 'leader' -> Users with role leader, pastor, or admin
+     * 'pastor' -> Users with role pastor or admin
+     */
+    public static function getEmailsByRole($targetRole = 'general') {
+        $conn = getDBConnection();
+        $emails = [];
+
+        $sql = "SELECT email FROM users WHERE is_active = 1";
+        
+        if ($targetRole === 'leader') {
+            $sql .= " AND role IN ('leader', 'pastor', 'admin')";
+        } elseif ($targetRole === 'pastor') {
+            $sql .= " AND role IN ('pastor', 'admin')";
+        }
+        // 'general' or anything else gets everyone
+
+        $result = $conn->query($sql);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $emails[] = $row['email'];
+            }
+        }
+
+        return $emails;
+    }
 }

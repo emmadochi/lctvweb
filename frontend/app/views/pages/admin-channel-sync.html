@@ -86,6 +86,7 @@
                             <th>Category</th>
                             <th>Frequency</th>
                             <th>Status</th>
+                            <th>Target Role</th>
                             <th>Last Sync</th>
                             <th>Auto Import</th>
                             <th>Actions</th>
@@ -106,6 +107,11 @@
                             <td>
                                 <span class="status-badge" ng-class="channel.is_active ? 'active' : 'inactive'">
                                     {{channel.is_active ? 'Active' : 'Inactive'}}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="role-badge" ng-class="channel.target_role || 'general'">
+                                    {{(channel.target_role || 'general') | uppercase}}
                                 </span>
                             </td>
                             <td>{{channel.last_sync | date:'short'}}</td>
@@ -274,6 +280,20 @@
                                            value="10">
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="target_role">Target Role</label>
+                                    <select class="form-control"
+                                            id="target_role"
+                                            ng-model="vm.newChannel.target_role">
+                                        <option value="general">General (Public)</option>
+                                        <option value="user">Registered User</option>
+                                        <option value="leader">Leader</option>
+                                        <option value="pastor">Pastor</option>
+                                        <option value="director">Director</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -376,6 +396,20 @@
                                            ng-model="vm.editingChannel.max_videos_per_sync"
                                            min="1"
                                            max="50">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_target_role">Target Role</label>
+                                    <select class="form-control"
+                                            id="edit_target_role"
+                                            ng-model="vm.editingChannel.target_role">
+                                        <option value="general">General (Public)</option>
+                                        <option value="user">Registered User</option>
+                                        <option value="leader">Leader</option>
+                                        <option value="pastor">Pastor</option>
+                                        <option value="director">Director</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>

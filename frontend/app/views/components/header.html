@@ -13,6 +13,10 @@
                     <i class="fa fa-home"></i> Home
                 </a>
 
+                <a href="#/leadership" ng-if="headerCtrl.isLeader()" ng-class="{active: $location.path() === '/leadership'}">
+                    <i class="fa fa-shield"></i> Leadership
+                </a>
+
                 <!-- Categories Dropdown -->
                 <div class="nav-dropdown" ng-if="headerCtrl.categories.length > 0">
                     <button class="nav-dropdown-toggle" ng-click="headerCtrl.toggleCategoriesDropdown()">

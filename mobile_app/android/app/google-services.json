@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "679833147395",
+    "project_id": "lctv-dea2d",
+    "storage_bucket": "lctv-dea2d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:679833147395:android:fe55390bb1e61019a35636",
+        "android_client_info": {
+          "package_name": "com.lcmtv.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "679833147395-2nincl82buv90m8htqp3l67q1kd2eh2c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD40EuLRhosdphGnUfQOaQWmMRUkOk-V-E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "679833147395-2nincl82buv90m8htqp3l67q1kd2eh2c.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

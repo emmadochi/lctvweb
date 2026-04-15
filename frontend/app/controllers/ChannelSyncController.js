@@ -7,8 +7,8 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .controller('ChannelSyncController', ['$scope', '$timeout', 'AdminService', 'CategoryService',
-            function($scope, $timeout, AdminService, CategoryService) {
+        .controller('ChannelSyncController', ['$scope', '$q', '$timeout', 'AdminService', 'CategoryService',
+            function($scope, $q, $timeout, AdminService, CategoryService) {
 
             var vm = this;
 
@@ -33,7 +33,8 @@
                 auto_import: true,
                 require_approval: false,
                 is_active: true,
-                max_videos_per_sync: 10
+                max_videos_per_sync: 10,
+                target_role: 'general'
             };
 
             // Initialize controller
@@ -53,7 +54,9 @@
                 loadSyncLogs();
 
                 // Set page title
-                $scope.$root.setPageTitle('Channel Synchronization');
+                if ($scope.$root.setPageTitle) {
+                    $scope.$root.setPageTitle('Channel Synchronization');
+                }
             }
 
             /**
@@ -143,7 +146,8 @@
                     auto_import: true,
                     require_approval: false,
                     is_active: true,
-                    max_videos_per_sync: 10
+                    max_videos_per_sync: 10,
+                    target_role: 'general'
                 };
                 vm.showAddModal = true;
                 $timeout(function() {
@@ -298,8 +302,5 @@
                         $scope.$root.showError(error.data?.message || 'Failed to run channel synchronization');
                     });
             };
-
-            // Expose controller to scope
-            $scope.vm = vm;
         }]);
 })();

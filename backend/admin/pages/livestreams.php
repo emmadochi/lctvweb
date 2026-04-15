@@ -24,6 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
                 break;
 
+            case 'batch_delete':
+                if (isset($_POST['selected_livestreams']) && is_array($_POST['selected_livestreams'])) {
+                    $selectedIds = array_map('intval', $_POST['selected_livestreams']);
+                    if (Livestream::batchDelete($selectedIds)) {
+                        $message = count($selectedIds) . ' livestreams deleted successfully';
+                        $messageType = 'success';
+                    } else {
+                        throw new Exception('Failed to delete selected livestreams');
+                    }
+                }
+                break;
+
             case 'toggle_live':
                 $currentStatus = Livestream::find($livestreamId);
                 if (!$currentStatus) {
@@ -35,8 +47,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $statusText = $newStatus ? 'started' : 'stopped';
                     $message = "Livestream $statusText successfully";
                     $messageType = 'success';
+
+                    // If starting, broadcast email notifications
+                    if ($newStatus) {
+                        try {
+                            NotificationService::broadcastLiveEvent($currentStatus);
+                        } catch (\Throwable $e) {
+                            error_log("Notification error during live broadcast: " . $e->getMessage());
+                        }
+                    }
                 } else {
                     throw new Exception('Failed to update livestream status');
+                }
+                break;
+
+            case 'update':
+                $data = [
+                    'title' => trim($_POST['title']),
+                    'category_id' => $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null,
+                    'target_role' => trim($_POST['target_role'])
+                ];
+
+                if (empty($data['title'])) {
+                    throw new Exception('Title is required');
+                }
+
+                // Get current data to preserve other fields
+                $existing = Livestream::find($livestreamId);
+                if (!$existing) {
+                    throw new Exception('Livestream not found');
+                }
+
+                $updateData = array_merge($existing, $data);
+
+                if (Livestream::update($livestreamId, $updateData)) {
+                    $message = 'Livestream updated successfully';
+                    $messageType = 'success';
+                } else {
+                    throw new Exception('Failed to update livestream');
                 }
                 break;
         }
@@ -69,10 +117,12 @@ while ($row = $result->fetch_assoc()) {
     $livestreams[] = $row;
 }
 
-// Get total count for pagination
 $totalResult = $conn->query("SELECT COUNT(*) as total FROM livestreams");
 $totalLivestreams = $totalResult->fetch_assoc()['total'];
 $totalPages = ceil($totalLivestreams / $perPage);
+
+// Get categories for the edit dropdown
+$allCategories = Category::getActiveCategories();
 ?>
 
 <div class="space-y-6">
@@ -83,7 +133,7 @@ $totalPages = ceil($totalLivestreams / $perPage);
             <p class="text-gray-600">Manage your livestream content</p>
         </div>
         <a
-            href="?page=import-livestream"
+            href="?page=import#livestream-import"
             class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
         >
             <i class="fas fa-plus mr-2"></i> Import Livestream
@@ -151,6 +201,7 @@ $totalPages = ceil($totalLivestreams / $perPage);
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Livestream</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Role</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Viewers</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
@@ -165,7 +216,7 @@ $totalPages = ceil($totalLivestreams / $perPage);
                                 <p class="text-lg">No livestreams found</p>
                                 <p class="text-sm">Import some livestreams to get started</p>
                                 <a
-                                    href="?page=import-livestream"
+                                    href="?page=import#livestream-import"
                                     class="mt-4 inline-block bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
                                 >
                                     Import Livestreams
@@ -208,6 +259,13 @@ $totalPages = ceil($totalLivestreams / $perPage);
                                     <?php echo htmlspecialchars($livestream['category_name'] ?? 'Uncategorized'); ?>
                                 </span>
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full <?php 
+                                    echo ($livestream['target_role'] ?? 'general') === 'general' ? 'bg-gray-100 text-gray-800' : 'bg-purple-100 text-purple-800'; 
+                                ?>">
+                                    <?php echo ucfirst($livestream['target_role'] ?? 'General'); ?>
+                                </span>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <?php echo htmlspecialchars($livestream['channel_title']); ?>
                             </td>
@@ -234,6 +292,14 @@ $totalPages = ceil($totalLivestreams / $perPage);
                                             <i class="fas fa-<?php echo $livestream['is_live'] ? 'stop' : 'play'; ?>"></i>
                                         </button>
                                     </form>
+                                    <button 
+                                        type="button" 
+                                        class="text-blue-600 hover:text-blue-900" 
+                                        title="Edit Livestream"
+                                        onclick="openEditModal(<?php echo htmlspecialchars(json_encode($livestream)); ?>)"
+                                    >
+                                        <i class="fas fa-edit"></i>
+                                    </button>
                                     <button type="button" class="text-red-600 hover:text-red-900 delete-single-btn" title="Delete Livestream" data-livestream-id="<?php echo $livestream['id']; ?>">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -288,8 +354,94 @@ $totalPages = ceil($totalLivestreams / $perPage);
     </div>
 </div>
 
+<!-- Edit Livestream Modal -->
+<div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Edit Livestream</h3>
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form method="POST" class="space-y-4">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" id="edit_livestream_id" name="livestream_id">
+
+                <div>
+                    <label for="edit_title" class="block text-sm font-medium text-gray-700">Title</label>
+                    <input
+                        type="text"
+                        id="edit_title"
+                        name="title"
+                        required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                </div>
+
+                <div>
+                    <label for="edit_category" class="block text-sm font-medium text-gray-700">Category</label>
+                    <select
+                        id="edit_category"
+                        name="category_id"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                        <option value="">Uncategorized</option>
+                        <?php foreach ($allCategories as $cat): ?>
+                        <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="edit_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="edit_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button
+                        type="button"
+                        onclick="closeEditModal()"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-4 py-2 text-sm font-medium text-white bg-orange-500 border border-transparent rounded-md hover:bg-orange-600"
+                    >
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- JavaScript for bulk operations -->
 <script>
+    function openEditModal(livestream) {
+        document.getElementById('edit_livestream_id').value = livestream.id;
+        document.getElementById('edit_title').value = livestream.title;
+        document.getElementById('edit_category').value = livestream.category_id || '';
+        document.getElementById('edit_role').value = livestream.target_role || 'general';
+        
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
         const selectAllBtn = document.getElementById('selectAllBtn');

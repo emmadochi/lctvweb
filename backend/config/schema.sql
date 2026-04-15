@@ -238,40 +238,6 @@ INSERT INTO categories (name, slug, description, sort_order) VALUES
 ('Tech', 'tech', 'Technology and innovation', 6),
 ('Movies', 'movies', 'Movie trailers and clips', 7);
 
--- Playlist mapping table for granular control
-CREATE TABLE IF NOT EXISTS channel_playlist_mapping (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    channel_sync_id INT NOT NULL,
-    playlist_id VARCHAR(50) NOT NULL,
-    playlist_name VARCHAR(255),
-    category_id INT NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    import_limit INT DEFAULT 20,
-    require_approval BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (channel_sync_id) REFERENCES channel_sync(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_channel_playlist (channel_sync_id, playlist_id),
-    INDEX idx_playlist_id (playlist_id),
-    INDEX idx_active (is_active)
-);
-
--- Video playlist tracking
-CREATE TABLE IF NOT EXISTS video_playlists (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    video_id INT NOT NULL,
-    playlist_id VARCHAR(50) NOT NULL,
-    playlist_name VARCHAR(255),
-    channel_sync_id INT,
-    position INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
-    FOREIGN KEY (channel_sync_id) REFERENCES channel_sync(id) ON DELETE SET NULL,
-    INDEX idx_video_playlist (video_id, playlist_id),
-    INDEX idx_playlist_videos (playlist_id)
-);
-
 -- Manual override tracking
 CREATE TABLE IF NOT EXISTS video_category_override (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -290,4 +256,4 @@ CREATE TABLE IF NOT EXISTS video_category_override (
 
 -- Insert admin user (password: admin123 - CHANGE THIS!)
 INSERT INTO users (email, password_hash, first_name, last_name, role) VALUES
-('admin@lcmtv.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'User', 'super_admin');
+('info@lifechangertouch.org', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'User', 'super_admin');

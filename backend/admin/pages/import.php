@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $importType = $_POST['import_type'];
         $categoryId = (int)$_POST['category_id'];
+        $targetRole = $_POST['target_role'] ?? 'general';
 
         switch ($importType) {
             case 'url':
@@ -24,9 +25,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Invalid URL format');
                 }
 
-                $count = $ingestion->importByUrl($videoUrl, $categoryId);
+                $count = $ingestion->importByUrl($videoUrl, $categoryId, $targetRole);
                 $message = $count > 0 ? "Successfully imported video from URL" : "Failed to import video from URL";
                 $messageType = $count > 0 ? 'success' : 'error';
+                
+                if ($count > 0) {
+                    try {
+                        NotificationService::broadcastNewVideo([
+                            'title' => 'New video in your categories', 
+                            'target_role' => $targetRole
+                        ]);
+                    } catch (\Throwable $e) {}
+                }
                 break;
 
             case 'keyword':
@@ -37,9 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Keyword is required');
                 }
 
-                $count = $ingestion->importByKeyword($keyword, $categoryId, $limit);
+                $count = $ingestion->importByKeyword($keyword, $categoryId, $limit, $targetRole);
                 $message = "Successfully imported $count videos for keyword: '$keyword'";
                 $messageType = 'success';
+                
+                if ($count > 0) {
+                    try {
+                        NotificationService::broadcastNewVideo([
+                            'title' => "New content added for $keyword",
+                            'target_role' => $targetRole
+                        ]);
+                    } catch (\Throwable $e) {}
+                }
                 break;
 
             case 'playlist':
@@ -50,9 +69,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Playlist ID is required');
                 }
 
-                $count = $ingestion->importFromPlaylist($playlistId, $categoryId, $limit);
+                $count = $ingestion->importFromPlaylist($playlistId, $categoryId, $limit, $targetRole);
                 $message = "Successfully imported $count videos from playlist";
                 $messageType = 'success';
+                
+                if ($count > 0) {
+                    try {
+                        NotificationService::broadcastNewVideo([
+                            'title' => "New playlist content available",
+                            'target_role' => $targetRole
+                        ]);
+                    } catch (\Throwable $e) {}
+                }
                 break;
 
             case 'channel':
@@ -63,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Channel ID is required');
                 }
 
-                $count = $ingestion->importFromChannel($channelId, $categoryId, $limit);
+                $count = $ingestion->importFromChannel($channelId, $categoryId, $limit, $targetRole);
                 $message = "Successfully imported $count videos from channel";
                 $messageType = 'success';
                 break;
@@ -94,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Invalid URL format');
                 }
 
-                $count = $ingestion->importLivestreamByUrl($livestreamUrl, $categoryId);
+                $count = $ingestion->importLivestreamByUrl($livestreamUrl, $categoryId, $targetRole);
                 $message = $count > 0 ? "Successfully imported livestream from URL" : "Failed to import livestream from URL";
                 $messageType = $count > 0 ? 'success' : 'error';
                 break;
@@ -107,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Channel ID is required');
                 }
 
-                $count = $ingestion->importLiveFromChannel($channelId, $categoryId, $limit);
+                $count = $ingestion->importLiveFromChannel($channelId, $categoryId, $limit, $targetRole);
                 $message = "Successfully imported $count live streams from channel";
                 $messageType = $count > 0 ? 'success' : 'info';
                 break;
@@ -151,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <!-- Import Forms -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div id="livestream-import" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Import Livestream by URL -->
         <div class="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg shadow-sm p-6 border border-red-200">
             <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -185,6 +213,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php foreach ($categories as $category): ?>
                         <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
                         <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="livestream_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="livestream_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="user">Registered User</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                        <option value="director">Director</option>
                     </select>
                 </div>
 
@@ -230,6 +273,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php foreach ($categories as $category): ?>
                         <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
                         <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="livestream_channel_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="livestream_channel_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="user">Registered User</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                        <option value="director">Director</option>
                     </select>
                 </div>
 
@@ -291,6 +349,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
 
+                <div>
+                    <label for="url_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="url_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="user">Registered User</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                        <option value="director">Director</option>
+                    </select>
+                </div>
+
                 <button
                     type="submit"
                     class="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
@@ -329,6 +402,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php foreach ($categories as $category): ?>
                         <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
                         <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="keyword_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="keyword_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="user">Registered User</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                        <option value="director">Director</option>
                     </select>
                 </div>
 
@@ -388,6 +476,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div>
+                    <label for="playlist_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="playlist_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="user">Registered User</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                        <option value="director">Director</option>
+                    </select>
+                </div>
+
+                <div>
                     <label for="playlist_limit" class="block text-sm font-medium text-gray-700">Limit</label>
                     <input
                         type="number"
@@ -439,6 +542,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php foreach ($categories as $category): ?>
                         <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
                         <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="channel_role" class="block text-sm font-medium text-gray-700">Target Role</label>
+                    <select
+                        id="channel_role"
+                        name="target_role"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                    >
+                        <option value="general">General (Public)</option>
+                        <option value="user">Registered User</option>
+                        <option value="leader">Leader</option>
+                        <option value="pastor">Pastor</option>
+                        <option value="director">Director</option>
                     </select>
                 </div>
 

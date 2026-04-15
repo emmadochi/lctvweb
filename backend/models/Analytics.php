@@ -41,7 +41,7 @@ class Analytics {
         $timeSpent = $data['time_spent'] ?? $data['time_on_page'] ?? 0;
         $createdAt = date('Y-m-d H:i:s');
 
-        $stmt->bind_param("sssssssssssssis", $userId, $sessionId, $pageUrl, $pageTitle, $referrer,
+        $stmt->bind_param("issssssssssssis", $userId, $sessionId, $pageUrl, $pageTitle, $referrer,
                          $userAgent, $ipAddress, $country, $city, $deviceType, $browser, $os,
                          $screenResolution, $timeSpent, $createdAt);
 
@@ -80,7 +80,7 @@ class Analytics {
         $completed = $watchPercentage >= 90 ? 1 : 0;
         $createdAt = date('Y-m-d H:i:s');
 
-        $stmt->bind_param("iisiddsdsssssssssis", $userId, $sessionId, $videoId, $youtubeId,
+        $stmt->bind_param("isisiddsdssssssssis", $userId, $sessionId, $videoId, $youtubeId,
                          $watchDuration, $totalDuration, $watchPercentage, $quality, $playbackSpeed,
                          $referrer, $userAgent, $ipAddress, $deviceType, $browser, $os, $country, $city, $completed, $createdAt);
 
@@ -122,7 +122,7 @@ class Analytics {
         $utmMedium = $data['utm_medium'] ?? '';
         $utmCampaign = $data['utm_campaign'] ?? '';
 
-        $stmt->bind_param("ssssiiiissssssssss", $userId, $sessionId, $startTime, $endTime, $duration,
+        $stmt->bind_param("isssiiissssssssss", $userId, $sessionId, $startTime, $endTime, $duration,
                          $pagesViewed, $videosWatched, $deviceType, $browser, $os, $ipAddress,
                          $country, $city, $referrer, $utmSource, $utmMedium, $utmCampaign);
 
@@ -151,7 +151,7 @@ class Analytics {
         $referrer = $data['referrer'] ?? '';
         $createdAt = date('Y-m-d H:i:s');
 
-        $stmt->bind_param("sssssssss", $userId, $sessionId, $contentType, $contentId,
+        $stmt->bind_param("issssssss", $userId, $sessionId, $contentType, $contentId,
                          $actionType, $actionValue, $deviceType, $referrer, $createdAt);
 
         return $stmt->execute();
@@ -160,8 +160,9 @@ class Analytics {
     /**
      * Get dashboard overview stats
      */
-    public static function getDashboardOverview($period = '30') {
+    public static function getDashboardOverview($period = 30) {
         $conn = getDBConnection();
+        $period = (int)$period;
 
         $dateFilter = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
 
@@ -204,12 +205,17 @@ class Analytics {
             $topContent[] = $row;
         }
 
+        // Average session duration
+        $avgSessionQuery = "SELECT AVG(duration) as avg_session_duration FROM " . self::$userSessionsTable . " WHERE DATE(start_time) >= DATE_SUB(CURDATE(), INTERVAL $period DAY) AND duration > 0";
+        $avgSessionResult = $conn->query($avgSessionQuery);
+        $avgSessionData = $avgSessionResult->fetch_assoc();
+
         return [
-            'total_users' => (int)$usersData['total_users'],
-            'total_sessions' => (int)$sessionsData['total_sessions'],
-            'page_views' => (int)$pageViewsData['page_views'],
-            'video_views' => (int)$videoViewsData['video_views'],
-            'avg_session_duration' => round((float)$avgSessionData['avg_session_duration'], 2),
+            'total_users' => (int)($usersData['total_users'] ?? 0),
+            'total_sessions' => (int)($sessionsData['total_sessions'] ?? 0),
+            'page_views' => (int)($pageViewsData['page_views'] ?? 0),
+            'video_views' => (int)($videoViewsData['video_views'] ?? 0),
+            'avg_session_duration' => round((float)($avgSessionData['avg_session_duration'] ?? 0), 2),
             'top_content' => $topContent,
             'period_days' => (int)$period
         ];
@@ -218,8 +224,9 @@ class Analytics {
     /**
      * Get user demographics
      */
-    public static function getUserDemographics($period = '30') {
+    public static function getUserDemographics($period = 30) {
         $conn = getDBConnection();
+        $period = (int)$period;
 
         $dateFilter = "pv.created_at >= DATE_SUB(NOW(), INTERVAL $period DAY)";
 
@@ -286,8 +293,9 @@ class Analytics {
     /**
      * Get content performance metrics
      */
-    public static function getContentPerformance($period = '30') {
+    public static function getContentPerformance($period = 30) {
         $conn = getDBConnection();
+        $period = (int)$period;
 
         $dateFilter = "DATE(vv.created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
 
@@ -366,8 +374,9 @@ class Analytics {
     /**
      * Get engagement analytics
      */
-    public static function getEngagementAnalytics($period = '30') {
+    public static function getEngagementAnalytics($period = 30) {
         $conn = getDBConnection();
+        $period = (int)$period;
 
         $dateFilter = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL $period DAY)";
 
@@ -433,11 +442,10 @@ class Analytics {
         // Last 24 hours
         $last24h = "created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
 
-        // Active users (last 5 minutes)
-        $activeUsersQuery = "SELECT COUNT(DISTINCT user_id) as active_users
+        // Active users (last 5 minutes) - using session_id to include guest users
+        $activeUsersQuery = "SELECT COUNT(DISTINCT session_id) as active_users
                            FROM " . self::$pageViewsTable . "
-                           WHERE created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-                           AND user_id IS NOT NULL";
+                           WHERE created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)";
 
         $activeUsersResult = $conn->query($activeUsersQuery);
         $activeUsers = $activeUsersResult->fetch_assoc();
@@ -597,7 +605,7 @@ class Analytics {
         $os = $data['os'] ?? self::getOS($userAgent);
         $createdAt = date('Y-m-d H:i:s');
 
-        $stmt->bind_param("ssssssssssssss", $userId, $sessionId, $eventType, $eventData, $pageUrl, $referrer,
+        $stmt->bind_param("isssssssssssss", $userId, $sessionId, $eventType, $eventData, $pageUrl, $referrer,
                          $userAgent, $ipAddress, $country, $city, $deviceType, $browser, $os, $createdAt);
 
         return $stmt->execute();

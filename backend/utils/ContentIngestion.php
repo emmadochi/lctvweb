@@ -19,7 +19,7 @@ class ContentIngestion {
     /**
      * Import a single video by YouTube URL
      */
-    public function importByUrl($url, $categoryId) {
+    public function importByUrl($url, $categoryId, $targetRole = 'general') {
         try {
             // Extract video ID from URL
             $videoId = $this->extractVideoIdFromUrl($url);
@@ -41,7 +41,7 @@ class ContentIngestion {
             $videoData = $videos[0];
 
             // Import the video
-            if ($this->importVideo($videoData, $categoryId)) {
+            if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                 echo "Successfully imported video: {$videoData['title']}\n";
                 return 1;
             } else {
@@ -59,33 +59,41 @@ class ContentIngestion {
      * Extract video ID from various YouTube URL formats
      */
     private function extractVideoIdFromUrl($url) {
-        // Remove any query parameters and fragments
-        $url = parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY);
+        // Standardize URL parts
+        $path = parse_url($url, PHP_URL_PATH);
+        $query = parse_url($url, PHP_URL_QUERY);
+        
+        // Create a searchable string that includes both path and query
+        $searchString = ($path ?: '') . ($query ? '?' . $query : '');
 
         // Common YouTube URL patterns
         $patterns = [
-            // youtube.com/watch?v=VIDEO_ID
-            '/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/',
-            // youtu.be/VIDEO_ID
-            '/youtu\.be\/([a-zA-Z0-9_-]{11})/',
-            // youtube.com/embed/VIDEO_ID
-            '/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/',
-            // youtube.com/v/VIDEO_ID
-            '/youtube\.com\/v\/([a-zA-Z0-9_-]{11})/',
-            // youtube.com/shorts/VIDEO_ID
-            '/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/',
+            // /watch?v=VIDEO_ID
+            '/[\/\?]watch\?v=([a-zA-Z0-9_-]{11})/',
+            // /VIDEO_ID (from youtu.be)
+            '/^\/([a-zA-Z0-9_-]{11})$/',
+            // /embed/VIDEO_ID
+            '/\/embed\/([a-zA-Z0-9_-]{11})/',
+            // /v/VIDEO_ID
+            '/\/v\/([a-zA-Z0-9_-]{11})/',
+            // /shorts/VIDEO_ID
+            '/\/shorts\/([a-zA-Z0-9_-]{11})/',
+            // /live/VIDEO_ID
+            '/\/live\/([a-zA-Z0-9_-]{11})/',
         ];
 
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $url, $matches)) {
+            if (preg_match($pattern, $searchString, $matches)) {
                 return $matches[1];
             }
         }
 
-        // If no pattern matches, try to extract from query parameters
-        parse_str(parse_url($url, PHP_URL_QUERY), $queryParams);
-        if (isset($queryParams['v']) && strlen($queryParams['v']) === 11) {
-            return $queryParams['v'];
+        // Fallback: try to extract from query parameters directly
+        if ($query) {
+            parse_str($query, $queryParams);
+            if (isset($queryParams['v']) && strlen($queryParams['v']) === 11) {
+                return $queryParams['v'];
+            }
         }
 
         return null;
@@ -94,7 +102,7 @@ class ContentIngestion {
     /**
      * Import videos by keyword search
      */
-    public function importByKeyword($keyword, $categoryId, $maxResults = 20) {
+    public function importByKeyword($keyword, $categoryId, $maxResults = 20, $targetRole = 'general') {
         try {
             echo "Searching YouTube for: '$keyword'\n";
 
@@ -114,7 +122,7 @@ class ContentIngestion {
 
             $imported = 0;
             foreach ($videos as $videoData) {
-                if ($this->importVideo($videoData, $categoryId)) {
+                if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                     $imported++;
                 }
             }
@@ -131,7 +139,7 @@ class ContentIngestion {
     /**
      * Import videos from YouTube playlist
      */
-    public function importFromPlaylist($playlistId, $categoryId, $maxResults = 50) {
+    public function importFromPlaylist($playlistId, $categoryId, $maxResults = 50, $targetRole = 'general') {
         try {
             echo "Importing playlist: $playlistId\n";
 
@@ -149,7 +157,7 @@ class ContentIngestion {
 
             $imported = 0;
             foreach ($videos as $videoData) {
-                if ($this->importVideo($videoData, $categoryId)) {
+                if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                     $imported++;
                 }
             }
@@ -166,7 +174,7 @@ class ContentIngestion {
     /**
      * Import videos from YouTube channel
      */
-    public function importFromChannel($channelId, $categoryId, $maxResults = 20) {
+    public function importFromChannel($channelId, $categoryId, $maxResults = 20, $targetRole = 'general') {
         try {
             echo "Importing channel: $channelId\n";
 
@@ -184,7 +192,7 @@ class ContentIngestion {
 
             $imported = 0;
             foreach ($videos as $videoData) {
-                if ($this->importVideo($videoData, $categoryId)) {
+                if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                     $imported++;
                 }
             }
@@ -231,7 +239,7 @@ class ContentIngestion {
     /**
      * Import a single video
      */
-    private function importVideo($videoData, $categoryId) {
+    private function importVideo($videoData, $categoryId, $targetRole = 'general') {
         try {
             // Check if video already exists
             $existingVideo = Video::getByYouTubeId($videoData['youtube_id']);
@@ -260,7 +268,8 @@ class ContentIngestion {
                 'channel_id' => $videoData['channel_id'],
                 'view_count' => $videoData['view_count'],
                 'like_count' => $videoData['like_count'],
-                'published_at' => date('Y-m-d H:i:s', strtotime($videoData['published_at']))
+                'published_at' => date('Y-m-d H:i:s', strtotime($videoData['published_at'])),
+                'target_role' => $targetRole
             ];
 
             $result = Video::create($videoInsertData);
@@ -380,7 +389,7 @@ class ContentIngestion {
     /**
      * Import a livestream by YouTube URL
      */
-    public function importLivestreamByUrl($url, $categoryId) {
+    public function importLivestreamByUrl($url, $categoryId, $targetRole = 'general') {
         try {
             // Extract video ID from URL
             $videoId = $this->extractVideoIdFromUrl($url);
@@ -405,11 +414,11 @@ class ContentIngestion {
             if (!isset($videoData['isLive']) || !$videoData['isLive']) {
                 echo "Warning: This video is not currently live. Importing as regular video instead.\n";
                 // Import as regular video instead
-                return $this->importVideo($videoData, $categoryId) ? 1 : 0;
+                return $this->importVideo($videoData, $categoryId, $targetRole) ? 1 : 0;
             }
 
             // Import the livestream
-            if ($this->importLivestream($videoData, $categoryId)) {
+            if ($this->importLivestream($videoData, $categoryId, $targetRole)) {
                 echo "Successfully imported livestream: {$videoData['title']}\n";
                 return 1;
             } else {
@@ -426,7 +435,7 @@ class ContentIngestion {
     /**
      * Import live streams from a YouTube channel
      */
-    public function importLiveFromChannel($channelId, $categoryId, $maxResults = 5) {
+    public function importLiveFromChannel($channelId, $categoryId, $maxResults = 5, $targetRole = 'general') {
         try {
             echo "Searching for live streams on channel: $channelId\n";
 
@@ -461,7 +470,7 @@ class ContentIngestion {
 
                     // Check if it's actually live
                     if (isset($videoData['liveBroadcastContent']) && $videoData['liveBroadcastContent'] === 'live') {
-                        if ($this->importLivestream($videoData, $categoryId)) {
+                        if ($this->importLivestream($videoData, $categoryId, $targetRole)) {
                             echo "Imported live stream: {$videoData['title']}\n";
                             $imported++;
                         }
@@ -481,7 +490,7 @@ class ContentIngestion {
     /**
      * Import a livestream to the database
      */
-    private function importLivestream($videoData, $categoryId) {
+    private function importLivestream($videoData, $categoryId, $targetRole = 'general') {
         try {
             // Check if livestream already exists
             $existingLivestream = Livestream::findByYoutubeId($videoData['youtube_id']);
@@ -502,7 +511,8 @@ class ContentIngestion {
                 'is_live' => true,
                 'viewer_count' => $videoData['concurrentViewers'] ?? $videoData['view_count'] ?? 0,
                 'started_at' => date('Y-m-d H:i:s'), // Current time as start time
-                'category_id' => $categoryId
+                'category_id' => $categoryId,
+                'target_role' => $targetRole
             ];
 
             // Create the livestream
@@ -510,6 +520,14 @@ class ContentIngestion {
 
             if ($livestreamId) {
                 echo "Created livestream with ID: $livestreamId\n";
+
+                // Trigger push notifications
+                try {
+                    Notification::notifyNewLivestreamInCategory($livestreamId, $categoryId);
+                } catch (Exception $e) {
+                    echo "Warning: Failed to create notifications for new livestream: " . $e->getMessage() . "\n";
+                }
+
                 return true;
             } else {
                 echo "Failed to create livestream in database\n";

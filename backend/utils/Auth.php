@@ -60,13 +60,32 @@ class Auth {
     }
 
     /**
-     * Get user from token
+     * Get the current authenticated user from token
+     */
+    public static function getCurrentUser() {
+        return self::getUserFromToken();
+    }
+
+    /**
+     * Get user from token or session
      */
     public static function getUserFromToken() {
         $headers = getallheaders();
         $authHeader = $headers['Authorization'] ?? '';
 
         if (empty($authHeader) || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            // Check if we have an active PHP session (for admin dashboard usage)
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+
+            if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
+                return [
+                    'user_id' => $_SESSION['admin_id'] ?? null,
+                    'email' => $_SESSION['admin_email'] ?? null,
+                    'role' => $_SESSION['admin_role'] ?? 'admin'
+                ];
+            }
             return null;
         }
 
@@ -107,6 +126,46 @@ class Auth {
         if (!self::isAuthenticated()) {
             Response::unauthorized();
         }
+    }
+
+    /**
+     * Get numeric level for a role
+     */
+    public static function getRoleLevel($role) {
+        $levels = [
+            'super_admin' => 100,
+            'admin' => 90,
+            'director' => 4,
+            'pastor' => 3,
+            'leader' => 2,
+            'user' => 1,
+            'general' => 0
+        ];
+        return $levels[$role] ?? 0;
+    }
+
+    /**
+     * Check if user meets a minimum role requirement
+     */
+    public static function atLeastRole($requiredRole) {
+        $user = self::getUserFromToken();
+        $userRole = $user['role'] ?? 'general';
+        return self::getRoleLevel($userRole) >= self::getRoleLevel($requiredRole);
+    }
+
+    /**
+     * Get list of roles allowed for a given user role (hierarchical)
+     */
+    public static function getAllowedRoles($userRole) {
+        $hierarchy = ['general', 'user', 'leader', 'pastor', 'director'];
+        if (in_array($userRole, ['admin', 'super_admin'])) {
+            return $hierarchy; // Admin can see everything
+        }
+        
+        $userIndex = array_search($userRole, $hierarchy);
+        if ($userIndex === false) return ['general']; // Unknown role only sees general
+        
+        return array_slice($hierarchy, 0, $userIndex + 1);
     }
 
     /**

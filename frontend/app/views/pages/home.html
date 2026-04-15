@@ -99,7 +99,7 @@
                 <div class="featured-livestream" ng-if="vm.featuredLivestream" ng-click="vm.playLivestream(vm.featuredLivestream.id)">
                     <div class="featured-livestream-content">
                         <div class="livestream-thumbnail">
-                            <img ng-src="{{vm.featuredLivestream.thumbnail_url}}" alt="{{vm.featuredLivestream.title}}" loading="lazy">
+                            <img ng-src="https://img.youtube.com/vi/{{vm.featuredLivestream.youtube_id}}/hqdefault.jpg" alt="{{vm.featuredLivestream.title}}" loading="lazy">
                             <div class="live-overlay">
                                 <div class="live-badge">
                                     <div class="live-dot"></div>
@@ -130,13 +130,44 @@
                     </div>
                 </div>
 
-                <!-- Other Live Streams Grid -->
-                <div class="other-livestreams" ng-if="vm.livestreams.length > 1">
+                <!-- Other Live Streams Grid (when featured is set) -->
+                <div class="other-livestreams" ng-if="vm.livestreams.length > 1 && vm.featuredLivestream">
                     <h3 class="subsection-title">Other Live Streams</h3>
                     <div class="livestreams-grid">
                         <div class="livestream-card" ng-repeat="livestream in vm.livestreams | filter: {id: '!' + vm.featuredLivestream.id} | limitTo: 4" ng-click="vm.playLivestream(livestream.id)">
                             <div class="livestream-thumbnail">
-                                <img ng-src="{{livestream.thumbnail_url}}" alt="{{livestream.title}}" loading="lazy">
+                                <img ng-src="https://img.youtube.com/vi/{{livestream.youtube_id}}/hqdefault.jpg" alt="{{livestream.title}}" loading="lazy">
+                                <div class="live-overlay">
+                                    <div class="live-badge-small">
+                                        <div class="live-dot-small"></div>
+                                        LIVE
+                                    </div>
+                                    <div class="viewer-count-small" ng-if="livestream.viewer_count">
+                                        <i class="fa fa-eye"></i> {{vm.formatViews(livestream.viewer_count)}}
+                                    </div>
+                                </div>
+                                <div class="play-overlay">
+                                    <i class="fa fa-play-circle"></i>
+                                </div>
+                            </div>
+                            <div class="livestream-info">
+                                <h4 class="livestream-title">{{livestream.title}}</h4>
+                                <div class="livestream-meta">
+                                    <span class="channel-name">
+                                        <i class="fa fa-user"></i> {{livestream.channel_title}}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Live Streams Grid (when no featured stream is set) -->
+                <div class="other-livestreams" ng-if="vm.livestreams.length > 0 && !vm.featuredLivestream">
+                    <div class="livestreams-grid">
+                        <div class="livestream-card" ng-repeat="livestream in vm.livestreams | limitTo: 6" ng-click="vm.playLivestream(livestream.id)">
+                            <div class="livestream-thumbnail">
+                                <img ng-src="https://img.youtube.com/vi/{{livestream.youtube_id}}/hqdefault.jpg" alt="{{livestream.title}}" loading="lazy">
                                 <div class="live-overlay">
                                     <div class="live-badge-small">
                                         <div class="live-dot-small"></div>

@@ -4,7 +4,11 @@
  * Content management interface
  */
 
+ob_start(); // Start output buffering to prevent "headers already sent" errors
 session_start();
+
+// Define ADMIN_ACCESS for included files
+define('ADMIN_ACCESS', true);
 
 // Check authentication
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
@@ -17,13 +21,14 @@ require_once __DIR__ . '/../models/Category.php';
 require_once __DIR__ . '/../models/Video.php';
 require_once __DIR__ . '/../models/Livestream.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../utils/NotificationService.php';
 
 // Get stats for dashboard
 $totalCategories = Category::count();
 $totalVideos = Video::count();
 $totalLivestreams = Livestream::count();
 $categories = Category::getActiveCategories();
-$recentVideos = Video::getFeaturedVideos(10);
+$recentVideos = Video::getFeaturedVideos(10, $_SESSION['admin_role'] ?? 'admin');
 
 $page = $_GET['page'] ?? 'dashboard';
 ?>
@@ -92,20 +97,11 @@ $page = $_GET['page'] ?? 'dashboard';
                             </a>
                         </li>
                         <li>
-                            <a href="?page=channel-sync-enhanced" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'channel-sync-enhanced' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
-                                <i class="fas fa-list mr-3"></i> Playlist Mapping
-                            </a>
-                        </li>
-                        <li>
                             <a href="?page=analytics" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'analytics' ? 'bg-orange-100 text-orange-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
                                 <i class="fas fa-chart-bar mr-3"></i> Analytics
                             </a>
                         </li>
-                        <li>
-                            <a href="?page=ai-analytics" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'ai-analytics' ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
-                                <i class="fas fa-robot mr-3"></i> AI Analytics
-                            </a>
-                        </li>
+
                         <li>
                             <a href="?page=users" class="flex items-center px-4 py-2 text-sm font-medium rounded-md <?php echo $page === 'users' ? 'bg-orange-100 text-orange-700' : 'text-gray-600 hover:bg-gray-50'; ?>">
                                 <i class="fas fa-users mr-3"></i> Users
@@ -137,20 +133,16 @@ $page = $_GET['page'] ?? 'dashboard';
                         include 'pages/categories.php';
                         break;
                     case 'import':
+                    case 'import-livestream':
                         include 'pages/import.php';
                         break;
                     case 'channel-sync':
                         include 'pages/channel-sync.php';
                         break;
-                    case 'channel-sync-enhanced':
-                        include 'pages/channel-sync-enhanced.php';
-                        break;
                     case 'analytics':
                         include 'pages/analytics.php';
                         break;
-                    case 'ai-analytics':
-                        include 'pages/ai-analytics.php';
-                        break;
+
                     case 'users':
                         include 'pages/users.php';
                         break;
@@ -175,3 +167,7 @@ $page = $_GET['page'] ?? 'dashboard';
     </script>
 </body>
 </html>
+<?php
+// Flush output buffer
+ob_end_flush();
+?>

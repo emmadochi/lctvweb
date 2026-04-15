@@ -13,13 +13,17 @@ class VideoController {
         try {
             $sort = $_GET['sort'] ?? 'featured';
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
-
+            
+            // Get current user role
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+            
             if ($sort === 'recent') {
                 // Get videos ordered by creation date (most recent first)
-                $videos = Video::getRecentVideos($limit);
+                $videos = Video::getRecentVideos($limit, $userRole);
             } else {
                 // Default to featured videos
-                $videos = Video::getFeaturedVideos($limit);
+                $videos = Video::getFeaturedVideos($limit, $userRole);
             }
 
             Response::success($videos);
@@ -31,10 +35,22 @@ class VideoController {
 
     public function show($id) {
         try {
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+            
             $video = Video::getById($id);
 
             if (!$video) {
                 Response::notFound('Video not found');
+            }
+
+            // Check if user is allowed to see this video
+            $allowedRoles = Video::getAllowedRoles($userRole);
+            $targetRole = $video['target_role'] ?? 'general';
+            
+            if (!in_array($targetRole, $allowedRoles) && !in_array($userRole, ['admin', 'super_admin'])) {
+                Response::forbidden('You do not have permission to view this video');
+                return;
             }
 
             // Increment view count
@@ -49,7 +65,10 @@ class VideoController {
 
     public function getByCategory($categoryId) {
         try {
-            $videos = Video::getByCategory($categoryId, 50);
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+            
+            $videos = Video::getByCategory($categoryId, 50, $userRole);
             Response::success($videos);
         } catch (Exception $e) {
             error_log("VideoController getByCategory error: " . $e->getMessage());
@@ -63,7 +82,10 @@ class VideoController {
                 Response::badRequest('Search query must be at least 2 characters');
             }
 
-            $videos = Video::search($query);
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+            
+            $videos = Video::search($query, 20, $userRole);
             Response::success($videos);
         } catch (Exception $e) {
             error_log("VideoController search error: " . $e->getMessage());
@@ -78,8 +100,7 @@ class VideoController {
             $sessionId = null;
 
             if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
-                $auth = new Auth();
-                $user = $auth->getCurrentUser();
+                $user = Auth::getCurrentUser();
                 if ($user) {
                     $userId = $user['id'];
                 }
@@ -108,8 +129,7 @@ class VideoController {
             $sessionId = null;
 
             if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
-                $auth = new Auth();
-                $user = $auth->getCurrentUser();
+                $user = Auth::getCurrentUser();
                 if ($user) {
                     $userId = $user['id'];
                 }
@@ -124,6 +144,24 @@ class VideoController {
         } catch (Exception $e) {
             error_log("VideoController checkLikeStatus error: " . $e->getMessage());
             Response::error('Failed to check like status', 500);
+        }
+    }
+
+    public function exclusive() {
+        try {
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+            
+            // Get current user role
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+            
+            // General users shouldn't even know this exists or will get empty list
+            $videos = Video::getExclusiveContent($limit, $userRole);
+
+            Response::success($videos);
+        } catch (Exception $e) {
+            error_log("VideoController exclusive error: " . $e->getMessage());
+            Response::error('Failed to load exclusive videos', 500);
         }
     }
 

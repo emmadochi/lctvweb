@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/Notification.php';
 
 class Reaction {
     private static $table = 'reactions';
@@ -286,12 +287,8 @@ class Reaction {
                         'type' => 'reaction',
                         'title' => 'Someone reacted to your favorite video',
                         'message' => 'Someone reacted with ' . $emoji . ' to "' . $videoResult['title'] . '"',
-                        'data' => json_encode([
-                            'video_id' => $videoId,
-                            'reaction_type' => $reactionType,
-                            'reaction_emoji' => $emoji,
-                            'video_title' => $videoResult['title']
-                        ])
+                        'related_id' => $videoId,
+                        'related_type' => 'video'
                     ]);
                 }
             }

@@ -103,6 +103,7 @@ class ChannelSyncController {
             $autoImport = $data['auto_import'] ?? true;
             $requireApproval = $data['require_approval'] ?? false;
             $maxVideos = $data['max_videos_per_sync'] ?? 10;
+            $targetRole = $data['target_role'] ?? 'general';
             
             $channelSyncId = $service->addChannel(
                 $channelId, 
@@ -111,7 +112,8 @@ class ChannelSyncController {
                 $frequency, 
                 $autoImport, 
                 $requireApproval, 
-                $maxVideos
+                $maxVideos,
+                $targetRole
             );
             
             if ($channelSyncId) {
@@ -210,6 +212,12 @@ class ChannelSyncController {
                 $fields[] = "max_videos_per_sync = ?";
                 $params[] = (int)$data['max_videos_per_sync'];
                 $types .= "i";
+            }
+
+            if (isset($data['target_role'])) {
+                $fields[] = "target_role = ?";
+                $params[] = $data['target_role'];
+                $types .= "s";
             }
             
             if (empty($fields)) {
@@ -390,6 +398,40 @@ class ChannelSyncController {
         } catch (Exception $e) {
             error_log("ChannelSyncController::getLogs error: " . $e->getMessage());
             Response::error('Failed to fetch sync logs', 500);
+        }
+    }
+
+    /**
+     * Override video category
+     */
+    public static function overrideCategory($videoId) {
+        try {
+            Auth::requireAdmin();
+            
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput, true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE || !isset($data['category_id'])) {
+                Response::error('Invalid override data', 400);
+                return;
+            }
+            
+            $service = new ChannelSyncService();
+            $categoryId = (int)$data['category_id'];
+            $reason = $data['reason'] ?? '';
+            $userId = $_SESSION['admin_id'] ?? null;
+            
+            $success = $service->overrideVideoCategory($videoId, $categoryId, $reason, $userId);
+            
+            if ($success) {
+                Response::success(['message' => 'Video category overridden successfully']);
+            } else {
+                Response::error('Failed to override video category', 500);
+            }
+            
+        } catch (Exception $e) {
+            error_log("ChannelSyncController::overrideCategory error: " . $e->getMessage());
+            Response::error('Failed to override video category: ' . $e->getMessage(), 500);
         }
     }
 }

@@ -178,7 +178,8 @@ class ChannelSyncService {
                 'view_count' => $videoData['view_count'],
                 'like_count' => $videoData['like_count'],
                 'published_at' => date('Y-m-d H:i:s', strtotime($videoData['published_at'])),
-                'is_active' => $isActive ? 1 : 0
+                'is_active' => $isActive ? 1 : 0,
+                'target_role' => $channelConfig['target_role'] ?? 'general'
             ];
             
             $result = Video::create($videoInsertData);
@@ -264,7 +265,7 @@ class ChannelSyncService {
     /**
      * Add new channel to sync
      */
-    public function addChannel($channelId, $categoryId, $channelName = null, $frequency = 'daily', $autoImport = true, $requireApproval = false, $maxVideos = 10) {
+    public function addChannel($channelId, $categoryId, $channelName = null, $frequency = 'daily', $autoImport = true, $requireApproval = false, $maxVideos = 10, $targetRole = 'general') {
         try {
             // Validate channel exists by trying to get its videos
             $testVideos = $this->youtubeAPI->getChannelVideos($channelId, 1);
@@ -278,9 +279,9 @@ class ChannelSyncService {
             }
             
             $stmt = $this->conn->prepare("INSERT INTO channel_sync 
-                (channel_id, channel_name, category_id, sync_frequency, auto_import, require_approval, max_videos_per_sync) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssissii", $channelId, $channelName, $categoryId, $frequency, $autoImport, $requireApproval, $maxVideos);
+                (channel_id, channel_name, category_id, sync_frequency, auto_import, require_approval, max_videos_per_sync, target_role) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssissiis", $channelId, $channelName, $categoryId, $frequency, $autoImport, $requireApproval, $maxVideos, $targetRole);
             
             if ($stmt->execute()) {
                 return $this->conn->insert_id;
@@ -322,250 +323,6 @@ class ChannelSyncService {
         }
         
         return $stats;
-    }
-    
-    /**
-     * Get channel playlists for mapping configuration
-     */
-    public function getChannelPlaylistsForMapping($channelId) {
-        try {
-            return $this->youtubeAPI->getChannelPlaylistsWithVideos($channelId, 50, 5);
-        } catch (Exception $e) {
-            throw new Exception("Error fetching channel playlists: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Add playlist mapping for a channel
-     */
-    public function addPlaylistMapping($channelSyncId, $playlistId, $playlistName, $categoryId, $importLimit = 20, $requireApproval = false) {
-        try {
-            $stmt = $this->conn->prepare("INSERT INTO channel_playlist_mapping 
-                (channel_sync_id, playlist_id, playlist_name, category_id, import_limit, require_approval) 
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE 
-                playlist_name = VALUES(playlist_name), 
-                category_id = VALUES(category_id), 
-                import_limit = VALUES(import_limit), 
-                require_approval = VALUES(require_approval),
-                is_active = TRUE,
-                updated_at = CURRENT_TIMESTAMP");
-            
-            $stmt->bind_param("issiii", $channelSyncId, $playlistId, $playlistName, $categoryId, $importLimit, $requireApproval);
-            
-            if ($stmt->execute()) {
-                return $this->conn->insert_id;
-            } else {
-                throw new Exception("Failed to add playlist mapping: " . $stmt->error);
-            }
-            
-        } catch (Exception $e) {
-            throw new Exception("Error adding playlist mapping: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Remove playlist mapping
-     */
-    public function removePlaylistMapping($mappingId) {
-        try {
-            $stmt = $this->conn->prepare("UPDATE channel_playlist_mapping SET is_active = FALSE WHERE id = ?");
-            $stmt->bind_param("i", $mappingId);
-            return $stmt->execute();
-        } catch (Exception $e) {
-            throw new Exception("Error removing playlist mapping: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Get playlist mappings for a channel
-     */
-    public function getPlaylistMappings($channelSyncId) {
-        try {
-            $stmt = $this->conn->prepare("SELECT cpm.*, c.name as category_name 
-                FROM channel_playlist_mapping cpm 
-                JOIN categories c ON cpm.category_id = c.id 
-                WHERE cpm.channel_sync_id = ? AND cpm.is_active = TRUE 
-                ORDER BY cpm.playlist_name");
-            $stmt->bind_param("i", $channelSyncId);
-            
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            $mappings = [];
-            while ($row = $result->fetch_assoc()) {
-                $mappings[] = $row;
-            }
-            
-            return $mappings;
-            
-        } catch (Exception $e) {
-            throw new Exception("Error fetching playlist mappings: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Sync channel with playlist mapping support
-     */
-    public function syncChannelWithPlaylists($channelConfig) {
-        $startTime = date('Y-m-d H:i:s');
-        $logId = $this->createSyncLog($channelConfig['id']);
-        
-        try {
-            echo "Starting playlist-aware sync for channel: {$channelConfig['channel_name']} (ID: {$channelConfig['channel_id']})\n";
-            
-            // Get playlist mappings for this channel
-            $playlistMappings = $this->getPlaylistMappings($channelConfig['id']);
-            
-            if (empty($playlistMappings)) {
-                // Fallback to default category mapping if no playlists configured
-                echo "No playlist mappings found, using default category mapping\n";
-                $fallbackResult = $this->syncChannel($channelConfig);
-                
-                // Convert syncChannel result format to match syncChannelWithPlaylists format
-                return [
-                    'channel_id' => $channelConfig['channel_id'],
-                    'channel_name' => $channelConfig['channel_name'],
-                    'status' => $fallbackResult['status'],
-                    'videos_found' => $fallbackResult['found'] ?? 0,
-                    'videos_imported' => $fallbackResult['imported'] ?? 0,
-                    'videos_skipped' => $fallbackResult['skipped'] ?? 0,
-                    'started_at' => $startTime,
-                    'completed_at' => date('Y-m-d H:i:s')
-                ];
-            }
-            
-            $totalVideosFound = 0;
-            $totalVideosImported = 0;
-            $totalVideosSkipped = 0;
-            
-            // Process each mapped playlist
-            foreach ($playlistMappings as $mapping) {
-                echo "Processing playlist: {$mapping['playlist_name']} -> Category: {$mapping['category_name']}\n";
-                
-                $playlistVideos = $this->youtubeAPI->getPlaylistVideos($mapping['playlist_id'], $mapping['import_limit']);
-                $totalVideosFound += count($playlistVideos);
-                
-                foreach ($playlistVideos as $video) {
-                    $importResult = $this->importVideoWithCategory($video, $mapping['category_id'], $channelConfig['id'], $mapping['playlist_id'], $mapping['require_approval']);
-                    
-                    if ($importResult['success']) {
-                        $totalVideosImported++;
-                        echo "✓ Imported: {$video['title']}\n";
-                    } else {
-                        $totalVideosSkipped++;
-                        echo "✗ Skipped: {$video['title']} - {$importResult['reason']}\n";
-                    }
-                }
-            }
-            
-            // Update sync log
-            $this->updateSyncLog($logId, 'success', $totalVideosFound, $totalVideosImported, $totalVideosSkipped);
-            
-            $result = [
-                'channel_id' => $channelConfig['channel_id'],
-                'channel_name' => $channelConfig['channel_name'],
-                'status' => 'success',
-                'videos_found' => $totalVideosFound,
-                'videos_imported' => $totalVideosImported,
-                'videos_skipped' => $totalVideosSkipped,
-                'started_at' => $startTime,
-                'completed_at' => date('Y-m-d H:i:s')
-            ];
-            
-            echo "Playlist sync completed: Found {$totalVideosFound}, Imported {$totalVideosImported}, Skipped {$totalVideosSkipped}\n";
-            return $result;
-            
-        } catch (Exception $e) {
-            $this->updateSyncLog($logId, 'failed', 0, 0, 0, $e->getMessage());
-            throw new Exception("Playlist sync failed: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Import video with specific category and playlist tracking
-     */
-    private function importVideoWithCategory($video, $categoryId, $channelSyncId, $playlistId, $requireApproval = false) {
-        try {
-            // Check if video already exists
-            $stmt = $this->conn->prepare("SELECT id, category_id FROM videos WHERE youtube_id = ?");
-            $stmt->bind_param("s", $video['youtube_id']);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $existingVideo = $result->fetch_assoc();
-                
-                // Check for category override
-                $overrideCheck = $this->conn->prepare("SELECT override_category_id FROM video_category_override WHERE video_id = ?");
-                $overrideCheck->bind_param("i", $existingVideo['id']);
-                $overrideCheck->execute();
-                $overrideResult = $overrideCheck->get_result();
-                
-                if ($overrideResult->num_rows > 0) {
-                    // Video has manual override, don't change category
-                    return ['success' => false, 'reason' => 'Manual category override exists'];
-                }
-                
-                // Update category if different and no override exists
-                if ($existingVideo['category_id'] != $categoryId) {
-                    $updateStmt = $this->conn->prepare("UPDATE videos SET category_id = ? WHERE id = ?");
-                    $updateStmt->bind_param("ii", $categoryId, $existingVideo['id']);
-                    $updateStmt->execute();
-                    echo "  Updated category for existing video: {$video['title']}\n";
-                }
-                
-                return ['success' => true, 'reason' => 'Existing video updated'];
-            }
-            
-            // Insert new video
-            $status = $requireApproval ? 0 : 1; // 0 = pending approval, 1 = active
-            $stmt = $this->conn->prepare("INSERT INTO videos 
-                (youtube_id, title, description, thumbnail_url, duration, category_id, channel_title, channel_id, published_at, is_active, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            
-            $stmt->bind_param("ssssisssii", 
-                $video['youtube_id'], 
-                $video['title'], 
-                $video['description'], 
-                $video['thumbnail_url'], 
-                $video['duration'], 
-                $categoryId, 
-                $video['channel_title'], 
-                $video['channel_id'], 
-                $video['published_at'], 
-                $status
-            );
-            
-            if ($stmt->execute()) {
-                $videoId = $this->conn->insert_id;
-                
-                // Track playlist association
-                $this->trackVideoPlaylist($videoId, $playlistId, $video['title'], $channelSyncId);
-                
-                return ['success' => true, 'video_id' => $videoId];
-            } else {
-                return ['success' => false, 'reason' => 'Database insert failed: ' . $stmt->error];
-            }
-            
-        } catch (Exception $e) {
-            return ['success' => false, 'reason' => 'Import error: ' . $e->getMessage()];
-        }
-    }
-    
-    /**
-     * Track video playlist association
-     */
-    private function trackVideoPlaylist($videoId, $playlistId, $playlistName, $channelSyncId) {
-        try {
-            $stmt = $this->conn->prepare("INSERT IGNORE INTO video_playlists 
-                (video_id, playlist_id, playlist_name, channel_sync_id) 
-                VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("issi", $videoId, $playlistId, $playlistName, $channelSyncId);
-            $stmt->execute();
-        } catch (Exception $e) {
-            error_log("Error tracking video playlist: " . $e->getMessage());
-        }
     }
     
     /**

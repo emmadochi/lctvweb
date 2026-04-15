@@ -44,9 +44,12 @@ class AdminController {
                 return Response::error('Access denied. Admin privileges required.', 403);
             }
 
-            // Verify password (for now, use simple check - in production use proper hashing)
-            // For demo purposes, allow default admin credentials
-            if (($email === 'admin@lcmtv.com' && $password === 'admin123') ||
+            // Verify password
+            // Support environment-driven default admin for initial setup/recovery
+            $envAdminEmail = getenv('ADMIN_EMAIL') ?: 'info@lifechangertouch.org';
+            $envAdminPass  = getenv('ADMIN_PASSWORD');
+
+            if (($envAdminPass && $email === $envAdminEmail && $password === $envAdminPass) ||
                 password_verify($password, $user['password_hash'])) {
 
                 // Generate JWT token
@@ -130,19 +133,78 @@ class AdminController {
     }
 
     /**
+     * Update a user's role (Promotion logic)
+     */
+    public static function updateUserRole() {
+        try {
+            // Require admin authentication
+            Auth::requireAdmin();
+
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput, true);
+
+            if (empty($data['user_id']) || empty($data['role'])) {
+                return Response::error('User ID and role are required', 400);
+            }
+
+            $userId = (int)$data['user_id'];
+            $newRole = trim($data['role']);
+
+            // Validate the role name
+            $validRoles = ['user', 'leader', 'pastor', 'director', 'admin', 'super_admin'];
+            if (!in_array($newRole, $validRoles)) {
+                return Response::error('Invalid role name', 400);
+            }
+
+            $conn = getDBConnection();
+            $stmt = $conn->prepare("UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmt->bind_param("si", $newRole, $userId);
+
+            if ($stmt->execute()) {
+                // Send notification email to user about their new role
+                try {
+                    $user = User::getById($userId);
+                    if ($user) {
+                        $subject = 'LCMTV Role Update: You have been promoted to ' . ucfirst($newRole);
+                        $body = "<p>Hello " . htmlspecialchars($user['first_name'] ?: $user['email']) . ",</p>"
+                              . "<p>An administrator has updated your role on LCMTV.</p>"
+                              . "<p><strong>New Role:</strong> " . ucfirst($newRole) . "</p>"
+                              . "<p>You now have access to content tailored for your leadership position.</p>"
+                              . "<p>Blessings,<br>LCMTV Team</p>";
+                        Mailer::send($user['email'], $subject, $body);
+                    }
+                } catch (\Throwable $e) {
+                    error_log('AdminController notification email failed: ' . $e->getMessage());
+                }
+
+                return Response::success(['message' => 'User role updated successfully', 'role' => $newRole]);
+            } else {
+                return Response::error('Failed to update user role', 500);
+            }
+
+        } catch (Exception $e) {
+            error_log("AdminController::updateUserRole - Error: " . $e->getMessage());
+            return Response::error('Error updating role: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
      * Create default admin user if it doesn't exist
      */
     public static function createDefaultAdmin() {
         try {
+            $adminEmail = getenv('ADMIN_EMAIL') ?: 'info@lifechangertouch.org';
+            $adminPass  = getenv('ADMIN_PASSWORD') ?: 'admin123';
+
             // Check if admin already exists
-            $existingAdmin = User::getByEmail('admin@lcmtv.com');
+            $existingAdmin = User::getByEmail($adminEmail);
 
             if (!$existingAdmin) {
                 // Create default admin user
                 $adminData = [
                     'name' => 'LCMTV Admin',
-                    'email' => 'admin@lcmtv.com',
-                    'password' => password_hash('admin123', PASSWORD_DEFAULT),
+                    'email' => $adminEmail,
+                    'password' => password_hash($adminPass, PASSWORD_DEFAULT),
                     'role' => 'super_admin',
                     'status' => 'active',
                     'created_at' => date('Y-m-d H:i:s'),

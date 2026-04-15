@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../models/Comment.php';
 require_once __DIR__ . '/../models/Video.php';
+require_once __DIR__ . '/../models/Livestream.php';
 require_once __DIR__ . '/../utils/Response.php';
 
 class CommentController {
@@ -24,6 +25,23 @@ class CommentController {
         } catch (Exception $e) {
             error_log("Comment getByVideo error: " . $e->getMessage());
             Response::error('Failed to load comments', 500);
+        }
+    }
+
+    /**
+     * Get comments for a livestream
+     */
+    public function getByLivestream($livestreamId) {
+        try {
+            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $limit = isset($_GET['limit']) ? max(1, min(50, (int)$_GET['limit'])) : 20;
+
+            $result = Comment::getByLivestream($livestreamId, $page, $limit);
+            Response::success($result);
+
+        } catch (Exception $e) {
+            error_log("Comment getByLivestream error: " . $e->getMessage());
+            Response::error('Failed to load livestream comments', 500);
         }
     }
 
@@ -75,8 +93,8 @@ class CommentController {
             }
 
             // Validate required fields
-            if (empty($input['video_id']) || empty($input['content'])) {
-                Response::badRequest('Video ID and content are required');
+            if (empty($input['content']) || (empty($input['video_id']) && empty($input['livestream_id']))) {
+                Response::badRequest('Video ID or Livestream ID, and content are required');
                 return;
             }
 
@@ -91,16 +109,25 @@ class CommentController {
                 return;
             }
 
-            // Verify video exists
-            $video = Video::find($input['video_id']);
-            if (!$video) {
-                Response::notFound('Video not found');
-                return;
+            // Verify video or livestream exists
+            if (!empty($input['video_id'])) {
+                $video = Video::find($input['video_id']);
+                if (!$video) {
+                    Response::notFound('Video not found');
+                    return;
+                }
+            } elseif (!empty($input['livestream_id'])) {
+                $livestream = Livestream::find($input['livestream_id']);
+                if (!$livestream) {
+                    Response::notFound('Livestream not found');
+                    return;
+                }
             }
 
             // Create comment data
             $commentData = [
-                'video_id' => (int)$input['video_id'],
+                'video_id' => !empty($input['video_id']) ? (int)$input['video_id'] : null,
+                'livestream_id' => !empty($input['livestream_id']) ? (int)$input['livestream_id'] : null,
                 'user_id' => $user['user_id'],
                 'content' => trim($input['content']),
                 'parent_id' => isset($input['parent_id']) ? (int)$input['parent_id'] : null,
@@ -114,8 +141,12 @@ class CommentController {
                     Response::badRequest('Parent comment not found');
                     return;
                 }
-                if ($parentComment['video_id'] !== $commentData['video_id']) {
+                if ($commentData['video_id'] && $parentComment['video_id'] !== $commentData['video_id']) {
                     Response::badRequest('Parent comment must be on the same video');
+                    return;
+                }
+                if ($commentData['livestream_id'] && $parentComment['livestream_id'] !== $commentData['livestream_id']) {
+                    Response::badRequest('Parent comment must be on the same livestream');
                     return;
                 }
             }
@@ -123,8 +154,10 @@ class CommentController {
             $commentId = Comment::create($commentData);
 
             if ($commentId) {
-                // Update video comment count
-                $this->updateVideoCommentCount($commentData['video_id']);
+                // Update video comment count if it's a video
+                if ($commentData['video_id']) {
+                    $this->updateVideoCommentCount($commentData['video_id']);
+                }
 
                 $comment = Comment::find($commentId);
                 Response::success($comment, 'Comment posted successfully', 201);

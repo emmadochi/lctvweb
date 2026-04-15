@@ -16,12 +16,10 @@ $messageType = '';
 require_once __DIR__ . '/../../utils/Auth.php';
 
 // Check admin authentication
-if (!Auth::isAdmin()) {
-    header('Location: ../login.php');
+if (!isset($_SESSION['admin_role']) || !in_array($_SESSION['admin_role'], ['admin', 'super_admin'])) {
+    header('Location: login.php');
     exit();
 }
-
-$user = Auth::getUserFromToken();
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

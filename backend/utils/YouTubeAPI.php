@@ -41,17 +41,26 @@ class YouTubeAPI {
         $params['key'] = $this->getApiKey();
         $url = $this->baseUrl . $endpoint . '?' . http_build_query($params);
 
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 10,
-                'user_agent' => 'LCMTV/1.0'
-            ]
-        ]);
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'LCMTV/1.0');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For local development flexibility
 
-        $response = file_get_contents($url, false, $context);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
 
         if ($response === false) {
-            throw new Exception("YouTube API request failed");
+            throw new Exception("YouTube API request failed: " . $error);
+        }
+
+        if ($httpCode !== 200) {
+            $data = json_decode($response, true);
+            $errorMessage = $data['error']['message'] ?? "HTTP error code: $httpCode";
+            throw new Exception("YouTube API error ($httpCode): " . $errorMessage);
         }
 
         $data = json_decode($response, true);
@@ -122,7 +131,7 @@ class YouTubeAPI {
 
             $channelData = $this->makeRequest('channels', $channelParams);
 
-            if (empty($channelData['items'])) {
+            if (empty($channelData['items']) || !isset($channelData['items'][0]['contentDetails']['relatedPlaylists']['uploads'])) {
                 return [];
             }
 

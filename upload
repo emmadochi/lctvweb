@@ -1,0 +1,40 @@
+# Next Steps: Store Packaging & Submission
+
+Your Progressive Web App (PWA) is now technically optimized for the App Stores. The next phase involves using PWABuilder to generate the native packages and submitting them to Google and Apple.
+
+## User Review Required
+
+> [!IMPORTANT]
+> To finish the connection between your website and the apps, you will need two pieces of information from your developer consoles:
+> 1. **Google Play**: The `SHA-256 fingerprint` (from Play Console).
+> 2. **Apple App Store**: Your `Team ID` and `App ID` (from App Store Connect).
+
+## Proposed Phase: Store Packaging
+
+### 1. Generate Packages on PWABuilder
+- Go to [PWABuilder.com](https://www.pwabuilder.com/).
+- Enter your URL: `https://tv.lifechangerstouch.org/frontend/`.
+- Click **Next** through the success screen.
+- On the "Package for Stores" screen:
+    - **Android**: Click "Download Package". You'll get a zip containing a `.apk` or `.aab`. (Follow the PWABuilder documentation to input your SHA-256 fingerprint when prompted).
+    - **iOS**: Click "Download Package". You'll get an Xcode project.
+
+### 2. Domain Verification (The Final Link)
+I created two files with placeholders that MUST be updated once you have your store IDs:
+- [assetlinks.json](file:///c:/xampp/htdocs/LCMTVWebNew/frontend/.well-known/assetlinks.json): Replace `[YOUR_SHA256_FINGERPRINT_HERE]` with the one from Google Play.
+- [apple-app-site-association](file:///c:/xampp/htdocs/LCMTVWebNew/frontend/.well-known/apple-app-site-association): Replace `[YOUR_APPLE_TEAM_ID_HERE].[YOUR_APP_BUNDLE_ID_HERE]` with your Apple credentials.
+
+### 3. Submission Checklist
+- **Privacy Policy**: Ensure you have a live Privacy Policy URL (required by both stores).
+- **Screenshots**: You have the base screenshots, but Apple may require more sizes (e.g., iPhone 14 Pro Max 6.7" and 6.5").
+- **Account Fees**:
+    - Google: $25 (one-time).
+    - Apple: $99 (annual).
+
+## Open Questions
+
+- **Store Accounts**: Do you already have your Google Play and Apple Developer accounts set up?
+- **Privacy Policy**: Do you have a URL for your Privacy Policy ready?
+
+## Verification Plan
+- Once you download the packages, I can help you troubleshoot any build errors (especially for Android's signing process).

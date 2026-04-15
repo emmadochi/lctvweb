@@ -48,6 +48,14 @@
                                 <i class="fa fa-tag"></i>
                                 {{video.category_name}}
                             </div>
+
+                            <!-- Role badge -->
+                            <div class="thumbnail-role-badge" 
+                                 ng-if="video.target_role && video.target_role !== 'general'"
+                                 ng-class="'role-' + video.target_role">
+                                <i class="fa fa-shield"></i>
+                                {{video.target_role.charAt(0).toUpperCase() + video.target_role.slice(1)}} Exclusive
+                            </div>
                         </div>
 
                         <!-- Video info (optional, shown outside container) -->

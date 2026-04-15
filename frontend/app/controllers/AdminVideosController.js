@@ -31,7 +31,14 @@
             // Modal states
             vm.showAddModal = false;
             vm.showEditModal = false;
+            vm.showOverrideModal = false;
             vm.editingVideo = null;
+            vm.overridingVideo = null;
+            vm.isSaving = false;
+            vm.overrideData = {
+                category_id: '',
+                reason: ''
+            };
 
             // New video form
             vm.newVideo = {
@@ -254,12 +261,9 @@
             vm.extractYouTubeId = function(url) {
                 if (!url) return '';
 
-                // Remove any query parameters or fragments
-                url = url.split('?')[0].split('#')[0];
-
                 // Match various YouTube URL formats
                 var patterns = [
-                    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+                    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/live\/)([^&\n?#]+)/,
                     /youtube\.com\/v\/([^&\n?#]+)/
                 ];
 
@@ -339,6 +343,51 @@
              */
             vm.bulkImport = function() {
                 $scope.$root.showToast('Bulk import feature coming soon', 'info');
+            };
+
+            /**
+             * Open category override modal
+             */
+            vm.openOverrideModal = function(video) {
+                vm.overridingVideo = video;
+                vm.overrideData = {
+                    category_id: video.category_id.toString(),
+                    reason: ''
+                };
+                vm.showOverrideModal = true;
+                $timeout(function() {
+                    $('#overrideModal').modal('show');
+                });
+            };
+
+            /**
+             * Close category override modal
+             */
+            vm.closeOverrideModal = function() {
+                vm.showOverrideModal = false;
+                vm.overridingVideo = null;
+                $('#overrideModal').modal('hide');
+            };
+
+            /**
+             * Save category override
+             */
+            vm.saveOverride = function() {
+                if (!vm.overridingVideo || !vm.overrideData.category_id) return;
+
+                vm.isSaving = true;
+                AdminService.overrideVideoCategory(vm.overridingVideo.id, vm.overrideData.category_id, vm.overrideData.reason)
+                    .then(function() {
+                        vm.isSaving = false;
+                        vm.closeOverrideModal();
+                        loadVideos();
+                        $scope.$root.showToast('Category override saved successfully', 'success');
+                    })
+                    .catch(function(error) {
+                        vm.isSaving = false;
+                        console.error('Error saving override:', error);
+                        $scope.$root.showError('Failed to save category override');
+                    });
             };
 
             // Expose controller to scope

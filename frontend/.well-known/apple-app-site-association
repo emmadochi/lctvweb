@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "PASTE_YOUR_APPLE_TEAM_ID_HERE.com.lcmtv.app",
+        "paths": ["*"]
+      }
+    ]
+  }
+}

@@ -284,4 +284,46 @@ class Notification {
             error_log("Push notification sent to $successCount devices for notification $notificationId");
         }
     }
+
+    /**
+     * Create notification for new livestream in subscribed category
+     */
+    public static function notifyNewLivestreamInCategory($livestreamId, $categoryId) {
+        $livestream = self::getLivestreamDetails($livestreamId);
+        $category = self::getCategoryDetails($categoryId);
+        if (!$livestream || !$category) return false;
+
+        $notifications = [];
+
+        // Notify all users subscribed to this category
+        $subscribedUsers = self::getUsersSubscribedToCategory($categoryId);
+        foreach ($subscribedUsers as $userId) {
+            $notifications[] = [
+                'user_id' => $userId,
+                'type' => 'subscription',
+                'title' => 'Live Now: ' . $category['name'],
+                'message' => 'New livestream started: "' . $livestream['title'] . '" in ' . $category['name'],
+                'related_id' => $livestreamId,
+                'related_type' => 'video'
+            ];
+        }
+
+        // Create notifications
+        foreach ($notifications as $notification) {
+            self::create($notification);
+        }
+
+        return count($notifications);
+    }
+
+    /**
+     * Helper: Get livestream details
+     */
+    private static function getLivestreamDetails($livestreamId) {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT title, youtube_id FROM livestreams WHERE id = ?");
+        $stmt->bind_param("i", $livestreamId);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_assoc();
+    }
 }

@@ -95,6 +95,24 @@
                     controller: 'SearchController',
                     controllerAs: 'vm'
                 })
+                .when('/leadership', {
+                    templateUrl: 'app/views/pages/leadership.html',
+                    controller: 'LeadershipController',
+                    controllerAs: 'vm',
+                    resolve: {
+                        auth: ['$q', 'AuthService', '$location', function($q, AuthService, $location) {
+                            if (!AuthService.isAuthenticated()) {
+                                $location.path('/login');
+                                return $q.reject('Not authenticated');
+                            }
+                            if (!AuthService.isLeader()) {
+                                $location.path('/');
+                                return $q.reject('Access denied');
+                            }
+                            return $q.resolve();
+                        }]
+                    }
+                })
                 .when('/donate', {
                     templateUrl: 'app/views/pages/donate.html',
                     controller: 'DonationController',
@@ -185,6 +203,11 @@
                 .when('/admin/categories', {
                     templateUrl: 'app/views/pages/admin-categories.html',
                     controller: 'AdminCategoriesController',
+                    controllerAs: 'vm'
+                })
+                .when('/admin/channel-sync', {
+                    templateUrl: 'app/views/pages/admin-channel-sync.html',
+                    controller: 'ChannelSyncController',
                     controllerAs: 'vm'
                 })
 
@@ -340,6 +363,20 @@
 
             // Initialize internationalization
             I18nService.initialize();
+
+            // Hide splash screen after initialization
+            $timeout(function() {
+                var splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.classList.add('fade-out');
+                    // Remove from DOM after transition
+                    $timeout(function() {
+                        if (splash.parentNode) {
+                            splash.parentNode.removeChild(splash);
+                        }
+                    }, 500);
+                }
+            }, 1500); // Show splash for 1.5 seconds
         }]);
 
     })();

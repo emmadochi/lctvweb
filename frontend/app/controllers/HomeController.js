@@ -238,6 +238,8 @@
                 return !!vm.favoriteIds[videoId];
             };
 
+
+
             vm.toggleFavorite = function(video, $event) {
                 if ($event) $event.stopPropagation();
                 var id = video.id;
@@ -271,6 +273,10 @@
              * Navigate to livestream player
              */
             vm.playLivestream = function(livestreamId) {
+                if (!livestreamId || livestreamId === 'undefined') {
+                    console.warn('playLivestream: no valid ID provided, aborting navigation');
+                    return;
+                }
                 $location.path('/livestream/' + livestreamId);
             };
 

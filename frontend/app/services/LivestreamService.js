@@ -50,6 +50,19 @@
             };
 
             /**
+             * Get exclusive leadership livestreams
+             */
+            service.getExclusiveLivestreams = function() {
+                return $http.get(API_BASE + '/livestreams/exclusive')
+                    .then(function(response) {
+                        return unwrap(response) || [];
+                    }).catch(function(error) {
+                        console.error('Error fetching exclusive livestreams:', error);
+                        return [];
+                    });
+            };
+
+            /**
              * Get featured livestream (highest viewer count)
              */
             service.getFeaturedLivestream = function() {
@@ -82,9 +95,8 @@
                     return $q.resolve(cached.data);
                 }
 
-                return $http.get(API_BASE + '/livestreams', {
-                    params: { id: livestreamId }
-                }).then(function(response) {
+                return $http.get(API_BASE + '/livestreams/' + livestreamId)
+                .then(function(response) {
                     var data = unwrap(response);
                     livestreamCache[cacheKey] = { data: data, timestamp: Date.now() };
                     return data;

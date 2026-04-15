@@ -1,42 +1,25 @@
 {
   "name": "LCM TV – Church Streaming",
   "short_name": "LCMTV",
+  "id": "lcmtv-pwa",
   "description": "A modern church media streaming platform with live services, sermons, and community features",
-  "start_url": "/",
+  "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#1a1a2e",
+  "background_color": "#6a0dad",
   "theme_color": "#6a0dad",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": "./",
   "lang": "en-US",
   "categories": ["entertainment", "lifestyle", "social"],
   "icons": [
     {
-      "src": "assets/images/favicon.ico",
-      "sizes": "16x16 32x32 48x48",
-      "type": "image/x-icon",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "assets/images/logo.png",
+      "src": "assets/images/pwa-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "assets/images/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/lctv-logo-white.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/lctv-logo-white.png",
+      "src": "assets/images/pwa-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -47,11 +30,12 @@
       "name": "Live Streams",
       "short_name": "Live",
       "description": "Watch live church services and events",
-      "url": "/#/search?type=live",
+      "url": "#/search?type=live",
       "icons": [
         {
-          "src": "assets/images/logo.png",
-          "sizes": "96x96"
+          "src": "assets/images/pwa-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -59,11 +43,12 @@
       "name": "My Favorites",
       "short_name": "Favorites",
       "description": "Access your favorite videos and sermons",
-      "url": "/#/favorites",
+      "url": "#/favorites",
       "icons": [
         {
-          "src": "assets/images/logo.png",
-          "sizes": "96x96"
+          "src": "assets/images/pwa-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -71,11 +56,12 @@
       "name": "Search",
       "short_name": "Search",
       "description": "Find sermons, videos, and content",
-      "url": "/#/search",
+      "url": "#/search",
       "icons": [
         {
-          "src": "assets/images/logo.png",
-          "sizes": "96x96"
+          "src": "assets/images/pwa-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }
@@ -83,14 +69,14 @@
   "screenshots": [
     {
       "src": "assets/images/screenshot-mobile.png",
-      "sizes": "390x844",
+      "sizes": "1024x1024",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "LCMTV mobile app interface"
     },
     {
       "src": "assets/images/screenshot-desktop.png",
-      "sizes": "1280x720",
+      "sizes": "1024x1024",
       "type": "image/png",
       "form_factor": "wide",
       "label": "LCMTV desktop application"
@@ -103,7 +89,7 @@
   },
   "file_handlers": [],
   "share_target": {
-    "action": "/share",
+    "action": "share",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {

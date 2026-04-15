@@ -14,18 +14,39 @@ class Video {
     }
 
     /**
+     * Get list of roles allowed for a given user role (hierarchical)
+     */
+    public static function getAllowedRoles($userRole) {
+        $hierarchy = ['general', 'user', 'leader', 'pastor', 'director'];
+        if (in_array($userRole, ['admin', 'super_admin'])) {
+            return $hierarchy; // Admin can see everything
+        }
+        
+        $userIndex = array_search($userRole, $hierarchy);
+        if ($userIndex === false) return ['general']; // Unknown role only sees general
+        
+        return array_slice($hierarchy, 0, $userIndex + 1);
+    }
+
+    /**
      * Get featured videos for homepage
      */
-    public static function getFeaturedVideos($limit = 12) {
+    public static function getFeaturedVideos($limit = 12, $userRole = 'general') {
         $conn = getDBConnection();
+        $allowedRoles = self::getAllowedRoles($userRole);
+        $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
 
         $stmt = $conn->prepare("SELECT v.*, c.name as category_name, c.slug as category_slug
                                FROM videos v
                                LEFT JOIN categories c ON v.category_id = c.id
                                WHERE v.is_active = 1 AND c.is_active = 1
+                               AND (v.target_role IN ($placeholders) OR v.target_role IS NULL)
                                ORDER BY v.view_count DESC, v.created_at DESC
                                LIMIT ?");
-        $stmt->bind_param("i", $limit);
+        
+        $params = array_merge($allowedRoles, [$limit]);
+        $types = str_repeat('s', count($allowedRoles)) . 'i';
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
 
         $result = $stmt->get_result();
@@ -41,16 +62,23 @@ class Video {
     /**
      * Get recent videos ordered by creation date
      */
-    public static function getRecentVideos($limit = 12) {
+    public static function getRecentVideos($limit = 12, $userRole = 'general') {
         $conn = getDBConnection();
+        $allowedRoles = self::getAllowedRoles($userRole);
+        $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
 
-        $stmt = $conn->prepare("SELECT v.*, c.name as category_name, c.slug as category_slug
-                               FROM videos v
-                               LEFT JOIN categories c ON v.category_id = c.id
-                               WHERE v.is_active = 1 AND c.is_active = 1
-                               ORDER BY v.created_at DESC
-                               LIMIT ?");
-        $stmt->bind_param("i", $limit);
+        $sql = "SELECT v.*, c.name as category_name, c.slug as category_slug
+                FROM videos v
+                LEFT JOIN categories c ON v.category_id = c.id
+                WHERE v.is_active = 1 AND c.is_active = 1
+                AND (v.target_role IN ($placeholders) OR v.target_role IS NULL)
+                ORDER BY v.created_at DESC
+                LIMIT ?";
+
+        $stmt = $conn->prepare($sql);
+        $params = array_merge($allowedRoles, [$limit]);
+        $types = str_repeat('s', count($allowedRoles)) . 'i';
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
 
         $result = $stmt->get_result();
@@ -66,22 +94,29 @@ class Video {
     /**
      * Get videos by category
      */
-    public static function getByCategory($categoryId, $limit = null) {
+    public static function getByCategory($categoryId, $limit = null, $userRole = 'general') {
         $conn = getDBConnection();
+        $allowedRoles = self::getAllowedRoles($userRole);
+        $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
 
         $sql = "SELECT v.*, c.name as category_name, c.slug as category_slug
                 FROM videos v
                 LEFT JOIN categories c ON v.category_id = c.id
                 WHERE v.category_id = ? AND v.is_active = 1 AND c.is_active = 1
+                AND (v.target_role IN ($placeholders) OR v.target_role IS NULL)
                 ORDER BY v.created_at DESC";
 
         if ($limit) {
             $sql .= " LIMIT ?";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ii", $categoryId, $limit);
+            $params = array_merge([$categoryId], $allowedRoles, [$limit]);
+            $types = "i" . str_repeat('s', count($allowedRoles)) . "i";
+            $stmt->bind_param($types, ...$params);
         } else {
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("i", $categoryId);
+            $params = array_merge([$categoryId], $allowedRoles);
+            $types = "i" . str_repeat('s', count($allowedRoles));
+            $stmt->bind_param($types, ...$params);
         }
 
         $stmt->execute();
@@ -136,19 +171,26 @@ class Video {
     /**
      * Search videos
      */
-    public static function search($query, $limit = 20) {
+    public static function search($query, $limit = 20, $userRole = 'general') {
         $conn = getDBConnection();
+        $allowedRoles = self::getAllowedRoles($userRole);
+        $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
 
         $searchTerm = "%{$query}%";
 
-        $stmt = $conn->prepare("SELECT v.*, c.name as category_name, c.slug as category_slug
-                               FROM videos v
-                               LEFT JOIN categories c ON v.category_id = c.id
-                               WHERE v.is_active = 1 AND c.is_active = 1
-                               AND (v.title LIKE ? OR v.description LIKE ? OR v.tags LIKE ?)
-                               ORDER BY v.view_count DESC
-                               LIMIT ?");
-        $stmt->bind_param("sssi", $searchTerm, $searchTerm, $searchTerm, $limit);
+        $sql = "SELECT v.*, c.name as category_name, c.slug as category_slug
+                FROM videos v
+                LEFT JOIN categories c ON v.category_id = c.id
+                WHERE v.is_active = 1 AND c.is_active = 1
+                AND (v.target_role IN ($placeholders) OR v.target_role IS NULL)
+                AND (v.title LIKE ? OR v.description LIKE ? OR v.tags LIKE ?)
+                ORDER BY v.view_count DESC
+                LIMIT ?";
+
+        $stmt = $conn->prepare($sql);
+        $params = array_merge($allowedRoles, [$searchTerm, $searchTerm, $searchTerm, $limit]);
+        $types = str_repeat('s', count($allowedRoles)) . 'sssi';
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
 
         $result = $stmt->get_result();
@@ -179,9 +221,9 @@ class Video {
         $conn = getDBConnection();
 
         $stmt = $conn->prepare("INSERT INTO videos
-                               (youtube_id, title, description, thumbnail_url, duration, category_id, tags, channel_title, channel_id, published_at)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssissss",
+                               (youtube_id, title, description, thumbnail_url, duration, category_id, tags, channel_title, channel_id, published_at, target_role)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssssisssss",
             $data['youtube_id'],
             $data['title'],
             $data['description'],
@@ -191,7 +233,8 @@ class Video {
             $data['tags'],
             $data['channel_title'],
             $data['channel_id'],
-            $data['published_at']
+            $data['published_at'],
+            $data['target_role'] ?? 'general'
         );
 
         if ($stmt->execute()) {
@@ -209,9 +252,9 @@ class Video {
 
         $stmt = $conn->prepare("UPDATE videos SET
                                title = ?, description = ?, thumbnail_url = ?, duration = ?,
-                               category_id = ?, tags = ?, channel_title = ?, channel_id = ?, published_at = ?
+                               category_id = ?, tags = ?, channel_title = ?, channel_id = ?, published_at = ?, target_role = ?
                                WHERE id = ?");
-        $stmt->bind_param("sssississi",
+        $stmt->bind_param("sssississsi",
             $data['title'],
             $data['description'],
             $data['thumbnail_url'],
@@ -221,6 +264,7 @@ class Video {
             $data['channel_title'],
             $data['channel_id'],
             $data['published_at'],
+            $data['target_role'] ?? 'general',
             $id
         );
 
@@ -376,7 +420,7 @@ class Video {
      */
     public static function formatVideoData($video) {
         return [
-            'id' => $video['id'],
+            'id' => (int)$video['id'],
             'youtube_id' => $video['youtube_id'],
             'title' => $video['title'],
             'description' => $video['description'],
@@ -384,8 +428,8 @@ class Video {
             'duration' => $video['duration'],
             'category' => [
                 'id' => $video['category_id'],
-                'name' => $video['category_name'],
-                'slug' => $video['category_slug']
+                'name' => $video['category_name'] ?? 'Uncategorized',
+                'slug' => $video['category_slug'] ?? 'uncategorized'
             ],
             'tags' => json_decode($video['tags'] ?: '[]', true),
             'channel_title' => $video['channel_title'],
@@ -393,8 +437,50 @@ class Video {
             'view_count' => (int)$video['view_count'],
             'like_count' => (int)$video['like_count'],
             'published_at' => $video['published_at'],
-            'created_at' => $video['created_at']
+            'created_at' => $video['created_at'],
+            'target_role' => $video['target_role'] ?? 'general'
         ];
+    }
+
+    /**
+     * Get exclusive leadership content (anything not targeted at 'general')
+     */
+    public static function getExclusiveContent($limit = 24, $userRole = 'general') {
+        $conn = getDBConnection();
+        $allowedRoles = self::getAllowedRoles($userRole);
+        
+        // Remove 'general' from allowed roles for this query to fetch ONLY exclusive content
+        $exclusiveRoles = array_filter($allowedRoles, function($role) {
+            return $role !== 'general';
+        });
+
+        if (empty($exclusiveRoles)) {
+            return []; // No exclusive content for general users
+        }
+
+        $placeholders = str_repeat('?,', count($exclusiveRoles) - 1) . '?';
+
+        $sql = "SELECT v.*, c.name as category_name, c.slug as category_slug
+                FROM videos v
+                LEFT JOIN categories c ON v.category_id = c.id
+                WHERE v.is_active = 1 AND c.is_active = 1
+                AND v.target_role IN ($placeholders)
+                ORDER BY v.created_at DESC
+                LIMIT ?";
+
+        $stmt = $conn->prepare($sql);
+        $params = array_merge(array_values($exclusiveRoles), [$limit]);
+        $types = str_repeat('s', count($exclusiveRoles)) . 'i';
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        $videos = [];
+        while ($row = $result->fetch_assoc()) {
+            $videos[] = self::formatVideoData($row);
+        }
+
+        return $videos;
     }
 
     /**

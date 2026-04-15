@@ -9,6 +9,9 @@ class Response {
      * Send success response
      */
     public static function success($data = null, $message = 'Success', $statusCode = 200) {
+        // Clear any existing output buffer content (e.g., from echoes)
+        if (ob_get_length()) ob_clean();
+        
         http_response_code($statusCode);
         echo json_encode([
             'success' => true,
@@ -23,6 +26,9 @@ class Response {
      * Send error response
      */
     public static function error($message = 'An error occurred', $statusCode = 400) {
+        // Clear any existing output buffer content
+        if (ob_get_length()) ob_clean();
+        
         http_response_code($statusCode);
         echo json_encode([
             'success' => false,

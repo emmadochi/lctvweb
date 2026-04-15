@@ -172,7 +172,8 @@ $totalPages = ceil($totalVideos / $perPage);
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Video</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -181,7 +182,7 @@ $totalPages = ceil($totalVideos / $perPage);
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php if (empty($videos)): ?>
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-500">
                             <i class="fas fa-video text-4xl mb-4"></i>
                             <p class="text-lg">No videos found</p>
                             <p class="text-sm">Import some videos to get started</p>
@@ -223,8 +224,12 @@ $totalPages = ceil($totalVideos / $perPage);
                                 <?php echo htmlspecialchars($video['category_name'] ?? 'Uncategorized'); ?>
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <?php echo htmlspecialchars($video['channel_title']); ?>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full <?php 
+                                echo ($video['target_role'] ?? 'general') === 'general' ? 'bg-gray-100 text-gray-800' : 'bg-purple-100 text-purple-800'; 
+                            ?>">
+                                <?php echo ucfirst($video['target_role'] ?? 'General'); ?>
+                            </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <?php echo number_format($video['view_count']); ?>

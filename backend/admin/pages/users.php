@@ -221,11 +221,11 @@ $totalUsers = count($users);
                                     <i class="fas fa-eye"></i>
                                 </button>
                                 <button
-                                    onclick="editUser(<?php echo $user['id']; ?>)"
-                                    class="text-gray-600 hover:text-gray-900"
-                                    title="Edit User"
+                                    onclick="openRoleModal(<?php echo $user['id']; ?>, '<?php echo $user['role']; ?>', '<?php echo addslashes($user['first_name'] . ' ' . $user['last_name']); ?>')"
+                                    class="text-orange-600 hover:text-orange-900"
+                                    title="Change Role"
                                 >
-                                    <i class="fas fa-edit"></i>
+                                    <i class="fas fa-user-tag"></i>
                                 </button>
                             </div>
                         </td>
@@ -380,6 +380,74 @@ $totalUsers = count($users);
         </div>
     </div>
     <?php endif; ?>
+ 
+    <!-- Change Role Modal -->
+    <div
+        id="roleModal"
+        class="fixed inset-0 z-50 overflow-y-auto hidden"
+        aria-labelledby="roleModalTitle"
+        role="dialog"
+        aria-modal="true"
+    >
+        <div class="flex items-center justify-center min-h-screen px-4 text-center">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeRoleModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-medium text-gray-900" id="roleModalTitle">Change User Role</h2>
+                        <p class="text-sm text-gray-600">Update the leadership status for <span id="modalUserName" class="font-bold"></span></p>
+                    </div>
+                    <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeRoleModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="px-6 py-4">
+                    <form id="roleForm" class="space-y-4">
+                        <input type="hidden" id="modalUserId" name="user_id">
+                        <div>
+                            <label for="new_role" class="block text-sm font-medium text-gray-700">Select Leadership Role</label>
+                            <select
+                                id="new_role"
+                                name="role"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                            >
+                                <option value="user">Registered User</option>
+                                <option value="leader">Leader</option>
+                                <option value="pastor">Pastor</option>
+                                <option value="director">Director</option>
+                                <?php if ($canManageAdmins): ?>
+                                <option value="admin">Administrator</option>
+                                <option value="super_admin">Super Admin</option>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-md">
+                            <div class="flex">
+                                <i class="fas fa-info-circle text-blue-400 mt-1"></i>
+                                <p class="ml-3 text-sm text-blue-700">
+                                    Higher roles inherit access to all content tailored for lower-ranking roles. The user will receive an email notification about their promotion.
+                                </p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+                    <button type="button" class="inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" onclick="closeRoleModal()">
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onclick="submitRoleUpdate()"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none"
+                    >
+                        Update Role
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+ 
 </div>
 
 <script>
@@ -401,9 +469,52 @@ function viewUserDetails(userId) {
     // TODO: Implement user details modal
     alert('User details view - Coming soon!');
 }
-
-function editUser(userId) {
-    // TODO: Implement user editing
-    alert('User editing - Coming soon!');
+ 
+function openRoleModal(userId, currentRole, userName) {
+    document.getElementById('modalUserId').value = userId;
+    document.getElementById('new_role').value = currentRole;
+    document.getElementById('modalUserName').innerText = userName;
+    document.getElementById('roleModal').classList.remove('hidden');
+}
+ 
+function closeRoleModal() {
+    document.getElementById('roleModal').classList.add('hidden');
+}
+ 
+async function submitRoleUpdate() {
+    const userId = document.getElementById('modalUserId').value;
+    const role = document.getElementById('new_role').value;
+    const submitBtn = event.target;
+    
+    // Disable button during update
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...';
+ 
+    try {
+        const response = await fetch('/LCMTVWebNew/backend/api/index.php/admin/users/role', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: userId, role: role })
+        });
+ 
+        const result = await response.json();
+ 
+        if (result.success) {
+            alert('User role updated successfully!');
+            location.reload();
+        } else {
+            alert('Failed to update role: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error updating role:', error);
+        alert('An error occurred. Please check the console.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        closeRoleModal();
+    }
 }
 </script>

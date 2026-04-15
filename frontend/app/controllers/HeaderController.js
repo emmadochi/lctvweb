@@ -119,6 +119,20 @@
             };
 
             /**
+             * Check if current user is at least a Leader
+             */
+            vm.isLeader = function() {
+                return AuthService.isLeader();
+            };
+
+            /**
+             * Check if current user is at least a Pastor
+             */
+            vm.isPastor = function() {
+                return AuthService.isPastor();
+            };
+
+            /**
              * Navigate and close user dropdown (use from dropdown links so route updates reliably)
              */
             vm.navigateTo = function(path, searchParams) {

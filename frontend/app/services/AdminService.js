@@ -398,6 +398,18 @@
                     });
             };
 
+            /**
+             * Override video category
+             */
+            service.overrideVideoCategory = function(videoId, categoryId, reason) {
+                return $http.post(API_BASE + '/admin/videos/' + videoId + '/override', {
+                    category_id: categoryId,
+                    reason: reason
+                }).then(function(response) {
+                    return response.data;
+                });
+            };
+
             return service;
         }]);
 })();

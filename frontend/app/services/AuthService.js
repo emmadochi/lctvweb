@@ -277,6 +277,50 @@
             };
 
             /**
+             * Get role level
+             */
+            service.getRoleRank = function() {
+                if (!currentUser || !currentUser.role) return 0;
+                var roles = {
+                    'general': 0,
+                    'user': 1,
+                    'leader': 2,
+                    'pastor': 3,
+                    'director': 4
+                };
+                return roles[currentUser.role.toLowerCase()] || 0;
+            };
+
+            /**
+             * Check if user has at least a specific role rank
+             */
+            service.atLeastRole = function(roleName) {
+                var roles = {
+                    'general': 0,
+                    'user': 1,
+                    'leader': 2,
+                    'pastor': 3,
+                    'director': 4
+                };
+                var requiredRank = roles[roleName.toLowerCase()] || 0;
+                return service.getRoleRank() >= requiredRank;
+            };
+
+            /**
+             * Check if user is at least a Leader
+             */
+            service.isLeader = function() {
+                return service.atLeastRole('leader');
+            };
+
+            /**
+             * Check if user is at least a Pastor
+             */
+            service.isPastor = function() {
+                return service.atLeastRole('pastor');
+            };
+
+            /**
              * Get current user
              */
             service.getCurrentUser = function() {

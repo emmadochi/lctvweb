@@ -15,12 +15,21 @@ require_once $modelsPath;
 $message = '';
 $messageType = '';
 
-$period = $_GET['period'] ?? 30;
-// Convert period to days if it's a string like "30 days"
-if (is_string($period) && strpos($period, ' ') !== false) {
-    $parts = explode(' ', $period);
-    $period = (int)$parts[0];
+$periodParam = $_GET['period'] ?? '30 days';
+$periodDays = 30;
+
+// Proper conversion of period string to number of days
+if ($periodParam === '1 year') {
+    $periodDays = 365;
+} elseif (preg_match('/^(\d+)\s+days?$/', $periodParam, $matches)) {
+    $periodDays = (int)$matches[1];
+} else {
+    $periodDays = (int)$periodParam;
 }
+
+// Ensure at least 1 day
+$periodDays = max(1, $periodDays);
+$period = $periodDays; // Keep compatibility with existing code using $period
 
 // Get analytics data directly from the model
 $analytics = [];
@@ -145,10 +154,10 @@ try {
                 onchange="changePeriod(this.value)"
                 class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
             >
-                <option value="7 days" <?php echo $period === '7 days' ? 'selected' : ''; ?>>Last 7 days</option>
-                <option value="30 days" <?php echo $period === '30 days' ? 'selected' : ''; ?>>Last 30 days</option>
-                <option value="90 days" <?php echo $period === '90 days' ? 'selected' : ''; ?>>Last 90 days</option>
-                <option value="1 year" <?php echo $period === '1 year' ? 'selected' : ''; ?>>Last year</option>
+                <option value="7 days" <?php echo $periodParam === '7 days' ? 'selected' : ''; ?>>Last 7 days</option>
+                <option value="30 days" <?php echo $periodParam === '30 days' ? 'selected' : ''; ?>>Last 30 days</option>
+                <option value="90 days" <?php echo $periodParam === '90 days' ? 'selected' : ''; ?>>Last 90 days</option>
+                <option value="1 year" <?php echo $periodParam === '1 year' ? 'selected' : ''; ?>>Last year</option>
             </select>
         </div>
     </div>
@@ -212,7 +221,7 @@ try {
                 <div class="ml-4">
                     <div class="text-sm font-medium text-gray-500">Total Users</div>
                     <div class="text-2xl font-bold text-gray-900"><?php echo number_format($analytics['overview']['total_users'] ?? 0); ?></div>
-                    <div class="text-xs text-gray-500 mt-1">Last <?php echo $analytics['period_days'] ?? 30; ?> days</div>
+                    <div class="text-xs text-gray-500 mt-1">Last <?php echo $periodDays; ?> days</div>
                 </div>
             </div>
         </div>

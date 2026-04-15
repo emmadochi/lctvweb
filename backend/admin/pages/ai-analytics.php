@@ -2,38 +2,39 @@
 $message = '';
 $messageType = '';
 
-// Get AI analytics data from API
+// Get the correct path to AI controller
+$aiControllerPath = realpath(__DIR__ . '/../../controllers/AIController.php');
+if (!$aiControllerPath) {
+    die('AI controller not found');
+}
+require_once $aiControllerPath;
+
+$message = '';
+$messageType = '';
+
+// Get AI analytics data directly from the controller
 $aiAnalytics = [];
 $aiHealth = [];
 
 try {
-    // Get the base URL for API calls
-    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-
-    // Get AI analytics overview
-    $analyticsUrl = $protocol . '://' . $host . '/lcmtvweb/backend/api/ai/analytics';
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'timeout' => 15,
-        ]
-    ]);
-
-    $response = file_get_contents($analyticsUrl, false, $context);
-    if ($response) {
-        $aiAnalytics = json_decode($response, true);
-        if (isset($aiAnalytics['success']) && !$aiAnalytics['success']) {
-            throw new Exception($aiAnalytics['message'] ?? 'AI analytics API error');
-        }
-    }
+    $controller = new AIController();
 
     // Get AI services health
-    $healthUrl = $protocol . '://' . $host . '/lcmtvweb/backend/api/ai/health';
-    $healthResponse = file_get_contents($healthUrl, false, $context);
-    if ($healthResponse) {
-        $aiHealth = json_decode($healthResponse, true);
+    $healthData = $controller->getServiceHealth();
+    $aiHealth = $healthData;
+
+    // Get AI analytics overview
+    $analyticsData = $controller->getAnalyticsOverview();
+
+    if (isset($analyticsData['error'])) {
+        throw new Exception($analyticsData['error']);
     }
+
+    // Wrap in expected 'data' structure to match original API response format
+    $aiAnalytics = [
+        'success' => true,
+        'data' => $analyticsData
+    ];
 
 } catch (Exception $e) {
     $message = 'Failed to load AI analytics data: ' . $e->getMessage();
@@ -60,7 +61,7 @@ try {
             <div class="flex items-center space-x-2">
                 <div class="flex space-x-1">
                     <?php
-                    $services = ['recommendation', 'search', 'analytics'];
+                    $services = ['recommendations', 'search', 'analytics'];
                     foreach ($services as $service) {
                         $isHealthy = isset($aiHealth[$service]['status']) && $aiHealth[$service]['status'] === 'healthy';
                         $color = $isHealthy ? 'bg-green-500' : 'bg-red-500';
@@ -98,7 +99,7 @@ try {
                     <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                         <i class="fas fa-<?php
                             echo match($service) {
-                                'recommendation' => 'magic',
+                                'recommendations' => 'magic',
                                 'search' => 'search',
                                 'analytics' => 'chart-line',
                                 default => 'cog'

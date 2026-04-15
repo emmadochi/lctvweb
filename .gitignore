@@ -92,3 +92,12 @@ keys/
 docs/_build/
 *.pdf
 *.docx
+
+# Sensitive Firebase config
+backend/config/firebase-service-account.json
+
+# Local Temporary files
+*.zip
+screenshot_mobile_*.png
+upload/
+lctv-logo-box.psd

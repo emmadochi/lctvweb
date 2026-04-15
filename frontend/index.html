@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LCM TV - Modern Streaming Platform</title>
 
+    <!-- Resource Hints for Performance -->
+    <link rel="dns-prefetch" href="//ajax.googleapis.com">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="//www.youtube.com">
+    <link rel="dns-prefetch" href="//i.ytimg.com">
+    <link rel="preconnect" href="https://ajax.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://www.youtube.com" crossorigin>
+    <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
+
     <!-- Meta Tags for SEO and Mobile -->
     <meta name="description" content="A modern TV-style platform that organizes the best church content into easy-to-watch channels.">
     <meta name="author" content="LCM TV Team">
@@ -24,8 +33,13 @@
     <link rel="manifest" href="manifest.json">
 
     <!-- Apple Touch Icons for iOS PWA -->
-    <link rel="apple-touch-icon" href="/lctv-logo-white.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/lctv-logo-white.png">
+    <link rel="apple-touch-icon" href="assets/images/splash-logo.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="assets/images/splash-logo.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/splash-logo.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="assets/images/splash-logo.png">
+
+    <!-- iOS Splash Screens (Standard iPhone) -->
+    <link rel="apple-touch-startup-image" href="assets/images/splash-logo.png">
 
     <!-- Theme Color for Mobile Browsers -->
     <meta name="theme-color" content="#6a0dad">
@@ -47,6 +61,22 @@
     <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body class="church-theme">
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <img src="assets/images/splash-logo.png" alt="LCM TV Logo" class="splash-logo">
+            <div class="splash-text">
+                <div class="splash-title">LCM TV</div>
+                <div class="splash-subtitle">Spreading the Light of Christ</div>
+            </div>
+            <div class="splash-loader">
+                <div class="loader-dot"></div>
+                <div class="loader-dot"></div>
+                <div class="loader-dot"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay" ng-show="loading">
         <div class="loading-spinner">
@@ -131,6 +161,7 @@
     <script src="app/controllers/VideoController.js"></script>
     <script src="app/controllers/LivestreamController.js"></script>
     <script src="app/controllers/SearchController.js"></script>
+    <script src="app/controllers/LeadershipController.js"></script>
     <script src="app/services/DonationService.js"></script>
     <script src="app/controllers/DonationController.js"></script>
     <script src="app/directives/languageSwitcher.js"></script>
