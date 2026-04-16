@@ -11,6 +11,7 @@ import 'notifications_screen.dart';
 import 'history_screen.dart';
 import 'about_screen.dart';
 import 'privacy_policy_screen.dart';
+import '../giving_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/video_provider.dart';
 import '../../models/category_model.dart';
@@ -358,6 +359,16 @@ class _LoggedInProfileView extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                      );
+                    },
+                  ),
+                  _SettingsTile(
+                    icon: Icons.favorite_border_rounded,
+                    label: 'Give Online',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const GivingScreen()),
                       );
                     },
                   ),

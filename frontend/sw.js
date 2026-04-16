@@ -205,8 +205,8 @@ function cacheFirstStrategy(request) {
 function networkFirstStrategy(request) {
     return fetch(request)
         .then((networkResponse) => {
-            // Cache successful responses
-            if (networkResponse.ok) {
+            // Cache successful GET responses only (POST/PUT/DELETE cannot be cached)
+            if (networkResponse.ok && request.method === 'GET') {
                 const responseClone = networkResponse.clone();
                 caches.open(DYNAMIC_CACHE_NAME)
                     .then((cache) => cache.put(request, responseClone));

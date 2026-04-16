@@ -59,6 +59,23 @@ class PushSubscription {
     }
 
     /**
+     * Get all active push subscriptions for a user
+     */
+    public static function getUserSubscriptions($userId) {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT * FROM push_subscriptions WHERE user_id = ? AND is_active = TRUE");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $subscriptions = [];
+        while ($row = $result->fetch_assoc()) {
+            $subscriptions[] = $row;
+        }
+        return $subscriptions;
+    }
+
+    /**
      * Get OAuth2 Access Token for FCM V1
      */
     private static function getFcmAccessToken() {
@@ -109,6 +126,80 @@ class PushSubscription {
 
     private static function base64UrlEncode($data) {
         return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($data));
+    }
+
+    /**
+     * Get WebPush instance initialized with VAPID keys
+     */
+    private static function getWebPush() {
+        $publicKey = getenv('VAPID_PUBLIC_KEY');
+        $privateKey = getenv('VAPID_PRIVATE_KEY');
+        $adminEmail = getenv('ADMIN_EMAIL') ?: 'info@lifechangertouch.org';
+
+        if (!$publicKey || !$privateKey) {
+            error_log("Push Error: VAPID keys not configured in environment");
+            return null;
+        }
+
+        // The vendor folder might be missing on some environments, check before using
+        if (!class_exists('Minishlink\WebPush\WebPush')) {
+            error_log("Push Error: Minishlink WebPush library not found. Run composer install.");
+            return null;
+        }
+
+        $auth = [
+            'VAPID' => [
+                'subject' => 'mailto:' . $adminEmail,
+                'publicKey' => $publicKey,
+                'privateKey' => $privateKey,
+            ],
+        ];
+
+        try {
+            return new WebPush($auth);
+        } catch (\Exception $e) {
+            error_log("Push Error: Failed to initialize WebPush: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Deactivate a subscription by its endpoint
+     */
+    public static function deactivateByEndpoint($endpoint, $userId = null) {
+        $conn = getDBConnection();
+        if ($userId) {
+            $stmt = $conn->prepare("UPDATE push_subscriptions SET is_active = FALSE WHERE endpoint = ? AND user_id = ?");
+            $stmt->bind_param("si", $endpoint, $userId);
+        } else {
+            $stmt = $conn->prepare("UPDATE push_subscriptions SET is_active = FALSE WHERE endpoint = ?");
+            $stmt->bind_param("s", $endpoint);
+        }
+        return $stmt->execute();
+    }
+
+    /**
+     * Get all active subscriptions for all users
+     */
+    public static function getAllActiveSubscriptions() {
+        $conn = getDBConnection();
+        $result = $conn->query("SELECT * FROM push_subscriptions WHERE is_active = TRUE");
+        
+        $subscriptions = [];
+        while ($row = $result->fetch_assoc()) {
+            $subscriptions[] = $row;
+        }
+        return $subscriptions;
+    }
+
+    /**
+     * Clean up inactive subscriptions older than X days
+     */
+    public static function cleanupInactiveSubscriptions($daysOld = 30) {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("DELETE FROM push_subscriptions WHERE is_active = FALSE AND updated_at < DATE_SUB(NOW(), INTERVAL ? DAY)");
+        $stmt->bind_param("i", $daysOld);
+        return $stmt->execute();
     }
 
     /**

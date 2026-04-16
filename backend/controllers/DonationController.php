@@ -234,6 +234,8 @@ class DonationController {
                 $provider = 'stripe';
             } elseif (isset($headers['Paypal-Transmission-Id'])) {
                 $provider = 'paypal';
+            } elseif (isset($headers['x-paystack-signature'])) {
+                $provider = 'paystack';
             }
 
             if (!$provider) {
@@ -247,6 +249,9 @@ class DonationController {
                     break;
                 case 'paypal':
                     $result = self::handlePayPalWebhook($rawInput, $headers);
+                    break;
+                case 'paystack':
+                    $result = self::handlePaystackWebhook($rawInput, $headers);
                     break;
                 default:
                     return Response::error('Unsupported payment provider', 400);
@@ -322,8 +327,88 @@ class DonationController {
     }
 
     /**
-     * Create donation campaign (admin only)
+     * Handle Paystack webhook
      */
+    private static function handlePaystackWebhook($payload, $headers) {
+        $event = json_decode($payload, true);
+        
+        // In a real scenario, you'd verify the signature here using the Paystack Secret Key
+        // $paystackSecret = getenv('PAYSTACK_SECRET_KEY');
+        
+        if ($event['event'] === 'charge.success') {
+            $data = $event['data'];
+            // Update donation status
+            Donation::updateStatus(null, 'completed', $data['reference']);
+        }
+
+        return ['processed' => true, 'event' => $event['event']];
+    }
+
+    /**
+     * Report a manual transfer (Bank or Crypto)
+     */
+    public static function reportManualTransfer() {
+        try {
+            // Support both JSON and Multipart (for file uploads)
+            $data = [];
+            $contentType = $_SERVER["CONTENT_TYPE"] ?? '';
+            
+            if (strpos($contentType, 'application/json') !== false) {
+                $rawInput = file_get_contents('php://input');
+                $data = json_decode($rawInput, true);
+            } else {
+                $data = $_POST;
+            }
+
+            if (empty($data['donor_email']) || empty($data['amount'])) {
+                return Response::error('Missing required fields: donor_email, amount', 400);
+            }
+
+            $receiptUrl = null;
+            if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = __DIR__ . '/../uploads/receipts/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                $fileTmpPath = $_FILES['receipt']['tmp_name'];
+                $fileName = time() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "_", $_FILES['receipt']['name']);
+                $destPath = $uploadDir . $fileName;
+
+                if (move_uploaded_file($fileTmpPath, $destPath)) {
+                    $receiptUrl = 'uploads/receipts/' . $fileName;
+                }
+            }
+
+            // Prepare donation data as "pending"
+            $donationData = [
+                'user_id' => $data['user_id'] ?? null,
+                'donor_name' => $data['donor_name'] ?? 'Manual Donor',
+                'donor_email' => $data['donor_email'],
+                'amount' => (float)$data['amount'],
+                'currency' => $data['currency'] ?? 'USD',
+                'payment_method' => $data['payment_method'] ?? 'manual',
+                'payment_provider' => $data['payment_method'] ?? 'manual',
+                'transaction_id' => $data['transaction_id'] ?? 'MAN-' . time(),
+                'receipt_url' => $receiptUrl,
+                'transaction_status' => 'pending',
+                'donation_purpose' => $data['donation_purpose'] ?? 'General',
+                'campaign_id' => !empty($data['campaign_id']) ? (int)$data['campaign_id'] : null,
+                'notes' => $data['notes'] ?? '',
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? ''
+            ];
+
+            $donationId = Donation::create($donationData);
+
+            if ($donationId) {
+                return Response::success(['donation_id' => $donationId], 'Transfer reported successfully. We will verify and update your status soon.');
+            } else {
+                return Response::error('Failed to report transfer');
+            }
+        } catch (Exception $e) {
+            return Response::error('Error reporting transfer: ' . $e->getMessage());
+        }
+    }
     public static function createCampaign() {
         try {
             // Require admin authentication

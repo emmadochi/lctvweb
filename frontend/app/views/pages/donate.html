@@ -64,20 +64,20 @@
 
                         <!-- Suggested Amounts -->
                         <div class="suggested-amounts">
-                            <button type="button"
-                                    class="amount-btn"
-                                    ng-repeat="amount in vm.suggestedAmounts"
-                                    ng-click="vm.selectAmount(amount.amount)"
-                                    ng-class="{active: vm.donation.amount === amount.amount}">
-                                <div class="amount-value">${{amount.amount}}</div>
-                                <div class="amount-label">{{amount.label}}</div>
-                            </button>
+                                    <button type="button"
+                                            class="amount-btn"
+                                            ng-repeat="amount in vm.suggestedAmounts"
+                                            ng-click="vm.selectAmount(amount.amount)"
+                                            ng-class="{active: vm.donation.amount === amount.amount}">
+                                        <div class="amount-value">{{vm.getCurrencySymbol()}}{{amount.amount}}</div>
+                                        <div class="amount-label">{{amount.label}}</div>
+                                    </button>
                         </div>
 
                         <!-- Custom Amount -->
                         <div class="custom-amount">
                             <div class="input-group">
-                                <span class="input-group-addon">$</span>
+                                <span class="input-group-addon">{{vm.getCurrencySymbol()}}</span>
                                 <input type="number"
                                        class="form-control"
                                        ng-model="vm.donation.amount"
@@ -85,6 +85,13 @@
                                        step="0.01"
                                        placeholder="Enter custom amount"
                                        required>
+                                <span class="input-group-addon currency-addon">
+                                    <select class="currency-select" ng-model="vm.donation.currency">
+                                        <option ng-repeat="currency in vm.currencies" value="{{currency.code}}">
+                                            {{currency.code}}
+                                        </option>
+                                    </select>
+                                </span>
                             </div>
                         </div>
 
@@ -194,34 +201,67 @@
                         <h3>Payment Method</h3>
 
                         <div class="payment-methods">
+                            <!-- Card/Stripe -->
                             <div class="payment-method"
-                                 ng-click="vm.selectPaymentMethod('card')"
-                                 ng-class="{active: vm.donation.payment_method === 'card'}">
+                                 ng-if="vm.paymentSettings.gateway.find(s => s.setting_key.toLowerCase().includes('stripe'))"
+                                 ng-click="vm.selectPaymentMethod('card', 'stripe')"
+                                 ng-class="{active: vm.donation.payment_method === 'card' && vm.donation.payment_provider === 'stripe'}">
                                 <i class="fa fa-credit-card"></i>
                                 <span>Credit Card</span>
                             </div>
+
+                            <!-- Paystack -->
                             <div class="payment-method"
+                                 ng-if="vm.paymentSettings.gateway.find(s => s.setting_key.toLowerCase().includes('paystack'))"
+                                 ng-click="vm.selectPaymentMethod('card', 'paystack')"
+                                 ng-class="{active: vm.donation.payment_method === 'card' && vm.donation.payment_provider === 'paystack'}">
+                                <i class="fa fa-layer-group"></i>
+                                <span>Paystack</span>
+                            </div>
+
+                            <!-- PayPal -->
+                            <div class="payment-method"
+                                 ng-if="vm.paymentSettings.gateway.find(s => s.setting_key.toLowerCase().includes('paypal'))"
                                  ng-click="vm.selectPaymentMethod('paypal')"
                                  ng-class="{active: vm.donation.payment_method === 'paypal'}">
                                 <i class="fa fa-paypal"></i>
                                 <span>PayPal</span>
                             </div>
+
+                            <!-- Bank Transfer -->
                             <div class="payment-method"
-                                 ng-click="vm.selectPaymentMethod('check')"
-                                 ng-class="{active: vm.donation.payment_method === 'check'}">
-                                <i class="fa fa-money-check"></i>
-                                <span>Check/Mail</span>
+                                 ng-if="vm.paymentSettings.bank.length > 0"
+                                 ng-click="vm.selectPaymentMethod('bank_transfer')"
+                                 ng-class="{active: vm.donation.payment_method === 'bank_transfer'}">
+                                <i class="fa fa-university"></i>
+                                <span>Bank Transfer</span>
+                            </div>
+
+                            <!-- Crypto -->
+                            <div class="payment-method"
+                                 ng-if="vm.paymentSettings.crypto.length > 0"
+                                 ng-click="vm.selectPaymentMethod('crypto')"
+                                 ng-class="{active: vm.donation.payment_method === 'crypto'}">
+                                <i class="fab fa-bitcoin"></i>
+                                <span>Cryptocurrency</span>
                             </div>
                         </div>
 
-                        <!-- Credit Card Form -->
-                        <div class="card-form" ng-show="vm.donation.payment_method === 'card'">
+                        <!-- Credit Card Form (Stripe) -->
+                        <div class="card-form" ng-show="vm.donation.payment_method === 'card' && vm.donation.payment_provider === 'stripe'">
                             <div class="form-group">
-                                <label class="form-label">Card Information</label>
+                                <label class="form-label">Secure Card Information</label>
                                 <div id="card-element" class="card-element"></div>
                                 <div id="card-errors" class="card-errors" ng-show="vm.cardError">
                                     {{vm.cardError}}
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Paystack Instructions -->
+                        <div class="card-form" ng-show="vm.donation.payment_method === 'card' && vm.donation.payment_provider === 'paystack'">
+                            <div class="alert alert-info">
+                                <p>You will be redirected to the secure Paystack checkout once you click "Complete Donation".</p>
                             </div>
                         </div>
 
@@ -230,17 +270,75 @@
                             <div id="paypal-button-container"></div>
                         </div>
 
-                        <!-- Check Instructions -->
-                        <div class="check-form" ng-show="vm.donation.payment_method === 'check'">
-                            <div class="alert alert-info">
-                                <h4>Mailing Instructions</h4>
-                                <p>Please make your check payable to "LCMTV" and mail to:</p>
-                                <address>
-                                    LCMTV<br>
-                                    123 Church Street<br>
-                                    Anytown, USA 12345
-                                </address>
-                                <p>Include your email address so we can send your tax receipt.</p>
+                        <!-- Bank Transfer Section -->
+                        <div class="manual-payment-form" ng-show="vm.donation.payment_method === 'bank_transfer'">
+                            <div class="alert alert-info bg-light">
+                                <h3>Transfer to any of these accounts:</h3>
+                                <div class="bank-accounts-display mt-3">
+                                    <div class="bank-account mb-3 p-3 border rounded bg-white" ng-repeat="account in vm.paymentSettings.bank">
+                                        <strong>{{account.setting_key}}</strong><br>
+                                        <div class="copy-detail-row mt-1">
+                                            <span class="text-muted white-space-pre copy-detail-value">{{account.setting_value}}</span>
+                                            <button type="button"
+                                                    class="btn-copy-detail"
+                                                    ng-click="vm.copyToClipboard(account.setting_value, account.setting_key)"
+                                                    title="Copy to clipboard">
+                                                <span ng-if="vm.copiedKey !== account.setting_key">
+                                                    <i class="fa fa-copy"></i>
+                                                </span>
+                                                <span ng-if="vm.copiedKey === account.setting_key" class="copy-success-text">
+                                                    <i class="fa fa-check"></i> Copied!
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-transaction mt-4">
+                                <h4 class="mb-3">Report Your Transfer</h4>
+                                <div class="form-group">
+                                    <label>Transaction ID / Reference Number</label>
+                                    <input type="text" class="form-control" ng-model="vm.donation.transaction_id" placeholder="Enter transfer reference">
+                                </div>
+                                <div class="form-group">
+                                    <label>Additional Notes</label>
+                                    <textarea class="form-control" ng-model="vm.donation.notes" placeholder="Any specific instructions?"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Crypto Section -->
+                        <div class="manual-payment-form" ng-show="vm.donation.payment_method === 'crypto'">
+                            <div class="alert alert-warning bg-light">
+                                <h3>Scan or Copy Wallet Address:</h3>
+                                <div class="crypto-wallets-display mt-3">
+                                    <div class="crypto-wallet mb-3 p-3 border rounded bg-white" ng-repeat="wallet in vm.paymentSettings.crypto">
+                                        <strong>{{wallet.setting_key}}</strong><br>
+                                        <div class="copy-detail-row mt-1">
+                                            <code class="text-break bg-light p-1 copy-detail-value crypto-address">{{wallet.setting_value}}</code>
+                                            <button type="button"
+                                                    class="btn-copy-detail"
+                                                    ng-click="vm.copyToClipboard(wallet.setting_value, wallet.setting_key)"
+                                                    title="Copy wallet address">
+                                                <span ng-if="vm.copiedKey !== wallet.setting_key">
+                                                    <i class="fa fa-copy"></i>
+                                                </span>
+                                                <span ng-if="vm.copiedKey === wallet.setting_key" class="copy-success-text">
+                                                    <i class="fa fa-check"></i> Copied!
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-transaction mt-4">
+                                <h4 class="mb-3">Report Your Crypto Transaction</h4>
+                                <div class="form-group">
+                                    <label>Hash / Transaction ID</label>
+                                    <input type="text" class="form-control" ng-model="vm.donation.transaction_id" placeholder="Paste transaction hash">
+                                </div>
                             </div>
                         </div>
                     </div>

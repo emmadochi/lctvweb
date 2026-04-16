@@ -12,6 +12,7 @@ import '../../providers/history_provider.dart';
 import '../../widgets/video_list_card.dart';
 import '../../widgets/video_grid_card.dart';
 import '../home/livestream_screen.dart';
+import '../giving_screen.dart';
 import 'package:simple_pip_mode/simple_pip.dart';
 import 'package:simple_pip_mode/pip_widget.dart';
 import 'package:simple_pip_mode/actions/pip_action.dart';
@@ -279,6 +280,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
                               size: 20,
                             ),
                             onPressed: () => videoProvider.toggleFavorite(widget.video),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.volunteer_activism, color: Color(0xFFFFB800), size: 18),
+                            tooltip: 'Give Online',
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const GivingScreen()),
+                            ),
                           ),
                         ],
                       ),

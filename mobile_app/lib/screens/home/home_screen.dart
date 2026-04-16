@@ -13,6 +13,7 @@ import 'livestream_screen.dart';
 import '../video/my_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../leadership/leadership_screen.dart';
+import '../giving_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -269,6 +270,15 @@ class _MainHomeViewState extends State<MainHomeView> {
                 ],
               ),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.volunteer_activism, color: Colors.white, size: 22),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GivingScreen()),
+                    );
+                  },
+                ),
                 _buildNotificationIcon(),
                 const SizedBox(width: 8),
               ],

@@ -101,3 +101,8 @@ backend/config/firebase-service-account.json
 screenshot_mobile_*.png
 upload/
 lctv-logo-box.psd
+# Local Temporary files
+scratch/
+backend/scratch/
+.gemini/
+

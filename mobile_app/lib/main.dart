@@ -10,6 +10,7 @@ import 'providers/livestream_provider.dart';
 import 'providers/comment_provider.dart';
 import 'providers/history_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/donation_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
@@ -39,6 +40,7 @@ class LCMTVApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CommentProvider()),
         ChangeNotifierProvider(create: (_) => HistoryProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => DonationProvider()),
       ],
       child: MaterialApp(
         title: 'LCMTV Mobile',

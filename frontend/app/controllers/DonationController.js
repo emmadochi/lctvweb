@@ -56,6 +56,8 @@
                 loadSuggestedAmounts();
                 loadDonationTypes();
                 loadRecurringIntervals();
+                loadPaymentSettings();
+                loadCurrencies();
 
                 // Load user donations if authenticated
                 if (AuthService.isAuthenticated()) {
@@ -72,6 +74,21 @@
 
                 // Initialize Stripe Elements
                 initializeStripeElements();
+            }
+
+            /**
+             * Load public payment settings
+             */
+            function loadPaymentSettings() {
+                DonationService.getPaymentSettings().then(function(settings) {
+                    vm.paymentSettings = settings;
+                    // Auto-select first available method if card is default
+                    if (settings.gateway && settings.gateway.length > 0) {
+                        var firstGateway = settings.gateway.find(s => s.setting_key.toLowerCase().includes('stripe')) ? 'stripe' : 
+                                           (settings.gateway.find(s => s.setting_key.toLowerCase().includes('paystack')) ? 'paystack' : 'stripe');
+                        vm.donation.payment_provider = firstGateway;
+                    }
+                });
             }
 
             /**
@@ -112,6 +129,20 @@
             function loadRecurringIntervals() {
                 vm.recurringIntervals = DonationService.getRecurringIntervals();
             }
+
+            /**
+             * Load supported currencies
+             */
+            function loadCurrencies() {
+                vm.currencies = DonationService.getSupportedCurrencies();
+            }
+
+            /**
+             * Get symbol for active currency
+             */
+            vm.getCurrencySymbol = function() {
+                return DonationService.getCurrencySymbol(vm.donation.currency);
+            };
 
             /**
              * Initialize Stripe Elements
@@ -159,9 +190,15 @@
             /**
              * Select payment method
              */
-            vm.selectPaymentMethod = function(method) {
+            vm.selectPaymentMethod = function(method, provider) {
                 vm.donation.payment_method = method;
+                vm.donation.payment_provider = provider || method;
                 vm.cardError = '';
+                
+                // If switching to stripe, re-init elements if needed
+                if (method === 'card' && provider === 'stripe') {
+                    initializeStripeElements();
+                }
             };
 
             /**
@@ -322,6 +359,33 @@
              */
             vm.formatCurrency = function(amount, currency) {
                 return DonationService.formatCurrency(amount, currency);
+            };
+
+            /**
+             * Copy text to clipboard (bank/crypto details)
+             */
+            vm.copiedKey = null;
+            vm.copyToClipboard = function(text, key) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        vm.copiedKey = key;
+                        $scope.$apply();
+                        $timeout(function() { vm.copiedKey = null; }, 2000);
+                    });
+                } else {
+                    // Fallback for non-HTTPS / older browsers
+                    var el = document.createElement('textarea');
+                    el.value = text;
+                    el.style.position = 'fixed';
+                    el.style.opacity = '0';
+                    document.body.appendChild(el);
+                    el.focus();
+                    el.select();
+                    try { document.execCommand('copy'); } catch(e) {}
+                    document.body.removeChild(el);
+                    vm.copiedKey = key;
+                    $timeout(function() { vm.copiedKey = null; }, 2000);
+                }
             };
 
             // Watch for authentication changes

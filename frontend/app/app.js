@@ -210,6 +210,11 @@
                     controller: 'ChannelSyncController',
                     controllerAs: 'vm'
                 })
+                .when('/admin/donations', {
+                    templateUrl: 'app/views/pages/admin-donations.html',
+                    controller: 'AdminDonationsController',
+                    controllerAs: 'vm'
+                })
 
                 .when('/watchlater', {
                     templateUrl: 'app/views/pages/favorites.html',
@@ -229,10 +234,38 @@
             // $locationProvider.html5Mode(true);
         }])
 
-        // Application constants
-        // Backend API URL. For XAMPP: use http://localhost/LCMTVWebNew/backend/api
-        // If you serve the frontend from XAMPP (e.g. http://localhost/LCMTVWebNew/frontend/), use that same origin.
-        .constant('API_BASE', '/LCMTVWebNew/backend/api')
+        // Backend API URL. Automatically detected based on project folder name.
+        .constant('API_BASE', (function() {
+            var path = window.location.pathname;
+            var segments = path.split('/');
+            var frontendIndex = segments.indexOf('frontend');
+            
+            // Try to find the folder containing "frontend"
+            var projectBase = '/'; // Default root
+            
+            if (frontendIndex > 0) {
+                // Join all segments before "frontend" to get the absolute base path
+                // For /LCMTVWebNew/frontend/ -> segments are ['', 'LCMTVWebNew', 'frontend', ...]
+                // slice(0, 2) -> ['', 'LCMTVWebNew'], join('/') -> '/LCMTVWebNew'
+                projectBase = segments.slice(0, frontendIndex).join('/') + '/';
+            } else if (segments.length > 1 && segments[1] !== '') {
+                // Fallback for cases where "frontend" isn't in URL but there's a subfolder
+                projectBase = '/' + segments[1] + '/';
+            }
+            
+            // Normalize slashes: ensure it starts with / and ends with / (unless just /)
+            projectBase = projectBase.replace(/\/+/g, '/');
+            if (projectBase.charAt(0) !== '/') projectBase = '/' + projectBase;
+            if (projectBase.length > 1 && projectBase.charAt(projectBase.length - 1) !== '/') projectBase += '/';
+            
+            // Build the full API path
+            var apiPath = projectBase + 'backend/api';
+            // Final safety check to ensure it's still absolute
+            if (apiPath.charAt(0) !== '/') apiPath = '/' + apiPath;
+            
+            console.log('LCMTV: Detected API Base Path:', apiPath);
+            return apiPath;
+        })())
         .constant('YOUTUBE_API_KEY', 'AIzaSyDT1-_m5WdXEAPDd8J-WuPAGrmKgdMeqeY')
         .constant('APP_CONFIG', {
             title: 'LCM TV',
@@ -254,6 +287,18 @@
             // Show loading overlay
             $rootScope.showLoading = function() {
                 $rootScope.loading = true;
+                
+                // Safety timeout: Auto-hide after 8 seconds if something hangs
+                $timeout(function() {
+                    if ($rootScope.loading) {
+                        console.warn('Loading safety timeout reached. Hiding overlay.');
+                        $rootScope.loading = false;
+                        // Avoid spamming toast on initial load if we're on a path that likely failed
+                        if ($location.path() !== '/' && $location.path() !== '') {
+                            $rootScope.showToast('Loading is taking longer than usual...', 'warning');
+                        }
+                    }
+                }, 8000);
             };
 
             // Hide loading overlay

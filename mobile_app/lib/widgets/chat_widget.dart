@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/comment_provider.dart';
 import '../providers/auth_provider.dart';
+import '../screens/giving_screen.dart';
 
 class ChatWidget extends StatefulWidget {
   final int videoId;
@@ -127,19 +128,30 @@ class _ChatWidgetState extends State<ChatWidget> {
                 ),
               ),
               const Spacer(),
-              if (widget.onExpandToggle != null)
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: Icon(
-                    widget.isExpanded ? Icons.fullscreen_exit : Icons.fullscreen,
-                    color: Colors.white70,
-                    size: 20,
-                  ),
-                  onPressed: widget.onExpandToggle,
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GivingScreen()),
                 ),
-              const SizedBox(width: 12),
-              _buildIndicator(),
+                icon: const Icon(Icons.favorite, size: 14, color: Colors.black),
+                label: const Text(
+                  'GIVE',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFB800),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  minimumSize: const Size(0, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+              ),
             ],
           ),
         ),

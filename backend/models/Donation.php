@@ -23,12 +23,13 @@ class Donation {
         $donorId = self::findOrCreateDonor($donationData);
 
         $sql = "INSERT INTO " . self::$donationsTable . "
-                (user_id, donor_id, donor_name, donor_email, amount, currency, payment_method, payment_provider, transaction_id, transaction_status, is_recurring, recurring_interval, donation_type, donation_purpose, is_anonymous, tax_deductible, notes, ip_address, user_agent, utm_source, utm_medium, utm_campaign)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                (user_id, donor_id, campaign_id, donor_name, donor_email, amount, currency, payment_method, payment_provider, transaction_id, receipt_url, transaction_status, is_recurring, recurring_interval, donation_type, donation_purpose, is_anonymous, tax_deductible, notes, ip_address, user_agent, utm_source, utm_medium, utm_campaign)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
 
         $userId = $donationData['user_id'] ?? null;
+        $campaignId = $donationData['campaign_id'] ?? null;
         $donorName = $donationData['donor_name'];
         $donorEmail = $donationData['donor_email'];
         $amount = $donationData['amount'];
@@ -36,6 +37,7 @@ class Donation {
         $paymentMethod = $donationData['payment_method'] ?? '';
         $paymentProvider = $donationData['payment_provider'] ?? '';
         $transactionId = $donationData['transaction_id'] ?? null;
+        $receiptUrl = $donationData['receipt_url'] ?? null;
         $transactionStatus = $donationData['transaction_status'] ?? 'pending';
         $isRecurring = $donationData['is_recurring'] ?? false;
         $recurringInterval = $donationData['recurring_interval'] ?? null;
@@ -50,7 +52,7 @@ class Donation {
         $utmMedium = $donationData['utm_medium'] ?? '';
         $utmCampaign = $donationData['utm_campaign'] ?? '';
 
-        $stmt->bind_param("iissdsssssissssssssssss", $userId, $donorId, $donorName, $donorEmail, $amount, $currency, $paymentMethod, $paymentProvider, $transactionId, $transactionStatus, $isRecurring, $recurringInterval, $donationType, $donationPurpose, $isAnonymous, $taxDeductible, $notes, $ipAddress, $userAgent, $utmSource, $utmMedium, $utmCampaign);
+        $stmt->bind_param("iiissdssssssisssssssssss", $userId, $donorId, $campaignId, $donorName, $donorEmail, $amount, $currency, $paymentMethod, $paymentProvider, $transactionId, $receiptUrl, $transactionStatus, $isRecurring, $recurringInterval, $donationType, $donationPurpose, $isAnonymous, $taxDeductible, $notes, $ipAddress, $userAgent, $utmSource, $utmMedium, $utmCampaign);
 
         if ($stmt->execute()) {
             $donationId = $conn->insert_id;
@@ -310,6 +312,7 @@ class Donation {
         $conn = getDBConnection();
 
         $dateFilter = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL {$period} DAY)";
+        $dnDateFilter = "DATE(dn.created_at) >= DATE_SUB(CURDATE(), INTERVAL {$period} DAY)";
 
         // Total donations
         $totalSql = "SELECT
@@ -346,7 +349,7 @@ class Donation {
                             COUNT(dn.id) as donation_count
                          FROM " . self::$donorsTable . " d
                          JOIN " . self::$donationsTable . " dn ON d.id = dn.donor_id
-                         WHERE dn.transaction_status = 'completed' AND {$dateFilter}
+                         WHERE dn.transaction_status = 'completed' AND {$dnDateFilter}
                          GROUP BY d.id, d.first_name, d.last_name, d.email
                          ORDER BY total_donated DESC
                          LIMIT 10";

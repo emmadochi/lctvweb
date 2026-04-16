@@ -108,6 +108,47 @@ class NotificationService {
     }
 
     /**
+     * Send notification for a prayer request response (Email + Push)
+     */
+    public static function sendPrayerResponse($request, $responseText) {
+        $subject = "Response to your Prayer Request - LCMTV";
+        
+        $htmlContent = "
+            <p>Dear <strong>" . htmlspecialchars($request['full_name']) . "</strong>,</p>
+            <p>We have received and reviewed your prayer request regarding: <em>" . htmlspecialchars($request['category'] ?: 'General') . "</em>.</p>
+            <div style='background: #f9f9f9; padding: 15px; border-left: 4px solid #6A0DAD; margin: 20px 0;'>
+                <strong>Your Request:</strong><br>
+                " . nl2br(htmlspecialchars($request['request_text'])) . "
+            </div>
+            <div style='background: #fff8ee; padding: 15px; border-left: 4px solid #FF8C00; margin: 20px 0;'>
+                <strong>Our Response:</strong><br>
+                " . nl2br(htmlspecialchars($responseText)) . "
+            </div>
+            <p>May God's peace be with you and may He answer your prayers according to His will.</p>
+            <p>God bless you,<br>The LCMTV Team</p>
+        ";
+
+        // 1. Send Email
+        Mailer::send($request['email'], $subject, $htmlContent);
+
+        // 2. Send Push Notification if user_id exists
+        if (!empty($request['user_id'])) {
+            try {
+                $pushTitle = "Prayer Request Response";
+                $pushBody = "You have a response to your prayer request regarding " . ($request['category'] ?: 'General') . ".";
+                PushSubscription::sendToUser($request['user_id'], $pushTitle, $pushBody, [
+                    'type' => 'prayer_response',
+                    'id' => $request['id']
+                ]);
+            } catch (\Throwable $e) {
+                error_log("Push notification failed for prayer response: " . $e->getMessage());
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Broadcast "New Video Available" to appropriate audience
      */
     public static function broadcastNewVideo($video) {

@@ -12,6 +12,20 @@ error_reporting(E_ALL);
 // Start output buffering to capture any accidental output
 ob_start();
 
+// Polyfill for getallheaders() if it doesn't exist (common in CLI/CGI)
+if (!function_exists('getallheaders')) {
+    function getallheaders()
+    {
+        $headers = [];
+        foreach ($_SERVER as $name => $value) {
+            if (substr($name, 0, 5) == 'HTTP_') {
+                $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
+            }
+        }
+        return $headers;
+    }
+}
+
 // Set headers immediately to ensure JSON response
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -31,11 +45,10 @@ require_once __DIR__ . '/../utils/Response.php';
 require_once __DIR__ . '/../utils/Auth.php';
 require_once __DIR__ . '/../controllers/AnalyticsController.php'; // Added for direct access to static methods
 require_once __DIR__ . '/../controllers/SearchController.php'; // Added for search functionality
-require_once __DIR__ . '/../controllers/DonationController.php'; // Added for donation processing
-require_once __DIR__ . '/../controllers/LanguageController.php'; // Added for language management
-require_once __DIR__ . '/../controllers/AdminController.php'; // Added for admin functions
-require_once __DIR__ . '/../controllers/TranslationController.php'; // Added for Google Translate integration
 require_once __DIR__ . '/../controllers/PlaylistSyncController.php'; // Added for playlist sync functionality
+require_once __DIR__ . '/../controllers/PaymentSettingController.php'; // Added for managing payment configs
+require_once __DIR__ . '/../controllers/DonationController.php'; // Added for donation processing
+require_once __DIR__ . '/../controllers/PrayerRequestController.php'; // Added for prayer request processing
 
 // Enable error logging but don't display errors (they break JSON responses)
 ini_set('display_errors', 0);
@@ -84,46 +97,46 @@ try {
     switch ($path) {
         case '/':
         case '':
-            require_once '../controllers/HomeController.php';
+            require_once __DIR__ . '/../controllers/HomeController.php';
             $controller = new HomeController();
             $controller->index();
             break;
 
         case (preg_match('/^\/videos/', $path) ? true : false):
-            require_once '../controllers/VideoController.php';
+            require_once __DIR__ . '/../controllers/VideoController.php';
             $controller = new VideoController();
             handleVideoRoutes($controller, $method, $path);
             break;
 
         case '/categories':
-            require_once '../controllers/CategoryController.php';
+            require_once __DIR__ . '/../controllers/CategoryController.php';
             $controller = new CategoryController();
             handleCategoryRoutes($controller, $method, $path);
             break;
 
         // Category videos by slug: /categories/{slug}/videos
         case (preg_match('/^\/categories\/([^\/]+)\/videos$/', $path, $matches) ? true : false):
-            require_once '../models/Category.php';
-            require_once '../models/Video.php';
+            require_once __DIR__ . '/../models/Category.php';
+            require_once __DIR__ . '/../models/Video.php';
             $slug = $matches[1];
             $category = Category::getBySlug($slug);
             if (!$category) {
                 Response::notFound('Category not found');
             }
 
-            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
-            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 50;
+            $page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
             $limit = max(1, min(100, $limit));
 
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
 
             // Simple paging (fetch up to 100 and slice). For large datasets, implement SQL LIMIT/OFFSET.
-            $videos = Video::getByCategory((int)$category['id'], 100, $userRole);
+            $videos = Video::getByCategory((int) $category['id'], 100, $userRole);
             $total = count($videos);
             $offset = ($page - 1) * $limit;
             $paged = array_slice($videos, $offset, $limit);
-            $totalPages = $limit > 0 ? (int)ceil($total / $limit) : 1;
+            $totalPages = $limit > 0 ? (int) ceil($total / $limit) : 1;
 
             Response::success([
                 'videos' => $paged,
@@ -131,7 +144,7 @@ try {
                 'page' => $page,
                 'total_pages' => $totalPages,
                 'category' => [
-                    'id' => (int)$category['id'],
+                    'id' => (int) $category['id'],
                     'name' => $category['name'],
                     'slug' => $category['slug']
                 ]
@@ -140,7 +153,7 @@ try {
 
         // Category stats: /categories/{slug}/stats
         case (preg_match('/^\/categories\/([^\/]+)\/stats$/', $path, $matches) ? true : false):
-            require_once '../models/Category.php';
+            require_once __DIR__ . '/../models/Category.php';
             $slug = $matches[1];
             $category = Category::getBySlug($slug);
             if (!$category) {
@@ -150,26 +163,26 @@ try {
             $stmt = $conn->prepare("SELECT COUNT(*) as video_count, COALESCE(SUM(view_count),0) as total_views, MAX(updated_at) as last_updated
                                     FROM videos
                                     WHERE is_active = 1 AND category_id = ?");
-            $categoryId = (int)$category['id'];
+            $categoryId = (int) $category['id'];
             $stmt->bind_param("i", $categoryId);
             $stmt->execute();
             $row = $stmt->get_result()->fetch_assoc();
             Response::success([
-                'video_count' => (int)($row['video_count'] ?? 0),
-                'total_views' => (int)($row['total_views'] ?? 0),
+                'video_count' => (int) ($row['video_count'] ?? 0),
+                'total_views' => (int) ($row['total_views'] ?? 0),
                 'last_updated' => $row['last_updated'] ?? null
             ]);
             break;
 
         // Search endpoint: /search?q=...
         case '/search':
-            require_once '../models/Video.php';
+            require_once __DIR__ . '/../models/Video.php';
             $query = isset($_GET['q']) ? trim($_GET['q']) : '';
             if (strlen($query) < 2) {
                 Response::badRequest('Search query must be at least 2 characters');
             }
-            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 24;
-            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 24;
+            $page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
             $limit = max(1, min(100, $limit));
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
@@ -178,7 +191,7 @@ try {
             $total = count($videos);
             $offset = ($page - 1) * $limit;
             $paged = array_slice($videos, $offset, $limit);
-            $totalPages = $limit > 0 ? (int)ceil($total / $limit) : 1;
+            $totalPages = $limit > 0 ? (int) ceil($total / $limit) : 1;
 
             Response::success([
                 'videos' => $paged,
@@ -192,14 +205,14 @@ try {
         case '/users':
         case '/users/login':
         case '/users/register':
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             handleUserRoutes($controller, $method, $path);
             break;
 
         // Specific livestream sub-routes MUST come before the wildcard /livestreams(/|$)
         case (preg_match('/^\/livestreams\/featured$/', $path) ? true : false):
-            require_once '../controllers/LivestreamController.php';
+            require_once __DIR__ . '/../controllers/LivestreamController.php';
             $controller = new LivestreamController();
             if ($method === 'GET') {
                 $controller->featured();
@@ -209,7 +222,7 @@ try {
             break;
 
         case (preg_match('/^\/livestreams\/exclusive$/', $path) ? true : false):
-            require_once '../controllers/LivestreamController.php';
+            require_once __DIR__ . '/../controllers/LivestreamController.php';
             $controller = new LivestreamController();
             if ($method === 'GET') {
                 $controller->exclusive();
@@ -219,10 +232,10 @@ try {
             break;
 
         case (preg_match('/^\/livestreams\/(\d+)\/view$/', $path, $matches) ? true : false):
-            require_once '../controllers/LivestreamController.php';
+            require_once __DIR__ . '/../controllers/LivestreamController.php';
             $controller = new LivestreamController();
             if ($method === 'POST') {
-                $livestreamId = (int)$matches[1];
+                $livestreamId = (int) $matches[1];
                 $controller->trackView($livestreamId);
             } else {
                 Response::methodNotAllowed();
@@ -230,25 +243,30 @@ try {
             break;
 
         case (preg_match('/^\/livestreams(\/|$)/', $path) ? true : false):
-            require_once '../controllers/LivestreamController.php';
+            require_once __DIR__ . '/../controllers/LivestreamController.php';
             $controller = new LivestreamController();
             handleLivestreamRoutes($controller, $method, $path);
             break;
 
         case (preg_match('/^\/comments(\/|$)/', $path) ? true : false):
-            require_once '../controllers/CommentController.php';
+            require_once __DIR__ . '/../controllers/CommentController.php';
             $controller = new CommentController();
             handleCommentRoutes($controller, $method, $path);
             break;
 
         case (preg_match('/^\/reactions(\/|$)/', $path) ? true : false):
-            require_once '../controllers/ReactionController.php';
+            require_once __DIR__ . '/../controllers/ReactionController.php';
             $controller = new ReactionController();
             handleReactionRoutes($controller, $method, $path);
             break;
 
+        case (preg_match('/^\/(admin\/)?prayer-requests(\/|$)/', $path) ? true : false):
+            $controller = new PrayerRequestController();
+            handlePrayerRequestRoutes($controller, $method, $path);
+            break;
+
         case (preg_match('/^\/users\/profile$/', $path) ? true : false):
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             if ($method === 'GET') {
                 $controller->profile();
@@ -260,7 +278,7 @@ try {
             break;
 
         case (preg_match('/^\/users\/password$/', $path) ? true : false):
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             if ($method === 'PUT') {
                 $controller->updatePassword();
@@ -270,7 +288,7 @@ try {
             break;
 
         case (preg_match('/^\/users\/history\/(\d+)$/', $path, $matches) ? true : false):
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             if ($method === 'DELETE') {
                 $controller->removeHistoryItem($matches[1]);
@@ -280,7 +298,7 @@ try {
             break;
 
         case (preg_match('/^\/users\/history$/', $path) ? true : false):
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             if ($method === 'GET') {
                 $controller->history();
@@ -294,7 +312,7 @@ try {
             break;
 
         case (preg_match('/^\/users\/favorites$/', $path) ? true : false):
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             if ($method === 'GET') {
                 $controller->getFavorites();
@@ -306,7 +324,7 @@ try {
             break;
 
         case (preg_match('/^\/users\/channels$/', $path) ? true : false):
-            require_once '../controllers/UserController.php';
+            require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             if ($method === 'GET') {
                 $controller->getMyChannels();
@@ -417,6 +435,24 @@ try {
                 DonationController::processDonation();
             } elseif ($method === 'GET') {
                 DonationController::getUserDonations();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/settings':
+            require_once '../controllers/PaymentSettingController.php';
+            if ($method === 'GET') {
+                PaymentSettingController::getPublicSettings();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/report-transfer':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'POST') {
+                DonationController::reportManualTransfer();
             } else {
                 Response::methodNotAllowed();
             }
@@ -764,7 +800,20 @@ try {
                 Response::methodNotAllowed();
             }
             break;
- 
+
+        case '/admin/donations/settings':
+            require_once '../controllers/PaymentSettingController.php';
+            if ($method === 'GET') {
+                PaymentSettingController::getAllSettings();
+            } elseif ($method === 'POST' || $method === 'PUT') {
+                PaymentSettingController::saveSetting();
+            } elseif ($method === 'DELETE') {
+                PaymentSettingController::deleteSetting();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
         case '/admin/users/role':
             require_once '../controllers/AdminController.php';
             if ($method === 'POST') {
@@ -777,10 +826,10 @@ try {
         // Admin Channel Sync Routes
         case (preg_match('/^\/admin\/channel-sync(\/(\d+))?$/', $path, $matches) ? true : false):
             require_once '../controllers/ChannelSyncController.php';
-            
+
             $method = $_SERVER['REQUEST_METHOD'];
-            $channelId = isset($matches[2]) ? (int)$matches[2] : null;
-            
+            $channelId = isset($matches[2]) ? (int) $matches[2] : null;
+
             switch ($method) {
                 case 'GET':
                     if ($channelId) {
@@ -789,7 +838,7 @@ try {
                         ChannelSyncController::index();
                     }
                     break;
-                    
+
                 case 'POST':
                     if ($channelId) {
                         ChannelSyncController::runChannelSync($channelId);
@@ -797,7 +846,7 @@ try {
                         ChannelSyncController::create();
                     }
                     break;
-                    
+
                 case 'PUT':
                     if ($channelId) {
                         ChannelSyncController::update($channelId);
@@ -805,7 +854,7 @@ try {
                         Response::methodNotAllowed();
                     }
                     break;
-                    
+
                 case 'DELETE':
                     if ($channelId) {
                         ChannelSyncController::delete($channelId);
@@ -813,12 +862,12 @@ try {
                         Response::methodNotAllowed();
                     }
                     break;
-                    
+
                 default:
                     Response::methodNotAllowed();
             }
             break;
-            
+
         case '/admin/channel-sync/run':
             require_once '../controllers/ChannelSyncController.php';
             if ($method === 'POST') {
@@ -827,7 +876,7 @@ try {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/admin/channel-sync/stats':
             require_once '../controllers/ChannelSyncController.php';
             if ($method === 'GET') {
@@ -836,7 +885,7 @@ try {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/admin/channel-sync/logs':
             require_once '../controllers/ChannelSyncController.php';
             if ($method === 'GET') {
@@ -849,7 +898,7 @@ try {
         case (preg_match('/^\/admin\/channel-sync\/(\d+)\/playlists$/', $path, $matches) ? true : false):
             require_once '../controllers/ChannelSyncController.php';
             if ($method === 'GET') {
-                $id = (int)$matches[1];
+                $id = (int) $matches[1];
                 // Get channel ID first
                 $conn = getDBConnection();
                 $stmt = $conn->prepare("SELECT channel_id FROM channel_sync WHERE id = ?");
@@ -869,7 +918,7 @@ try {
 
         case (preg_match('/^\/admin\/channel-sync\/(\d+)\/mappings$/', $path, $matches) ? true : false):
             require_once '../controllers/ChannelSyncController.php';
-            $id = (int)$matches[1];
+            $id = (int) $matches[1];
             if ($method === 'GET') {
                 ChannelSyncController::getMappings($id);
             } elseif ($method === 'POST') {
@@ -882,7 +931,7 @@ try {
         case (preg_match('/^\/admin\/videos\/(\d+)\/override$/', $path, $matches) ? true : false):
             require_once '../controllers/ChannelSyncController.php';
             if ($method === 'POST') {
-                $videoId = (int)$matches[1];
+                $videoId = (int) $matches[1];
                 ChannelSyncController::overrideCategory($videoId);
             } else {
                 Response::methodNotAllowed();
@@ -891,14 +940,14 @@ try {
 
         // Admin Videos Management Routes
         case (preg_match('/^\/admin\/videos(\/(\d+))?$/', $path, $matches) ? true : false):
-            require_once '../models/Video.php';
-            
+            require_once __DIR__ . '/../models/Video.php';
+
             // Require admin authentication
             Auth::requireAdmin();
-            
+
             $method = $_SERVER['REQUEST_METHOD'];
-            $videoId = isset($matches[2]) ? (int)$matches[2] : null;
-            
+            $videoId = isset($matches[2]) ? (int) $matches[2] : null;
+
             switch ($method) {
                 case 'GET':
                     if ($videoId) {
@@ -911,29 +960,29 @@ try {
                         }
                     } else {
                         // Get all videos with pagination and filters
-                        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-                        $limit = isset($_GET['limit']) ? max(1, min(100, (int)$_GET['limit'])) : 20;
+                        $page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+                        $limit = isset($_GET['limit']) ? max(1, min(100, (int) $_GET['limit'])) : 20;
                         $offset = ($page - 1) * $limit;
-                        
+
                         $conn = getDBConnection();
-                        
+
                         // Build query with filters
                         $whereClause = "WHERE 1=1";
                         $params = [];
                         $types = "";
-                        
+
                         if (isset($_GET['category_id']) && $_GET['category_id'] !== '') {
                             $whereClause .= " AND v.category_id = ?";
-                            $params[] = (int)$_GET['category_id'];
+                            $params[] = (int) $_GET['category_id'];
                             $types .= "i";
                         }
-                        
+
                         if (isset($_GET['is_active']) && $_GET['is_active'] !== '') {
                             $whereClause .= " AND v.is_active = ?";
-                            $params[] = (int)$_GET['is_active'];
+                            $params[] = (int) $_GET['is_active'];
                             $types .= "i";
                         }
-                        
+
                         if (isset($_GET['search']) && $_GET['search'] !== '') {
                             $searchTerm = '%' . $_GET['search'] . '%';
                             $whereClause .= " AND (v.title LIKE ? OR v.description LIKE ? OR v.tags LIKE ?)";
@@ -942,7 +991,7 @@ try {
                             $params[] = $searchTerm;
                             $types .= "sss";
                         }
-                        
+
                         // Get total count
                         $countSql = "SELECT COUNT(*) as total FROM videos v $whereClause";
                         $countStmt = $conn->prepare($countSql);
@@ -951,7 +1000,7 @@ try {
                         }
                         $countStmt->execute();
                         $total = $countStmt->get_result()->fetch_assoc()['total'];
-                        
+
                         // Get videos
                         $sql = "SELECT v.*, c.name as category_name, c.slug as category_slug
                                 FROM videos v
@@ -962,57 +1011,57 @@ try {
                         $params[] = $limit;
                         $params[] = $offset;
                         $types .= "ii";
-                        
+
                         $stmt = $conn->prepare($sql);
                         if (!empty($params)) {
                             $stmt->bind_param($types, ...$params);
                         }
                         $stmt->execute();
                         $result = $stmt->get_result();
-                        
+
                         $videos = [];
                         while ($row = $result->fetch_assoc()) {
                             $videos[] = Video::formatVideoData($row);
                         }
-                        
+
                         Response::success([
                             'videos' => $videos,
-                            'total' => (int)$total,
+                            'total' => (int) $total,
                             'page' => $page,
-                            'total_pages' => max(1, (int)ceil($total / $limit)),
+                            'total_pages' => max(1, (int) ceil($total / $limit)),
                             'limit' => $limit
                         ]);
                     }
                     break;
-                    
+
                 case 'POST':
                     if ($videoId) {
                         Response::methodNotAllowed();
                         break;
                     }
-                    
+
                     // Add new video
                     $rawInput = file_get_contents('php://input');
                     $data = json_decode($rawInput, true);
-                    
+
                     if (json_last_error() !== JSON_ERROR_NONE) {
                         Response::error('Invalid JSON data', 400);
                         break;
                     }
-                    
+
                     // Validate required fields
                     if (empty($data['youtube_id']) || empty($data['title'])) {
                         Response::error('YouTube ID and title are required', 400);
                         break;
                     }
-                    
+
                     // Check if video already exists
                     $existingVideo = Video::getByYouTubeId($data['youtube_id']);
                     if ($existingVideo) {
                         Response::error('Video with this YouTube ID already exists', 409);
                         break;
                     }
-                    
+
                     // Prepare video data
                     $videoData = [
                         'youtube_id' => $data['youtube_id'],
@@ -1029,9 +1078,9 @@ try {
                         'like_count' => 0,
                         'is_active' => 1
                     ];
-                    
+
                     $videoId = Video::create($videoData);
-                    
+
                     if ($videoId) {
                         $newVideo = Video::getById($videoId);
                         Response::success($newVideo, 201);
@@ -1039,29 +1088,29 @@ try {
                         Response::error('Failed to create video', 500);
                     }
                     break;
-                    
+
                 case 'PUT':
                     if (!$videoId) {
                         Response::methodNotAllowed();
                         break;
                     }
-                    
+
                     // Update video
                     $rawInput = file_get_contents('php://input');
                     $data = json_decode($rawInput, true);
-                    
+
                     if (json_last_error() !== JSON_ERROR_NONE) {
                         Response::error('Invalid JSON data', 400);
                         break;
                     }
-                    
+
                     // Check if video exists
                     $existingVideo = Video::getById($videoId);
                     if (!$existingVideo) {
                         Response::notFound('Video not found');
                         break;
                     }
-                    
+
                     // Prepare update data
                     $updateData = [
                         'title' => $data['title'] ?? $existingVideo['title'],
@@ -1074,9 +1123,9 @@ try {
                         'channel_id' => $data['channel_id'] ?? $existingVideo['channel_id'],
                         'published_at' => $data['published_at'] ?? $existingVideo['published_at']
                     ];
-                    
+
                     $success = Video::update($videoId, $updateData);
-                    
+
                     if ($success) {
                         $updatedVideo = Video::getById($videoId);
                         Response::success($updatedVideo);
@@ -1084,29 +1133,29 @@ try {
                         Response::error('Failed to update video', 500);
                     }
                     break;
-                    
+
                 case 'DELETE':
                     if (!$videoId) {
                         Response::methodNotAllowed();
                         break;
                     }
-                    
+
                     // Delete video (soft delete)
                     $existingVideo = Video::getById($videoId);
                     if (!$existingVideo) {
                         Response::notFound('Video not found');
                         break;
                     }
-                    
+
                     $success = Video::delete($videoId);
-                    
+
                     if ($success) {
                         Response::success(['message' => 'Video deleted successfully']);
                     } else {
                         Response::error('Failed to delete video', 500);
                     }
                     break;
-                    
+
                 default:
                     Response::methodNotAllowed();
             }
@@ -1135,7 +1184,7 @@ try {
                     }
 
                     Response::success([
-                        'videos_count' => (int)$videosCount,
+                        'videos_count' => (int) $videosCount,
                         'has_search_history_table' => $hasSearchHistory,
                         'sample_videos' => $sampleVideos
                     ]);
@@ -1211,7 +1260,8 @@ try {
                         $stmt = $conn->prepare("INSERT IGNORE INTO videos
                             (youtube_id, title, description, channel_title, tags, category_id, duration, view_count, is_active)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
-                        $stmt->bind_param("sssssiis",
+                        $stmt->bind_param(
+                            "sssssiis",
                             $video['youtube_id'],
                             $video['title'],
                             $video['description'],
@@ -1269,14 +1319,16 @@ try {
 }
 
 // Helper function to enable detailed PHP error logging to a custom file
-function enable_php_error_log($filename) {
+function enable_php_error_log($filename)
+{
     ini_set('log_errors', 1);
     ini_set('error_log', __DIR__ . '/../../logs/' . $filename);
     error_log("API error logging enabled to $filename");
 }
 
 // Helper functions for route handling
-function handleVideoRoutes($controller, $method, $path) {
+function handleVideoRoutes($controller, $method, $path)
+{
 
     // Handle video like routes
     if (preg_match('/^\/videos\/(\d+)\/like$/', $path, $matches)) {
@@ -1311,12 +1363,12 @@ function handleVideoRoutes($controller, $method, $path) {
     // Trending route: /videos/trending
     if ($method === 'GET' && preg_match('/^\/videos\/trending$/', $path)) {
         // For now, treat "trending" as featured (most viewed)
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 12;
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 12;
         $limit = max(1, min(50, $limit));
-        
+
         $user = Auth::getCurrentUser();
         $userRole = $user['role'] ?? 'general';
-        
+
         $videos = Video::getFeaturedVideos($limit, $userRole);
         Response::success($videos);
         return;
@@ -1345,7 +1397,8 @@ function handleVideoRoutes($controller, $method, $path) {
     }
 }
 
-function handleCategoryRoutes($controller, $method, $path) {
+function handleCategoryRoutes($controller, $method, $path)
+{
     switch ($method) {
         case 'GET':
             if (isset($_GET['id'])) {
@@ -1359,11 +1412,12 @@ function handleCategoryRoutes($controller, $method, $path) {
     }
 }
 
-function handleUserRoutes($controller, $method, $path = '') {
+function handleUserRoutes($controller, $method, $path = '')
+{
     switch ($method) {
         case 'POST':
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
-            
+
             // Infer action from path if not provided
             if (!isset($data['action'])) {
                 if (strpos($path, '/login') !== false) {
@@ -1399,7 +1453,8 @@ function handleUserRoutes($controller, $method, $path = '') {
     }
 }
 
-function handleLivestreamRoutes($controller, $method, $path) {
+function handleLivestreamRoutes($controller, $method, $path)
+{
     switch ($method) {
         case 'GET':
             if (preg_match('/^\/livestreams\/(\d+)$/', $path, $matches)) {
@@ -1412,7 +1467,7 @@ function handleLivestreamRoutes($controller, $method, $path) {
                 $controller->index();
             }
             break;
-        
+
         case 'PUT':
             if (preg_match('/^\/livestreams\/(\d+)$/', $path, $matches)) {
                 $controller->update($matches[1]);
@@ -1446,12 +1501,13 @@ function handleLivestreamRoutes($controller, $method, $path) {
     }
 }
 
-function handleAIRoutes($controller, $method, $path) {
+function handleAIRoutes($controller, $method, $path)
+{
     if ($method === 'GET') {
         // Get recommendations
-        $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
-        $contextVideoId = isset($_GET['context_video_id']) ? (int)$_GET['context_video_id'] : null;
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+        $userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : null;
+        $contextVideoId = isset($_GET['context_video_id']) ? (int) $_GET['context_video_id'] : null;
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 10;
 
         if (!$userId) {
             Response::badRequest('user_id parameter required');
@@ -1493,12 +1549,13 @@ function handleAIRoutes($controller, $method, $path) {
     }
 }
 
-function handleAISearchRoutes($controller, $method) {
+function handleAISearchRoutes($controller, $method)
+{
     if ($method === 'GET') {
         // Basic search (fallback to existing search)
         $query = isset($_GET['q']) ? trim($_GET['q']) : '';
-        $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+        $userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : null;
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 20;
 
         if (!$query) {
             Response::badRequest('Query parameter required');
@@ -1525,11 +1582,12 @@ function handleAISearchRoutes($controller, $method) {
         Response::success($results);
 
     } else {
-            Response::methodNotAllowed();
+        Response::methodNotAllowed();
     }
 }
 
-function handleCommentRoutes($controller, $method, $path) {
+function handleCommentRoutes($controller, $method, $path)
+{
     // Extract video ID from path: /comments/video/{id}
     if (preg_match('/^\/comments\/video\/(\d+)$/', $path, $matches)) {
         $videoId = $matches[1];
@@ -1625,7 +1683,8 @@ function handleCommentRoutes($controller, $method, $path) {
     }
 }
 
-function handleReactionRoutes($controller, $method, $path) {
+function handleReactionRoutes($controller, $method, $path)
+{
     // Extract video ID from path: /reactions/video/{id}
     if (preg_match('/^\/reactions\/video\/(\d+)$/', $path, $matches)) {
         $videoId = $matches[1];
@@ -1695,10 +1754,10 @@ function handleReactionRoutes($controller, $method, $path) {
 // Translation API Routes
 if (preg_match('/^\/translate(\/|$)/', $path)) {
     $controller = new TranslationController();
-    
+
     // Remove /translate prefix for cleaner routing
     $translatePath = substr($path, strlen('/translate'));
-    
+
     switch ($translatePath) {
         case '':
         case '/':
@@ -1708,7 +1767,7 @@ if (preg_match('/^\/translate(\/|$)/', $path)) {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/batch':
             if ($method === 'POST') {
                 $controller->translateBatch();
@@ -1716,7 +1775,7 @@ if (preg_match('/^\/translate(\/|$)/', $path)) {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/detect':
             if ($method === 'POST') {
                 $controller->detectLanguage();
@@ -1724,7 +1783,7 @@ if (preg_match('/^\/translate(\/|$)/', $path)) {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/languages':
             if ($method === 'GET') {
                 $controller->getLanguages();
@@ -1732,7 +1791,7 @@ if (preg_match('/^\/translate(\/|$)/', $path)) {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/status':
             if ($method === 'GET') {
                 $controller->getStatus();
@@ -1740,7 +1799,7 @@ if (preg_match('/^\/translate(\/|$)/', $path)) {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         case '/cache/clear':
             if ($method === 'POST') {
                 $controller->clearCache();
@@ -1748,11 +1807,56 @@ if (preg_match('/^\/translate(\/|$)/', $path)) {
                 Response::methodNotAllowed();
             }
             break;
-            
+
         default:
             Response::notFound('Translation endpoint not found');
     }
-    return;
+}
+
+function handlePrayerRequestRoutes($controller, $method, $path)
+{
+    if ($path === '/prayer-requests') {
+        if ($method === 'POST') {
+            $controller->submit();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Admin routes
+    if (preg_match('/^\/admin\/prayer-requests$/', $path)) {
+        if ($method === 'GET') {
+            $controller->getAll();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Respond to prayer request: /admin/prayer-requests/{id}/respond
+    if (preg_match('/^\/admin\/prayer-requests\/(\d+)\/respond$/', $path, $matches)) {
+        $id = $matches[1];
+        if ($method === 'POST') {
+            $controller->respond($id);
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    // Delete prayer request
+    if (preg_match('/^\/admin\/prayer-requests\/(\d+)$/', $path, $matches)) {
+        $id = $matches[1];
+        if ($method === 'DELETE') {
+            $controller->delete($id);
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    Response::notFound();
 }
 
 ?>

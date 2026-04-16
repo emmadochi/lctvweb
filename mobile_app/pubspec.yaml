@@ -50,6 +50,7 @@ dependencies:
   firebase_messaging: ^15.2.10
   flutter_local_notifications: ^18.0.1
   simple_pip_mode: ^1.1.0
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

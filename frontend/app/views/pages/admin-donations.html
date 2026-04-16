@@ -1,0 +1,138 @@
+<!-- Admin Giving Management Page -->
+<div class="admin-donations" ng-controller="AdminDonationsController as vm">
+    <header class="admin-header">
+        <div class="container-fluid">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1><i class="fa fa-heart"></i> Giving Management</h1>
+                    <p>Manage giving categories and payment settings</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-warning" data-toggle="modal" data-target="#addCategoryModal">
+                        <i class="fa fa-plus"></i> Add Category
+                    </button>
+                    <a href="#/admin" class="btn btn-outline-light"><i class="fa fa-arrow-left"></i> Back</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container-fluid py-4">
+        <div class="row">
+            <!-- Giving Categories -->
+            <div class="col-md-12 mb-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-primary fw-bold">Giving Categories</h5>
+                        <span class="badge bg-soft-primary text-primary">{{vm.settings.giving_type.length}} Total</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Display Value</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="item in vm.settings.giving_type">
+                                        <td><strong>{{item.setting_key}}</strong></td>
+                                        <td>{{item.setting_value}}</td>
+                                        <td>
+                                            <span class="badge" ng-class="item.is_active ? 'bg-success' : 'bg-secondary'">
+                                                {{item.is_active ? 'Active' : 'Inactive'}}
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-info me-2" ng-click="vm.toggleStatus(item)">
+                                                <i class="fa" ng-class="item.is_active ? 'fa-toggle-on' : 'fa-toggle-off'"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" ng-click="vm.deleteSetting(item)">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr ng-if="vm.settings.giving_type.length == 0">
+                                        <td colspan="4" class="text-center py-4 text-muted">No categories found.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Settings info -->
+            <div class="col-md-12">
+                <div class="alert alert-info shadow-sm border-0">
+                    <div class="d-flex">
+                        <i class="fa fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <h6 class="alert-heading fw-bold">Managed Settings</h6>
+                            <p class="mb-0 text-dark">Giving categories added here will automatically appear in the Mobile App's donor dropdown. Ensure "Display Value" is what you want the users to see.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content border-0">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold">Add New Giving Category</h5>
+                    <button type="button" class="btn-close" data-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form ng-submit="vm.addCategory()">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Category Key (Unique ID)</label>
+                            <input type="text" class="form-control" ng-model="vm.newCategory.key" placeholder="e.g. Missions" required>
+                            <small class="text-muted">No spaces or special characters.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Display Name</label>
+                            <input type="text" class="form-control" ng-model="vm.newCategory.value" placeholder="e.g. World Missions" required>
+                            <small class="text-muted">This is what users will see in the dropdown.</small>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-warning btn-lg fw-bold" ng-disabled="vm.isLoading">
+                                <span ng-if="!vm.isLoading">Save Category</span>
+                                <i class="fa fa-spinner fa-spin" ng-if="vm.isLoading"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-donations {
+    background-color: #f0f2f5;
+    min-height: 100vh;
+}
+.bg-soft-primary {
+    background-color: rgba(106, 13, 173, 0.1);
+}
+.text-primary {
+    color: #6a0dad !important;
+}
+.modal-content {
+    border-radius: 12px;
+}
+.btn-warning {
+    background-color: #ffb800;
+    border-color: #ffb800;
+}
+.btn-warning:hover {
+    background-color: #e6a600;
+    border-color: #e6a600;
+}
+</style>

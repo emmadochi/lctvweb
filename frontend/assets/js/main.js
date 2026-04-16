@@ -244,28 +244,27 @@
             installPrompt.innerHTML = promptContent;
 
             // Mobile-optimized positioning and styling
-            const bottomOffset = isMobile ? '100px' : '20px'; // Above mobile bottom nav
-            const maxWidth = isMobile ? '95vw' : '400px';
+            const bottomOffset = isMobile ? '100px' : '30px'; // Above mobile bottom nav
+            const maxWidth = isMobile ? '90vw' : '380px';
 
             installPrompt.style.cssText = `
                 position: fixed;
                 bottom: ${bottomOffset};
-                left: 50%;
-                transform: translateX(-50%);
+                ${isMobile ? 'left: 50%; transform: translateX(-50%);' : 'right: 30px;'}
                 background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
                 backdrop-filter: blur(20px);
                 -webkit-backdrop-filter: blur(20px);
-                border-radius: 16px;
+                border-radius: 20px;
                 box-shadow:
-                    0 8px 32px rgba(0, 0, 0, 0.12),
-                    0 4px 16px rgba(0, 0, 0, 0.08),
-                    0 0 0 1px rgba(255, 255, 255, 0.1);
-                z-index: 10000;
+                    0 10px 40px rgba(0, 0, 0, 0.15),
+                    0 1px 1px rgba(255, 255, 255, 0.2) inset;
+                z-index: 10001;
                 max-width: ${maxWidth};
-                width: 100%;
+                width: calc(100% - 40px);
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 display: none;
-                border: 1px solid rgba(148, 163, 184, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                animation: slideUpInstall 0.5s cubic-bezier(0.16, 1, 0.3, 1);
             `;
 
             // Add comprehensive CSS for both mobile and desktop
@@ -478,8 +477,14 @@
             // Show with enhanced animation
             setTimeout(() => {
                 installPrompt.style.display = 'block';
-                installPrompt.style.animation = 'slideUpInstall 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
             }, 100);
+
+            // Auto-dismiss after 15 seconds if ignored
+            setTimeout(() => {
+                if (installPrompt && installPrompt.parentNode) {
+                    dismissInstallPrompt();
+                }
+            }, 15000);
 
             // Add haptic feedback on mobile
             if (isMobile && 'vibrate' in navigator) {

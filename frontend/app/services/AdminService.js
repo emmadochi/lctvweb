@@ -399,6 +399,37 @@
             };
 
             /**
+             * Get donation/payment settings
+             */
+            service.getDonationSettings = function() {
+                return $http.get(API_BASE + '/admin/donations/settings')
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Save or update donation setting
+             */
+            service.saveDonationSetting = function(settingData) {
+                return $http.post(API_BASE + '/admin/donations/settings', settingData)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
+            /**
+             * Delete donation setting
+             */
+            service.deleteDonationSetting = function(id) {
+                return $http.delete(API_BASE + '/admin/donations/settings', {
+                    params: { id: id }
+                }).then(function(response) {
+                    return response.data;
+                });
+            };
+
+            /**
              * Override video category
              */
             service.overrideVideoCategory = function(videoId, categoryId, reason) {

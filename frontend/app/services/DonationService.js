@@ -20,15 +20,52 @@
 
             // Initialize payment providers
             service.initializePayments = function() {
-                // Initialize Stripe
-                if (typeof Stripe !== 'undefined') {
-                    service.stripe = Stripe(service.stripePublishableKey);
-                }
+                // Settings will be loaded dynamically via getPaymentSettings()
+            };
 
-                // Initialize PayPal
-                if (typeof paypal !== 'undefined') {
-                    service.initializePayPal();
-                }
+            /**
+             * Get public payment settings
+             */
+            service.getPaymentSettings = function() {
+                return $http.get(API_BASE + '/donations/settings')
+                    .then(function(response) {
+                        var settings = response.data.data || {};
+                        
+                        // Dynamically configure providers if keys are available
+                        if (settings.gateway) {
+                            var stripeKey = settings.gateway.find(s => s.setting_key.toLowerCase().includes('stripe_publishable'));
+                            if (stripeKey && typeof Stripe !== 'undefined') {
+                                service.stripePublishableKey = stripeKey.setting_value;
+                                service.stripe = Stripe(service.stripePublishableKey);
+                            }
+
+                            var paypalId = settings.gateway.find(s => s.setting_key.toLowerCase().includes('paypal_client'));
+                            if (paypalId) {
+                                service.paypalClientId = paypalId.setting_value;
+                            }
+
+                            var paystackKey = settings.gateway.find(s => s.setting_key.toLowerCase().includes('paystack_public'));
+                            if (paystackKey) {
+                                service.paystackPublicKey = paystackKey.setting_value;
+                            }
+                        }
+                        
+                        return settings;
+                    })
+                    .catch(function(error) {
+                        console.error('Error loading payment settings:', error);
+                        return {};
+                    });
+            };
+
+            /**
+             * Report manual transfer (Bank/Crypto)
+             */
+            service.reportManualTransfer = function(data) {
+                return $http.post(API_BASE + '/donations/report-transfer', data)
+                    .then(function(response) {
+                        return response.data;
+                    });
             };
 
             /**
@@ -59,10 +96,14 @@
                 }
 
                 // Process payment based on method
-                if (donationData.payment_method === 'card') {
+                if (donationData.payment_method === 'card' && donationData.payment_provider === 'stripe') {
                     return service.processStripePayment(donationData);
+                } else if (donationData.payment_method === 'card' && donationData.payment_provider === 'paystack') {
+                    return service.processPaystackPayment(donationData);
                 } else if (donationData.payment_method === 'paypal') {
                     return service.processPayPalPayment(donationData);
+                } else if (donationData.payment_method === 'bank_transfer' || donationData.payment_method === 'crypto') {
+                    return service.reportManualTransfer(donationData);
                 } else {
                     return service.processManualDonation(donationData);
                 }
@@ -109,6 +150,42 @@
                 }).catch(function(error) {
                     deferred.reject(error);
                 });
+
+                return deferred.promise;
+            };
+
+            /**
+             * Process Paystack payment
+             */
+            service.processPaystackPayment = function(donationData) {
+                var deferred = $q.defer();
+
+                if (typeof PaystackPop === 'undefined' || !service.paystackPublicKey) {
+                    deferred.reject('Paystack not initialized');
+                    return deferred.promise;
+                }
+
+                var handler = PaystackPop.setup({
+                    key: service.paystackPublicKey,
+                    email: donationData.donor_email,
+                    amount: donationData.amount * 100, // in kobo
+                    currency: donationData.currency || 'USD',
+                    callback: function(response) {
+                        donationData.transaction_id = response.reference;
+                        donationData.transaction_status = 'completed';
+                        donationData.payment_provider = 'paystack';
+
+                        service.submitDonation(donationData).then(function(resp) {
+                            deferred.resolve(resp);
+                        }).catch(function(err) {
+                            deferred.reject(err);
+                        });
+                    },
+                    onClose: function() {
+                        deferred.reject('Payment window closed');
+                    }
+                });
+                handler.openIframe();
 
                 return deferred.promise;
             };
@@ -292,6 +369,27 @@
                         });
                     }
                 }).render('#paypal-button-container');
+            };
+
+            /**
+             * Get supported currencies
+             */
+            service.getSupportedCurrencies = function() {
+                return [
+                    { code: 'USD', name: 'USD - United States Dollar', symbol: '$' },
+                    { code: 'GBP', name: 'GBP - British Pound', symbol: '£' },
+                    { code: 'EUR', name: 'EUR - Euro', symbol: '€' },
+                    { code: 'NGN', name: 'NGN - Nigerian Naira', symbol: '₦' }
+                ];
+            };
+
+            /**
+             * Get currency symbol by code
+             */
+            service.getCurrencySymbol = function(code) {
+                var currencies = service.getSupportedCurrencies();
+                var currency = currencies.find(c => c.code === code.toUpperCase());
+                return currency ? currency.symbol : '$';
             };
 
             /**
