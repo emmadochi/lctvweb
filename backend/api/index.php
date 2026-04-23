@@ -49,13 +49,18 @@ require_once __DIR__ . '/../controllers/PlaylistSyncController.php'; // Added fo
 require_once __DIR__ . '/../controllers/PaymentSettingController.php'; // Added for managing payment configs
 require_once __DIR__ . '/../controllers/DonationController.php'; // Added for donation processing
 require_once __DIR__ . '/../controllers/PrayerRequestController.php'; // Added for prayer request processing
+require_once __DIR__ . '/../controllers/VideoPurchaseController.php'; // Added for video purchases
 
 // Enable error logging but don't display errors (they break JSON responses)
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 ini_set('log_errors', 1);
 enable_php_error_log('api_errors.log'); // Custom function to log PHP errors
-error_reporting(E_ALL);
+
+// Trace request
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+error_log("Request Received: $method $requestUri");
 
 // Basic routing
 $request = $_SERVER['REQUEST_URI'];
@@ -100,6 +105,24 @@ try {
             require_once __DIR__ . '/../controllers/HomeController.php';
             $controller = new HomeController();
             $controller->index();
+            break;
+
+        case '/videos/purchase':
+            require_once __DIR__ . '/../controllers/VideoPurchaseController.php';
+            if ($method === 'POST') {
+                VideoPurchaseController::initiatePurchase();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/videos/verify-purchase':
+            require_once __DIR__ . '/../controllers/VideoPurchaseController.php';
+            if ($method === 'POST') {
+                VideoPurchaseController::verifyPurchase();
+            } else {
+                Response::methodNotAllowed();
+            }
             break;
 
         case (preg_match('/^\/videos/', $path) ? true : false):
@@ -205,6 +228,8 @@ try {
         case '/users':
         case '/users/login':
         case '/users/register':
+        case '/users/forgot-password':
+        case '/users/reset-password':
             require_once __DIR__ . '/../controllers/UserController.php';
             $controller = new UserController();
             handleUserRoutes($controller, $method, $path);
@@ -453,6 +478,15 @@ try {
             require_once '../controllers/DonationController.php';
             if ($method === 'POST') {
                 DonationController::reportManualTransfer();
+            } else {
+                Response::methodNotAllowed();
+            }
+            break;
+
+        case '/donations/approve':
+            require_once '../controllers/DonationController.php';
+            if ($method === 'POST') {
+                DonationController::approveDonation();
             } else {
                 Response::methodNotAllowed();
             }
@@ -1420,10 +1454,16 @@ function handleUserRoutes($controller, $method, $path = '')
 
             // Infer action from path if not provided
             if (!isset($data['action'])) {
-                if (strpos($path, '/login') !== false) {
+                if (strpos($path, '/google-login') !== false) {
+                    $data['action'] = 'google_login';
+                } elseif (strpos($path, '/login') !== false) {
                     $data['action'] = 'login';
                 } elseif (strpos($path, '/register') !== false || $path === '/users') {
                     $data['action'] = 'register';
+                } elseif (strpos($path, '/forgot-password') !== false) {
+                    $data['action'] = 'forgot_password';
+                } elseif (strpos($path, '/reset-password') !== false) {
+                    $data['action'] = 'reset_password';
                 }
             }
 
@@ -1431,6 +1471,9 @@ function handleUserRoutes($controller, $method, $path = '')
                 switch ($data['action']) {
                     case 'login':
                         $controller->login($data);
+                        break;
+                    case 'google_login':
+                        $controller->googleLogin($data);
                         break;
                     case 'register':
                         $controller->register($data);
@@ -1597,7 +1640,7 @@ function handleCommentRoutes($controller, $method, $path)
                 $controller->getByVideo($videoId);
                 break;
             case 'POST':
-                $controller->create();
+                $controller->create($videoId);
                 break;
             default:
                 Response::methodNotAllowed();
@@ -1614,7 +1657,7 @@ function handleCommentRoutes($controller, $method, $path)
                 $controller->getByLivestream($livestreamId);
                 break;
             case 'POST':
-                $controller->create();
+                $controller->create(null, $livestreamId);
                 break;
             default:
                 Response::methodNotAllowed();
@@ -1818,6 +1861,15 @@ function handlePrayerRequestRoutes($controller, $method, $path)
     if ($path === '/prayer-requests') {
         if ($method === 'POST') {
             $controller->submit();
+        } else {
+            Response::methodNotAllowed();
+        }
+        return;
+    }
+
+    if ($path === '/prayer-requests/my') {
+        if ($method === 'GET') {
+            $controller->userRequests();
         } else {
             Response::methodNotAllowed();
         }

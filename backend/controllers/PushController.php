@@ -23,7 +23,10 @@ class PushController {
 
         $data = json_decode(file_get_contents('php://input'), true);
 
-        if (!$data || !isset($data['endpoint']) || !isset($data['keys'])) {
+        // Debug Log
+        error_log("Push Subscription Attempt: User ID $userId, Data: " . json_encode($data));
+
+        if (!$data || !isset($data['endpoint'])) {
             Response::badRequest('Invalid subscription data');
             return;
         }

@@ -14,16 +14,17 @@ class VideoController {
             $sort = $_GET['sort'] ?? 'featured';
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
             
-            // Get current user role
+            // Get current user data
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
+            $userId = $user['user_id'] ?? $user['id'] ?? null;
             
             if ($sort === 'recent') {
                 // Get videos ordered by creation date (most recent first)
-                $videos = Video::getRecentVideos($limit, $userRole);
+                $videos = Video::getRecentVideos($limit, $userRole, $userId);
             } else {
                 // Default to featured videos
-                $videos = Video::getFeaturedVideos($limit, $userRole);
+                $videos = Video::getFeaturedVideos($limit, $userRole, $userId);
             }
 
             Response::success($videos);
@@ -37,8 +38,9 @@ class VideoController {
         try {
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
+            $userId = $user['user_id'] ?? $user['id'] ?? null;
             
-            $video = Video::getById($id);
+            $video = Video::getById($id, $userId);
 
             if (!$video) {
                 Response::notFound('Video not found');
@@ -56,6 +58,13 @@ class VideoController {
             // Increment view count
             Video::incrementViews($id);
 
+            // Add purchase status
+            $video['has_access'] = true;
+            if ($video['is_premium']) {
+                $userId = $user['user_id'] ?? $user['id'] ?? null;
+                $video['has_access'] = Video::hasUserPurchased($id, $userId);
+            }
+
             Response::success($video);
         } catch (Exception $e) {
             error_log("VideoController show error: " . $e->getMessage());
@@ -67,8 +76,9 @@ class VideoController {
         try {
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
+            $userId = $user['user_id'] ?? $user['id'] ?? null;
             
-            $videos = Video::getByCategory($categoryId, 50, $userRole);
+            $videos = Video::getByCategory($categoryId, 50, $userRole, $userId);
             Response::success($videos);
         } catch (Exception $e) {
             error_log("VideoController getByCategory error: " . $e->getMessage());
@@ -84,8 +94,9 @@ class VideoController {
 
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
+            $userId = $user['user_id'] ?? $user['id'] ?? null;
             
-            $videos = Video::search($query, 20, $userRole);
+            $videos = Video::search($query, 20, $userRole, $userId);
             Response::success($videos);
         } catch (Exception $e) {
             error_log("VideoController search error: " . $e->getMessage());
@@ -152,11 +163,13 @@ class VideoController {
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
             
             // Get current user role
+            // Get current user context
             $user = Auth::getCurrentUser();
             $userRole = $user['role'] ?? 'general';
+            $userId = $user['user_id'] ?? $user['id'] ?? null;
             
             // General users shouldn't even know this exists or will get empty list
-            $videos = Video::getExclusiveContent($limit, $userRole);
+            $videos = Video::getExclusiveContent($limit, $userRole, $userId);
 
             Response::success($videos);
         } catch (Exception $e) {

@@ -72,7 +72,8 @@ class CommentController {
     /**
      * Create a new comment
      */
-    public function create() {
+    public function create($videoId = null, $livestreamId = null) {
+        error_log("Entering CommentController::create. videoId: ".($videoId??"null")." livestreamId: ".($livestreamId??"null"));
         try {
             // Require authentication
             require_once __DIR__ . '/../utils/Auth.php';
@@ -80,20 +81,23 @@ class CommentController {
             $user = Auth::getUserFromToken();
 
             if (!$user) {
+                error_log("Unauthorized access attempt to CommentController::create");
                 Response::unauthorized();
                 return;
             }
+            
+            error_log("Comment authenticated for user: " . $user['user_id']);
 
             // Get JSON input
-            $input = json_decode(file_get_contents('php://input'), true);
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+            error_log("Comment input: " . json_encode($input));
 
-            if (!$input) {
-                Response::badRequest('Invalid JSON data');
-                return;
-            }
+            // Use IDs from arguments if provided, otherwise from JSON input
+            $videoId = $videoId ?: ($input['video_id'] ?? null);
+            $livestreamId = $livestreamId ?: ($input['livestream_id'] ?? null);
 
             // Validate required fields
-            if (empty($input['content']) || (empty($input['video_id']) && empty($input['livestream_id']))) {
+            if (empty($input['content']) || (empty($videoId) && empty($livestreamId))) {
                 Response::badRequest('Video ID or Livestream ID, and content are required');
                 return;
             }
@@ -126,8 +130,8 @@ class CommentController {
 
             // Create comment data
             $commentData = [
-                'video_id' => !empty($input['video_id']) ? (int)$input['video_id'] : null,
-                'livestream_id' => !empty($input['livestream_id']) ? (int)$input['livestream_id'] : null,
+                'video_id' => $videoId ? (int)$videoId : null,
+                'livestream_id' => $livestreamId ? (int)$livestreamId : null,
                 'user_id' => $user['user_id'],
                 'content' => trim($input['content']),
                 'parent_id' => isset($input['parent_id']) ? (int)$input['parent_id'] : null,
@@ -154,12 +158,14 @@ class CommentController {
             $commentId = Comment::create($commentData);
 
             if ($commentId) {
-                // Update video comment count if it's a video
+                // Update video comment count if applicable
                 if ($commentData['video_id']) {
+                    error_log("Updating video comment count for video: " . $commentData['video_id']);
                     $this->updateVideoCommentCount($commentData['video_id']);
                 }
 
                 $comment = Comment::find($commentId);
+                error_log("Comment successfully created: ID " . $commentId);
                 Response::success($comment, 'Comment posted successfully', 201);
             } else {
                 Response::error('Failed to create comment', 500);
@@ -388,7 +394,7 @@ class CommentController {
     private function updateVideoCommentCount($videoId) {
         try {
             $count = Comment::getCount($videoId);
-            Video::update($videoId, ['comment_count' => $count]);
+            Video::updateCommentCount($videoId, $count);
         } catch (Exception $e) {
             error_log("Failed to update video comment count: " . $e->getMessage());
         }

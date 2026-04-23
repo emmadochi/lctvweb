@@ -7,8 +7,8 @@
     'use strict';
 
     angular.module('ChurchTVApp')
-        .controller('VideoController', ['$scope', '$routeParams', '$location', '$timeout', 'VideoService', 'UserService', 'AuthService', 'CommentService', 'ReactionService',
-            function($scope, $routeParams, $location, $timeout, VideoService, UserService, AuthService, CommentService, ReactionService) {
+        .controller('VideoController', ['$scope', '$routeParams', '$location', '$timeout', 'VideoService', 'UserService', 'AuthService', 'CommentService', 'ReactionService', 'DonationService',
+            function($scope, $routeParams, $location, $timeout, VideoService, UserService, AuthService, CommentService, ReactionService, DonationService) {
 
             var vm = this;
 
@@ -74,6 +74,13 @@
 
                     // Add to watch history
                     UserService.addToWatchHistory(videoId, video);
+
+                    // Check if video is premium and user has access
+                    if (video.is_premium && !video.has_access) {
+                        vm.showPaywall = true;
+                        vm.isLoading = false;
+                        return; // Don't initialize player
+                    }
 
                     // Initialize YouTube player after a short delay
                     $timeout(function() {
@@ -381,6 +388,79 @@
              */
             vm.playVideo = function(videoId) {
                 $location.path('/video/' + videoId);
+            };
+
+            /**
+             * Purchase premium video
+             */
+            vm.purchaseVideo = function() {
+                if (!AuthService.isAuthenticated()) {
+                    $scope.$root.showToast('Please sign in to purchase this video', 'info');
+                    $location.path('/login');
+                    return;
+                }
+
+                vm.isPurchasing = true;
+
+                // 1. Get Paystack key from DonationService
+                DonationService.getPaymentSettings().then(function(settings) {
+                    var paystackKey = DonationService.paystackPublicKey;
+                    
+                    if (!paystackKey) {
+                        $scope.$root.showError('Payment gateway not configured');
+                        vm.isPurchasing = false;
+                        return;
+                    }
+
+                    // 2. Initiate purchase on backend
+                    VideoService.initiatePurchase(vm.video.id).then(function(data) {
+                        // 3. Open Paystack
+                        var handler = PaystackPop.setup({
+                            key: paystackKey,
+                            email: AuthService.currentUser().email,
+                            amount: vm.video.price * 100, // kobo
+                            currency: 'NGN', 
+                            ref: data.reference,
+                            callback: function(response) {
+                                vm.verifyPurchase(response.reference);
+                            },
+                            onClose: function() {
+                                vm.isPurchasing = false;
+                                $scope.$root.$apply();
+                            }
+                        });
+                        handler.openIframe();
+                    }).catch(function(error) {
+                        $scope.$root.showError(error.message || 'Failed to initiate purchase');
+                        vm.isPurchasing = false;
+                    });
+                });
+            };
+
+            /**
+             * Verify purchase on backend
+             */
+            vm.verifyPurchase = function(reference) {
+                vm.isVerifying = true;
+                VideoService.verifyPurchase(reference).then(function(response) {
+                    if (response.status === 'completed') {
+                        $scope.$root.showToast('Purchase successful! You now have access.', 'success');
+                        vm.video.has_access = true;
+                        vm.showPaywall = false;
+                        
+                        // Initialize player
+                        $timeout(function() {
+                            initializeYouTubePlayer(vm.video.youtube_id);
+                        }, 500);
+                    } else {
+                        $scope.$root.showError('Payment verification failed. Please contact support.');
+                    }
+                }).catch(function(error) {
+                    $scope.$root.showError('Error verifying payment');
+                }).finally(function() {
+                    vm.isPurchasing = false;
+                    vm.isVerifying = false;
+                });
             };
 
             /**

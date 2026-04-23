@@ -198,6 +198,7 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
 
     audioHandler.onPlayCallback = () async => _youtubeController?.play();
     audioHandler.onPauseCallback = () async => _youtubeController?.pause();
+    audioHandler.onStopCallback = () async => _youtubeController?.pause();
     
     _youtubeController!.addListener(() {
       if (!mounted) return;
@@ -217,6 +218,7 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
     context.read<LivestreamProvider>().stopHeartbeat();
     _youtubeController?.dispose();
     _hlsController?.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -224,6 +226,21 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
   Widget build(BuildContext context) {
     final provider = context.watch<LivestreamProvider>();
     final stream = provider.featuredStream;
+
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (isLandscape && !LivestreamScreen.isPipMode.value) {
+       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+       return Scaffold(
+         backgroundColor: Colors.black,
+         body: Center(
+           child: _buildPlayer(stream),
+         ),
+       );
+    } else {
+       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
 
     return PipWidget(
       onPipEntered: _onPipEntered,

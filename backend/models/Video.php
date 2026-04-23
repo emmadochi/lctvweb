@@ -31,7 +31,7 @@ class Video {
     /**
      * Get featured videos for homepage
      */
-    public static function getFeaturedVideos($limit = 12, $userRole = 'general') {
+    public static function getFeaturedVideos($limit = 12, $userRole = 'general', $userId = null) {
         $conn = getDBConnection();
         $allowedRoles = self::getAllowedRoles($userRole);
         $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
@@ -53,7 +53,7 @@ class Video {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = self::formatVideoData($row);
+            $videos[] = self::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -62,7 +62,7 @@ class Video {
     /**
      * Get recent videos ordered by creation date
      */
-    public static function getRecentVideos($limit = 12, $userRole = 'general') {
+    public static function getRecentVideos($limit = 12, $userRole = 'general', $userId = null) {
         $conn = getDBConnection();
         $allowedRoles = self::getAllowedRoles($userRole);
         $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
@@ -85,7 +85,7 @@ class Video {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = self::formatVideoData($row);
+            $videos[] = self::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -94,7 +94,7 @@ class Video {
     /**
      * Get videos by category
      */
-    public static function getByCategory($categoryId, $limit = null, $userRole = 'general') {
+    public static function getByCategory($categoryId, $limit = null, $userRole = 'general', $userId = null) {
         $conn = getDBConnection();
         $allowedRoles = self::getAllowedRoles($userRole);
         $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
@@ -124,7 +124,7 @@ class Video {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = self::formatVideoData($row);
+            $videos[] = self::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -133,7 +133,7 @@ class Video {
     /**
      * Get video by ID
      */
-    public static function getById($id) {
+    public static function getById($id, $userId = null) {
         $conn = getDBConnection();
 
         $stmt = $conn->prepare("SELECT v.*, c.name as category_name, c.slug as category_slug
@@ -146,13 +146,13 @@ class Video {
         $result = $stmt->get_result();
         $video = $result->fetch_assoc();
 
-        return $video ? self::formatVideoData($video) : null;
+        return $video ? self::formatVideoData($video, $userId) : null;
     }
 
     /**
      * Get video by YouTube ID
      */
-    public static function getByYouTubeId($youtubeId) {
+    public static function getByYouTubeId($youtubeId, $userId = null) {
         $conn = getDBConnection();
 
         $stmt = $conn->prepare("SELECT v.*, c.name as category_name, c.slug as category_slug
@@ -165,13 +165,13 @@ class Video {
         $result = $stmt->get_result();
         $video = $result->fetch_assoc();
 
-        return $video ? self::formatVideoData($video) : null;
+        return $video ? self::formatVideoData($video, $userId) : null;
     }
 
     /**
      * Search videos
      */
-    public static function search($query, $limit = 20, $userRole = 'general') {
+    public static function search($query, $limit = 20, $userRole = 'general', $userId = null) {
         $conn = getDBConnection();
         $allowedRoles = self::getAllowedRoles($userRole);
         $placeholders = str_repeat('?,', count($allowedRoles) - 1) . '?';
@@ -197,7 +197,7 @@ class Video {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = self::formatVideoData($row);
+            $videos[] = self::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -221,9 +221,14 @@ class Video {
         $conn = getDBConnection();
 
         $stmt = $conn->prepare("INSERT INTO videos
-                               (youtube_id, title, description, thumbnail_url, duration, category_id, tags, channel_title, channel_id, published_at, target_role)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssisssss",
+                               (youtube_id, title, description, thumbnail_url, duration, category_id, tags, channel_title, channel_id, published_at, target_role, is_premium, price)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $isPremium = isset($data['is_premium']) ? (int)$data['is_premium'] : 0;
+        $price = isset($data['price']) ? (float)$data['price'] : 0.00;
+
+        $targetRole = $data['target_role'] ?? 'general';
+        $stmt->bind_param("sssssisssssid",
             $data['youtube_id'],
             $data['title'],
             $data['description'],
@@ -234,7 +239,9 @@ class Video {
             $data['channel_title'],
             $data['channel_id'],
             $data['published_at'],
-            $data['target_role'] ?? 'general'
+            $targetRole,
+            $isPremium,
+            $price
         );
 
         if ($stmt->execute()) {
@@ -252,9 +259,15 @@ class Video {
 
         $stmt = $conn->prepare("UPDATE videos SET
                                title = ?, description = ?, thumbnail_url = ?, duration = ?,
-                               category_id = ?, tags = ?, channel_title = ?, channel_id = ?, published_at = ?, target_role = ?
+                               category_id = ?, tags = ?, channel_title = ?, channel_id = ?, published_at = ?, target_role = ?,
+                               is_premium = ?, price = ?
                                WHERE id = ?");
-        $stmt->bind_param("sssississsi",
+        
+        $isPremium = isset($data['is_premium']) ? (int)$data['is_premium'] : 0;
+        $price = isset($data['price']) ? (float)$data['price'] : 0.00;
+
+        $targetRole = $data['target_role'] ?? 'general';
+        $stmt->bind_param("sssississsidi",
             $data['title'],
             $data['description'],
             $data['thumbnail_url'],
@@ -264,7 +277,9 @@ class Video {
             $data['channel_title'],
             $data['channel_id'],
             $data['published_at'],
-            $data['target_role'] ?? 'general',
+            $targetRole,
+            $isPremium,
+            $price,
             $id
         );
 
@@ -304,6 +319,26 @@ class Video {
         $stmt = $conn->prepare("UPDATE videos SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?");
         $stmt->bind_param("i", $id);
 
+        return $stmt->execute();
+    }
+
+    /**
+     * Update video comment count
+     */
+    public static function updateCommentCount($id, $count) {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("UPDATE videos SET comment_count = ? WHERE id = ?");
+        $stmt->bind_param("ii", $count, $id);
+        return $stmt->execute();
+    }
+
+    /**
+     * Update video reaction count
+     */
+    public static function updateReactionCount($id, $count) {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("UPDATE videos SET reaction_count = ? WHERE id = ?");
+        $stmt->bind_param("ii", $count, $id);
         return $stmt->execute();
     }
 
@@ -418,9 +453,20 @@ class Video {
     /**
      * Format video data for API response
      */
-    public static function formatVideoData($video) {
+    /**
+     * Format video data for API response
+     */
+    public static function formatVideoData($video, $userId = null) {
+        $videoId = (int)$video['id'];
+        $isPremium = (bool)($video['is_premium'] ?? false);
+        $hasAccess = true;
+
+        if ($isPremium) {
+            $hasAccess = self::hasUserPurchased($videoId, $userId);
+        }
+
         return [
-            'id' => (int)$video['id'],
+            'id' => $videoId,
             'youtube_id' => $video['youtube_id'],
             'title' => $video['title'],
             'description' => $video['description'],
@@ -432,20 +478,25 @@ class Video {
                 'slug' => $video['category_slug'] ?? 'uncategorized'
             ],
             'tags' => json_decode($video['tags'] ?: '[]', true),
-            'channel_title' => $video['channel_title'],
+            'channel_title' => $video['channel_title'] ?? 'LCTV',
             'channel_id' => $video['channel_id'],
-            'view_count' => (int)$video['view_count'],
-            'like_count' => (int)$video['like_count'],
+            'view_count' => (int)($video['view_count'] ?? 0),
+            'like_count' => (int)($video['like_count'] ?? 0),
+            'comment_count' => (int)($video['comment_count'] ?? 0),
+            'reaction_count' => (int)($video['reaction_count'] ?? 0),
             'published_at' => $video['published_at'],
             'created_at' => $video['created_at'],
-            'target_role' => $video['target_role'] ?? 'general'
+            'target_role' => $video['target_role'] ?? 'general',
+            'is_premium' => $isPremium,
+            'price' => (float)($video['price'] ?? 0.00),
+            'has_access' => $hasAccess
         ];
     }
 
     /**
      * Get exclusive leadership content (anything not targeted at 'general')
      */
-    public static function getExclusiveContent($limit = 24, $userRole = 'general') {
+    public static function getExclusiveContent($limit = 24, $userRole = 'general', $userId = null) {
         $conn = getDBConnection();
         $allowedRoles = self::getAllowedRoles($userRole);
         
@@ -477,7 +528,7 @@ class Video {
         $result = $stmt->get_result();
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = self::formatVideoData($row);
+            $videos[] = self::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -566,7 +617,7 @@ class Video {
     /**
      * Get videos with language filtering
      */
-    public static function getByLanguage($languageCode, $limit = 20, $offset = 0) {
+    public static function getByLanguage($languageCode, $limit = 20, $offset = 0, $userId = null) {
         $conn = getDBConnection();
 
         // Get videos that have translations in the requested language
@@ -588,7 +639,7 @@ class Video {
         $videos = [];
 
         while ($row = $result->fetch_assoc()) {
-            $videos[] = self::formatVideoData($row);
+            $videos[] = self::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -672,6 +723,21 @@ class Video {
         $stmt->bind_param($types, ...$params);
 
         return $stmt->execute();
+    }
+
+    /**
+     * Check if a user has purchased a video
+     */
+    public static function hasUserPurchased($videoId, $userId) {
+        if (!$userId) return false;
+        
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT id FROM video_purchases WHERE video_id = ? AND user_id = ? AND payment_status = 'completed'");
+        $stmt->bind_param("ii", $videoId, $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->num_rows > 0;
     }
 }
 ?>

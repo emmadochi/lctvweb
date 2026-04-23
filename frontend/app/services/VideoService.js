@@ -350,6 +350,34 @@
             };
 
             /**
+             * Initiate a video purchase
+             */
+            service.initiatePurchase = function(videoId) {
+                return $http.post(API_BASE + '/videos/purchase', {
+                    video_id: videoId
+                }).then(function(response) {
+                    return unwrap(response);
+                }).catch(function(error) {
+                    console.error('Error initiating purchase:', error);
+                    throw error;
+                });
+            };
+
+            /**
+             * Verify a video purchase
+             */
+            service.verifyPurchase = function(reference) {
+                return $http.post(API_BASE + '/videos/verify-purchase', {
+                    reference: reference
+                }).then(function(response) {
+                    return unwrap(response);
+                }).catch(function(error) {
+                    console.error('Error verifying purchase:', error);
+                    throw error;
+                });
+            };
+
+            /**
              * Clear cache (useful for development)
              */
             service.clearCache = function() {

@@ -305,6 +305,17 @@
                                     <label>Additional Notes</label>
                                     <textarea class="form-control" ng-model="vm.donation.notes" placeholder="Any specific instructions?"></textarea>
                                 </div>
+                                <div class="form-group mt-3">
+                                    <label>Upload Proof of Payment (Optional)</label>
+                                    <div class="custom-file-upload p-3 border rounded dashed text-center">
+                                        <i class="fa fa-cloud-upload fa-2x text-primary mb-2"></i>
+                                        <input type="file" class="file-input-hidden" onchange="angular.element(this).scope().vm.onFileSelect(this)">
+                                        <p class="mb-0 text-muted" ng-if="!vm.receiptFile">Tap to select receipt image/PDF</p>
+                                        <p class="mb-0 text-success font-weight-bold" ng-if="vm.receiptFile">
+                                            <i class="fa fa-check-circle"></i> {{vm.receiptFile.name}}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -338,6 +349,17 @@
                                 <div class="form-group">
                                     <label>Hash / Transaction ID</label>
                                     <input type="text" class="form-control" ng-model="vm.donation.transaction_id" placeholder="Paste transaction hash">
+                                </div>
+                                <div class="form-group mt-3">
+                                    <label>Upload Screenshot of Success (Optional)</label>
+                                    <div class="custom-file-upload p-3 border rounded dashed text-center">
+                                        <i class="fa fa-cloud-upload fa-2x text-primary mb-2"></i>
+                                        <input type="file" class="file-input-hidden" onchange="angular.element(this).scope().vm.onFileSelect(this)">
+                                        <p class="mb-0 text-muted" ng-if="!vm.receiptFile">Tap to select screenshot</p>
+                                        <p class="mb-0 text-success font-weight-bold" ng-if="vm.receiptFile">
+                                            <i class="fa fa-check-circle"></i> {{vm.receiptFile.name}}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -442,3 +464,28 @@
         </div>
     </div>
 </div>
+
+<style>
+.dashed {
+    border-style: dashed !important;
+}
+.custom-file-upload {
+    position: relative;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.3s ease;
+}
+.custom-file-upload:hover {
+    background: rgba(106, 13, 173, 0.05);
+    border-color: #6a0dad !important;
+}
+.file-input-hidden {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+</style>

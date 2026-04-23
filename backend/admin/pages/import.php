@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $importType = $_POST['import_type'];
         $categoryId = (int)$_POST['category_id'];
         $targetRole = $_POST['target_role'] ?? 'general';
+        $isPremium = isset($_POST['is_premium']) ? 1 : 0;
+        $price = (float)($_POST['price'] ?? 0.00);
 
         switch ($importType) {
             case 'url':
@@ -25,16 +27,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Invalid URL format');
                 }
 
-                $count = $ingestion->importByUrl($videoUrl, $categoryId, $targetRole);
-                $message = $count > 0 ? "Successfully imported video from URL" : "Failed to import video from URL";
-                $messageType = $count > 0 ? 'success' : 'error';
+                $importResult = $ingestion->importByUrl($videoUrl, $categoryId, $targetRole, $isPremium, $price);
+                $success = is_array($importResult) || $importResult > 0;
+                $message = $success ? "Successfully imported video from URL" : "Failed to import video from URL";
+                $messageType = $success ? 'success' : 'error';
                 
-                if ($count > 0) {
+                if ($success) {
                     try {
-                        NotificationService::broadcastNewVideo([
+                        $videoData = is_array($importResult) ? $importResult : [
                             'title' => 'New video in your categories', 
                             'target_role' => $targetRole
-                        ]);
+                        ];
+                        NotificationService::broadcastNewVideo($videoData);
                     } catch (\Throwable $e) {}
                 }
                 break;
@@ -47,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Keyword is required');
                 }
 
-                $count = $ingestion->importByKeyword($keyword, $categoryId, $limit, $targetRole);
+                $count = $ingestion->importByKeyword($keyword, $categoryId, $limit, $targetRole, $isPremium, $price);
                 $message = "Successfully imported $count videos for keyword: '$keyword'";
                 $messageType = 'success';
                 
@@ -69,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Playlist ID is required');
                 }
 
-                $count = $ingestion->importFromPlaylist($playlistId, $categoryId, $limit, $targetRole);
+                $count = $ingestion->importFromPlaylist($playlistId, $categoryId, $limit, $targetRole, $isPremium, $price);
                 $message = "Successfully imported $count videos from playlist";
                 $messageType = 'success';
                 
@@ -91,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Channel ID is required');
                 }
 
-                $count = $ingestion->importFromChannel($channelId, $categoryId, $limit, $targetRole);
+                $count = $ingestion->importFromChannel($channelId, $categoryId, $limit, $targetRole, $isPremium, $price);
                 $message = "Successfully imported $count videos from channel";
                 $messageType = 'success';
                 break;
@@ -364,6 +368,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
 
+                <div class="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div class="flex items-center mt-6">
+                        <input type="checkbox" id="url_premium" name="is_premium" class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                        <label for="url_premium" class="ml-2 block text-sm text-gray-900 font-medium">Premium Content</label>
+                    </div>
+                    <div>
+                        <label for="url_price" class="block text-sm font-medium text-gray-700">Price (USD)</label>
+                        <input type="number" step="0.01" id="url_price" name="price" value="0.00" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+
                 <button
                     type="submit"
                     class="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
@@ -431,6 +446,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         value="20"
                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                     >
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 border-t pt-2">
+                    <div class="flex items-center mt-6">
+                        <input type="checkbox" id="keyword_premium" name="is_premium" class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                        <label for="keyword_premium" class="ml-2 block text-sm text-gray-900 font-medium">Premium</label>
+                    </div>
+                    <div>
+                        <label for="keyword_price" class="block text-sm font-medium text-gray-700">Price</label>
+                        <input type="number" step="0.01" id="keyword_price" name="price" value="0.00" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                    </div>
                 </div>
 
                 <button
@@ -503,6 +529,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     >
                 </div>
 
+                <div class="grid grid-cols-2 gap-4 border-t pt-2">
+                    <div class="flex items-center mt-6">
+                        <input type="checkbox" id="playlist_premium" name="is_premium" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="playlist_premium" class="ml-2 block text-sm text-gray-900 font-medium">Premium</label>
+                    </div>
+                    <div>
+                        <label for="playlist_price" class="block text-sm font-medium text-gray-700">Price</label>
+                        <input type="number" step="0.01" id="playlist_price" name="price" value="0.00" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
                 <button
                     type="submit"
                     class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
@@ -571,6 +608,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         value="20"
                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                     >
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 border-t pt-2">
+                    <div class="flex items-center mt-6">
+                        <input type="checkbox" id="channel_premium" name="is_premium" class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                        <label for="channel_premium" class="ml-2 block text-sm text-gray-900 font-medium">Premium</label>
+                    </div>
+                    <div>
+                        <label for="channel_price" class="block text-sm font-medium text-gray-700">Price</label>
+                        <input type="number" step="0.01" id="channel_price" name="price" value="0.00" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    </div>
                 </div>
 
                 <button

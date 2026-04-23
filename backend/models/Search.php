@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/Video.php';
 
 class Search {
     private static $searchHistoryTable = 'search_history';
@@ -55,7 +56,7 @@ class Search {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = $row;
+            $videos[] = Video::formatVideoData($row, $userId);
         }
 
         // Get total count for pagination
@@ -480,7 +481,7 @@ class Search {
 
         $recommendations = [];
         while ($row = $result->fetch_assoc()) {
-            $recommendations[] = $row;
+            $recommendations[] = Video::formatVideoData($row, $userId);
         }
 
         return $recommendations;
@@ -518,7 +519,7 @@ class Search {
 
         $recommendations = [];
         while ($row = $result->fetch_assoc()) {
-            $recommendations[] = $row;
+            $recommendations[] = Video::formatVideoData($row, $userId);
         }
 
         return $recommendations;
@@ -549,7 +550,7 @@ class Search {
 
         $recommendations = [];
         while ($row = $result->fetch_assoc()) {
-            $recommendations[] = $row;
+            $recommendations[] = Video::formatVideoData($row, $userId);
         }
 
         return $recommendations;
@@ -655,7 +656,7 @@ class Search {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = $row;
+            $videos[] = Video::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -700,7 +701,7 @@ class Search {
 
         $videos = [];
         while ($row = $result2->fetch_assoc()) {
-            $videos[] = $row;
+            $videos[] = Video::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -726,7 +727,7 @@ class Search {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = $row;
+            $videos[] = Video::formatVideoData($row, $userId);
         }
 
         return $videos;
@@ -754,7 +755,7 @@ class Search {
 
         $videos = [];
         while ($row = $result->fetch_assoc()) {
-            $videos[] = $row;
+            $videos[] = Video::formatVideoData($row, null);
         }
 
         return $videos;

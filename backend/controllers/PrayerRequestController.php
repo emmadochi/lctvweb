@@ -17,25 +17,77 @@ class PrayerRequestController {
      * POST /prayer-requests
      */
     public function submit() {
-        $data = json_decode(file_get_contents('php://input'), true);
+        // Support both JSON and Multipart (for file uploads)
+        $data = [];
+        $contentType = $_SERVER["CONTENT_TYPE"] ?? '';
         
-        if (!$data || !isset($data['full_name']) || !isset($data['email']) || !isset($data['request_text'])) {
-            return Response::error('Missing required fields: full_name, email, request_text', 400);
+        if (strpos($contentType, 'application/json') !== false) {
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput, true);
+        } else {
+            $data = $_POST;
         }
+        
+        if (!$data || !isset($data['full_name']) || !isset($data['email']) || !isset($data['city']) || !isset($data['country']) || !isset($data['request_text'])) {
+            return Response::error('Missing required fields: full_name, email, city, country, request_text', 400);
+        }
+
+        // Handle file upload if present
+        $attachmentUrl = null;
+        if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+            // Ensure the path is relative to the backend root correctly
+            $uploadDir = __DIR__ . '/../uploads/prayer_requests/';
+            
+            if (!is_dir($uploadDir)) {
+                if (!mkdir($uploadDir, 0755, true)) {
+                    error_log("PrayerRequestController::submit - Failed to create directory: " . $uploadDir);
+                }
+            }
+
+            $fileTmpPath = $_FILES['attachment']['tmp_name'];
+            $fileName = time() . '_' . preg_replace("/[^a-zA-Z0-9.]/", "_", $_FILES['attachment']['name']);
+            $destPath = $uploadDir . $fileName;
+
+            if (move_uploaded_file($fileTmpPath, $destPath)) {
+                $attachmentUrl = 'uploads/prayer_requests/' . $fileName;
+            } else {
+                error_log("PrayerRequestController::submit - Failed to move uploaded file to: " . $destPath);
+            }
+        } elseif (isset($_FILES['attachment']) && $_FILES['attachment']['error'] !== UPLOAD_ERR_NO_FILE) {
+            error_log("PrayerRequestController::submit - File upload error code: " . $_FILES['attachment']['error']);
+            return Response::error('File upload failed. Error code: ' . $_FILES['attachment']['error'], 400);
+        }
+
+        $data['attachment_url'] = $attachmentUrl;
 
         // Optional: Check if user is logged in to link user_id
         $user = Auth::getCurrentUser();
         if ($user) {
-            $data['user_id'] = $user['id'];
+            $data['user_id'] = $user['user_id'];
         }
 
         $id = PrayerRequest::create($data);
         
         if ($id) {
-            return Response::success(['id' => $id], 'Prayer request submitted successfully');
+            return Response::success(['id' => $id, 'attachment_url' => $attachmentUrl], 'Prayer request submitted successfully');
         } else {
             return Response::error('Failed to submit prayer request');
         }
+    }
+
+    /**
+     * Get prayer requests for current user
+     * GET /prayer-requests/my
+     */
+    public function userRequests() {
+        Auth::requireAuth();
+        $user = Auth::getUserFromToken();
+        
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+        $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
+        
+        $requests = PrayerRequest::getByUser($user['user_id'], $limit, $offset);
+        return Response::success($requests);
     }
 
     /**

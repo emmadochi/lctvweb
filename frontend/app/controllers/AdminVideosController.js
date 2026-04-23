@@ -46,7 +46,9 @@
                 title: '',
                 description: '',
                 category_id: '',
-                tags: ''
+                tags: '',
+                is_premium: false,
+                price: 0
             };
 
             // Initialize controller
@@ -140,7 +142,9 @@
                     title: '',
                     description: '',
                     category_id: '',
-                    tags: ''
+                    tags: '',
+                    is_premium: false,
+                    price: 0
                 };
                 vm.showAddModal = true;
                 $timeout(function() {

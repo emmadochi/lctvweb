@@ -190,21 +190,55 @@ class Comment {
     public static function create($data) {
         $conn = getDBConnection();
 
+        $videoId = !empty($data['video_id']) ? (int)$data['video_id'] : null;
+        $livestreamId = !empty($data['livestream_id']) ? (int)$data['livestream_id'] : null;
+        $userId = (int)$data['user_id'];
+        $content = trim($data['content']);
+        $parentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
+        $isApproved = isset($data['is_approved']) ? (int)$data['is_approved'] : 1; 
+        $createdAt = date('Y-m-d H:i:s');
+
+        // Dynamically build the VALUES array to ensure literal NULLs are passed when variables are null
+        // This prevents mysqli bind_param from casting null integer bindings to 0, which breaks foreign keys.
+        $valuesStr = sprintf(
+            "%s, %s, ?, ?, %s, ?, ?",
+            $videoId ? '?' : 'NULL',
+            $livestreamId ? '?' : 'NULL',
+            $parentId ? '?' : 'NULL'
+        );
+
         $sql = "INSERT INTO " . self::$table . "
                 (video_id, livestream_id, user_id, content, parent_id, is_approved, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+                VALUES ($valuesStr)";
 
         $stmt = $conn->prepare($sql);
 
-        $videoId = $data['video_id'] ?? null;
-        $livestreamId = $data['livestream_id'] ?? null;
-        $userId = $data['user_id'];
-        $content = trim($data['content']);
-        $parentId = $data['parent_id'] ?? null;
-        $isApproved = $data['is_approved'] ?? 1; // Auto-approve for now
-        $createdAt = date('Y-m-d H:i:s');
+        // Build dynamic types and values for bind_param
+        $types = "";
+        $params = [];
+        
+        if ($videoId) { $types .= "i"; $params[] = $videoId; }
+        if ($livestreamId) { $types .= "i"; $params[] = $livestreamId; }
+        
+        $types .= "is"; // userId, content
+        $params[] = $userId;
+        $params[] = $content;
 
-        $stmt->bind_param("iiisiss", $videoId, $livestreamId, $userId, $content, $parentId, $isApproved, $createdAt);
+        if ($parentId) { $types .= "i"; $params[] = $parentId; }
+        
+        $types .= "is"; // isApproved, createdAt
+        $params[] = $isApproved;
+        $params[] = $createdAt;
+
+        // Use reflection or call_user_func_array to bind dynamic params
+        $bindNames = [$types];
+        for ($i = 0; $i < count($params); $i++) {
+            $bindName = 'bind' . $i;
+            $$bindName = $params[$i];
+            $bindNames[] = &$$bindName;
+        }
+        
+        call_user_func_array([$stmt, 'bind_param'], $bindNames);
 
         if ($stmt->execute()) {
             $commentId = $stmt->insert_id;
@@ -213,6 +247,9 @@ class Comment {
             self::createCommentNotification($commentId, $videoId, $livestreamId, $userId);
 
             return $commentId;
+        } else {
+            error_log("Comment INSERT error: " . $stmt->error);
+            error_log("Params: videoId=$videoId, livestreamId=$livestreamId, userId=$userId, parentId=$parentId");
         }
 
         return false;

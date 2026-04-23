@@ -17,7 +17,22 @@
                 <!-- YouTube Player -->
                 <div class="video-player-wrapper">
                     <div id="youtube-player" class="youtube-player"></div>
-                    <div class="player-overlay" ng-if="!vm.player">
+                    <!-- Paywall Overlay -->
+                    <div class="player-overlay paywall-overlay" ng-if="vm.showPaywall">
+                        <div class="paywall-content">
+                            <i class="fa fa-lock fa-4x"></i>
+                            <h3>Premium Content</h3>
+                            <p>This video requires a one-time purchase to access.</p>
+                            <div class="price-tag">{{vm.video.price | currency}}</div>
+                            <button class="btn btn-primary btn-lg btn-purchase" ng-click="vm.purchaseVideo()" ng-disabled="vm.isPurchasing">
+                                <i class="fa" ng-class="vm.isPurchasing ? 'fa-spinner fa-spin' : 'fa-shopping-cart'"></i>
+                                {{vm.isPurchasing ? 'Processing...' : 'Purchase Access'}}
+                            </button>
+                            <p class="paywall-note" ng-if="!$root.currentUser">Please <a href="#/login">sign in</a> to purchase</p>
+                        </div>
+                    </div>
+
+                    <div class="player-overlay" ng-if="!vm.player && !vm.showPaywall">
                         <div class="player-placeholder">
                             <i class="fa fa-play-circle fa-5x"></i>
                             <p>Loading player...</p>
@@ -1199,4 +1214,16 @@
         gap: 8px;
     }
 }
+</style>
+/* Paywall Styles */
+.paywall-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(44, 62, 80, 0.95), rgba(52, 152, 219, 0.9)); display: flex; justify-content: center; align-items: center; color: white; z-index: 20; border-radius: 10px; }
+.paywall-content { text-align: center; padding: 30px; max-width: 400px; }
+.paywall-content i { color: #f1c40f; margin-bottom: 20px; }
+.paywall-content h3 { font-size: 28px; margin-bottom: 10px; color: white; }
+.paywall-content p { font-size: 16px; margin-bottom: 20px; opacity: 0.9; color: white; }
+.price-tag { font-size: 36px; font-weight: 700; margin-bottom: 25px; color: #fff; }
+.btn-purchase { width: 100%; padding: 15px; font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; background-color: #f39c12; border-color: #f39c12; color: white; }
+.btn-purchase:hover { background-color: #e67e22; border-color: #e67e22; color: white; }
+.paywall-note { margin-top: 15px; font-size: 14px !important; color: white; }
+.paywall-note a { color: #f1c40f; text-decoration: underline; }
 </style>

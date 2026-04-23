@@ -7,8 +7,28 @@ if (!defined('ADMIN_ACCESS') && !isset($_SESSION['admin_logged_in'])) {
 
 // Fetch all settings via the model directly for the initial load
 require_once __DIR__ . '/../../models/PaymentSetting.php';
+
+$allGateways = PaymentSetting::getByGroup('gateway');
+$genericGateways = [];
+$paystack = [
+    'public_key' => '',
+    'secret_key' => '',
+    'is_active' => 1
+];
+
+foreach ($allGateways as $g) {
+    if ($g['setting_key'] === 'paystack_public_key') {
+        $paystack['public_key'] = $g['setting_value'];
+        $paystack['is_active'] = $g['is_active'];
+    } elseif ($g['setting_key'] === 'paystack_secret_key') {
+        $paystack['secret_key'] = $g['setting_value'];
+    } else {
+        $genericGateways[] = $g;
+    }
+}
+
 $settings = [
-    'gateway' => PaymentSetting::getByGroup('gateway'),
+    'gateway' => $genericGateways,
     'bank' => PaymentSetting::getByGroup('bank'),
     'crypto' => PaymentSetting::getByGroup('crypto'),
     'general' => PaymentSetting::getByGroup('general')
@@ -30,6 +50,36 @@ $settings = [
             <i class="fas fa-plus mr-2"></i>
             Add New Setting
         </button>
+    </div>
+
+    <!-- Paystack Configuration -->
+    <div class="bg-white shadow sm:rounded-lg mb-8 border border-orange-200">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 border-b border-gray-200 pb-3 flex items-center justify-between">
+                <div><i class="fas fa-layer-group text-orange-500 mr-2"></i> Dedicated Paystack Setup</div>
+                <div class="flex items-center text-sm font-normal text-gray-500">
+                    <input type="checkbox" id="ps_active" <?php echo $paystack['is_active'] ? 'checked' : ''; ?> class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded mr-2">
+                    <label for="ps_active">Active Checkout</label>
+                </div>
+            </h3>
+            <div class="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <label for="ps_public" class="block text-sm font-medium text-gray-700">Public Key</label>
+                    <input type="text" id="ps_public" value="<?php echo htmlspecialchars($paystack['public_key']); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="pk_live_... or pk_test_...">
+                    <p class="mt-1 text-xs text-gray-500">Used on the frontend to initialize the payment modal securely.</p>
+                </div>
+                <div>
+                    <label for="ps_secret" class="block text-sm font-medium text-gray-700">Secret Key</label>
+                    <input type="password" id="ps_secret" value="<?php echo htmlspecialchars($paystack['secret_key']); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="sk_live_... or sk_test_...">
+                    <p class="mt-1 text-xs text-gray-500">Used safely on the backend server to automatically verify transactions.</p>
+                </div>
+            </div>
+            <div class="mt-5 flex justify-end">
+                <button type="button" onclick="savePaystack()" class="inline-flex items-center justify-center px-4 py-2 border border-transparent font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:text-sm">
+                    <i class="fas fa-check mr-2"></i> Save Paystack Keys
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Tabs Navigation -->
@@ -88,7 +138,7 @@ $settings = [
                         <div class="bg-white overflow-hidden shadow rounded-lg border border-gray-200">
                             <div class="px-4 py-5 sm:p-6">
                                 <div class="flex items-center justify-between mb-4">
-                                    <h3 class="text-lg leading-6 font-medium text-gray-900"><?php echo htmlspecialchars($s['setting_key']); ?></h3>
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900 whitespace-pre-line"><?php echo htmlspecialchars($s['setting_key']); ?></h3>
                                     <div class="flex space-x-2">
                                         <button onclick='editSetting(<?php echo json_encode($s); ?>)' class="text-gray-400 hover:text-gray-600"><i class="fas fa-edit"></i></button>
                                         <button onclick="deleteSetting(<?php echo $s['id']; ?>)" class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
@@ -113,7 +163,7 @@ $settings = [
                     <?php foreach ($settings['crypto'] as $s): ?>
                         <div class="bg-white overflow-hidden shadow rounded-lg p-6 border-l-4 border-orange-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-500 uppercase"><?php echo htmlspecialchars($s['setting_key']); ?></span>
+                                <span class="text-sm font-medium text-gray-500 uppercase whitespace-pre-line"><?php echo htmlspecialchars($s['setting_key']); ?></span>
                                 <div class="flex space-x-2">
                                     <button onclick='editSetting(<?php echo json_encode($s); ?>)' class="text-gray-400 hover:text-gray-600"><i class="fas fa-edit"></i></button>
                                     <button onclick="deleteSetting(<?php echo $s['id']; ?>)" class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
@@ -154,11 +204,11 @@ $settings = [
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Key (Identifier)</label>
-                            <input type="text" name="key" id="setting_key" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="e.g., Paystack Secret Key, Bitcoin Wallet">
+                            <textarea name="key" id="setting_key" rows="4" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="e.g., Bank details, wallet info..."></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Value</label>
-                            <textarea name="value" id="setting_value" rows="4" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="Paste key, bank details, or wallet address here"></textarea>
+                            <label class="block text-sm font-medium text-gray-700">Value (Acc No. / Address)</label>
+                            <input type="text" name="value" id="setting_value" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="e.g., Account Number, Crypto Address">
                         </div>
                         <div class="flex items-center">
                             <input type="checkbox" name="is_active" id="setting_is_active" checked class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
@@ -176,6 +226,42 @@ $settings = [
 </div>
 
 <script>
+async function savePaystack() {
+    const pub = document.getElementById('ps_public').value;
+    const sec = document.getElementById('ps_secret').value;
+    const isActive = document.getElementById('ps_active').checked ? 1 : 0;
+
+    if (!pub || !sec) {
+        alert('Please provide both the Public Key and Secret Key for Paystack');
+        return;
+    }
+
+    try {
+        const pubResp = await fetch('../api/index.php/admin/donations/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'paystack_public_key', value: pub, group: 'gateway', is_active: isActive })
+        });
+        const secResp = await fetch('../api/index.php/admin/donations/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'paystack_secret_key', value: sec, group: 'gateway', is_active: isActive, is_encrypted: 1 })
+        });
+        
+        const pubResult = await pubResp.json();
+        const secResult = await secResp.json();
+        
+        if (pubResult.success && secResult.success) {
+            alert('Paystack settings have been saved successfully! Your checkout is ready.');
+            location.reload();
+        } else {
+            alert('Error saving Paystack settings, check your logs');
+        }
+    } catch (e) {
+        alert('Failed to save request to server: ' + e);
+    }
+}
+
 function switchTab(tab) {
     // Hide all sections
     document.querySelectorAll('.settings-section').forEach(el => el.classList.add('hidden'));
@@ -222,7 +308,7 @@ async function saveSetting(e) {
     };
 
     try {
-        const response = await fetch('/LCMTVWebNew/backend/api/index.php/admin/donations/settings', {
+        const response = await fetch('../api/index.php/admin/donations/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -241,7 +327,7 @@ async function saveSetting(e) {
 async function deleteSetting(id) {
     if (!confirm('Are you sure you want to delete this setting?')) return;
     try {
-        const response = await fetch(`/LCMTVWebNew/backend/api/index.php/admin/donations/settings?id=${id}`, {
+        const response = await fetch(`../api/index.php/admin/donations/settings?id=${id}`, {
             method: 'DELETE'
         });
         const result = await response.json();

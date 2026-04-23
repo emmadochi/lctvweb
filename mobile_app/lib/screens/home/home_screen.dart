@@ -252,6 +252,31 @@ class _MainHomeViewState extends State<MainHomeView> {
     final auth = context.watch<AuthProvider>();
     final videos = context.watch<VideoProvider>();
     final notifications = context.watch<NotificationProvider>();
+    final liveProvider = context.watch<LivestreamProvider>();
+
+    final selectedTabName = _tabs[_selectedTab];
+    
+    // Filter videos based on selection
+    List<VideoModel> displayVideos = videos.recentVideos;
+    if (selectedTabName == 'WATCH LIVE') {
+      displayVideos = [];
+    } else if (selectedTabName != 'HOME') {
+      final category = videos.categories.firstWhere(
+        (c) => c.name.toUpperCase() == selectedTabName || 
+               (selectedTabName == 'EVENTS' && c.slug == 'special-events'),
+        orElse: () => CategoryModel(id: -1, name: '', slug: ''),
+      );
+      
+      if (category.id != -1) {
+        displayVideos = videos.recentVideos.where((v) => v.categoryId == category.id).toList();
+      } else {
+        // Fallback: search in tags or title if category ID mapping fails
+        displayVideos = videos.recentVideos.where((v) => 
+          v.title.toUpperCase().contains(selectedTabName) || 
+          v.tags.any((t) => t.toUpperCase() == selectedTabName)
+        ).toList();
+      }
+    }
 
     return SafeArea(
       child: RefreshIndicator(
@@ -368,12 +393,12 @@ class _MainHomeViewState extends State<MainHomeView> {
             const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
             // ── RECENT VIDEOS HEADER ──
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  'RECENT VIDEOS',
-                  style: TextStyle(
+                  selectedTabName == 'HOME' ? 'RECENT VIDEOS' : selectedTabName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -386,19 +411,7 @@ class _MainHomeViewState extends State<MainHomeView> {
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
             // ── VIDEO LIST ──
-            videos.isLoading
-                ? _buildSliverShimmerList()
-                : videos.recentVideos.isEmpty
-                    ? _buildEmptySliver()
-                    : SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final video = videos.recentVideos[index];
-                            return VideoListCard(video: video);
-                          },
-                          childCount: videos.recentVideos.length,
-                        ),
-                      ),
+            _buildVideoList(videos, displayVideos, selectedTabName),
 
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
@@ -544,12 +557,46 @@ class _MainHomeViewState extends State<MainHomeView> {
     );
   }
 
-  Widget _buildEmptySliver() {
-    return const SliverToBoxAdapter(
+  Widget _buildVideoList(VideoProvider provider, List<VideoModel> videos, String selectedTab) {
+    if (provider.isLoading) return _buildSliverShimmerList();
+    
+    if (selectedTab == 'WATCH LIVE') {
+      final liveProvider = context.read<LivestreamProvider>();
+      if (liveProvider.activeStreams.isEmpty) {
+        return _buildEmptySliver(message: 'No live streams currently active');
+      }
+      // If live streams exist, they are already shown in the LiveBanner above.
+      // We can just show a small note or nothing here.
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    if (videos.isEmpty) {
+      return _buildEmptySliver(message: 'No content found in $selectedTab');
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final video = videos[index];
+          return VideoListCard(video: video);
+        },
+        childCount: videos.length,
+      ),
+    );
+  }
+
+  Widget _buildEmptySliver({String message = 'No videos available'}) {
+    return SliverToBoxAdapter(
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Text('No videos available', style: TextStyle(color: Colors.white38)),
+          padding: const EdgeInsets.all(60),
+          child: Column(
+            children: [
+              Icon(Icons.video_library_outlined, size: 48, color: Colors.white.withOpacity(0.1)),
+              const SizedBox(height: 16),
+              Text(message, style: const TextStyle(color: Colors.white38)),
+            ],
+          ),
         ),
       ),
     );

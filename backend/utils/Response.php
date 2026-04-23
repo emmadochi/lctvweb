@@ -13,6 +13,10 @@ class Response {
         if (ob_get_length()) ob_clean();
         
         http_response_code($statusCode);
+        
+        // Log the success for backend verification
+        error_log("API Success ($statusCode). Path: " . ($_SERVER['REQUEST_URI'] ?? 'unknown'));
+        
         echo json_encode([
             'success' => true,
             'message' => $message,
@@ -30,11 +34,16 @@ class Response {
         if (ob_get_length()) ob_clean();
         
         http_response_code($statusCode);
-        echo json_encode([
+        $response = [
             'success' => false,
             'message' => $message,
             'timestamp' => date('c')
-        ]);
+        ];
+        
+        // Log the error for backend debugging
+        error_log("API Error ($statusCode): $message. Path: " . ($_SERVER['REQUEST_URI'] ?? 'unknown'));
+        
+        echo json_encode($response);
         exit();
     }
 

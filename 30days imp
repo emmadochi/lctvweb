@@ -1,0 +1,85 @@
+# Implementation Plan - 30-Day Quick Wins
+
+This plan outlines the technical steps to implement the "Quick Win" features for LCMTV: **Continue Watching**, **Daily Verse**, and **Expanded Notifications**.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Database Changes**: This plan requires creating a new table `daily_verses`. Please ensure database migration permissions are available.
+> **Push Notifications**: Expanded notifications will use existing VAPID keys. Ensure the server environment variables for `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are correctly set.
+
+## Proposed Changes
+
+---
+
+### 1. Continue Watching Feature
+Allow users to resume videos from their last watched position.
+
+#### [MODIFY] [Video.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/models/Video.php)
+- Add `getContinueWatching($userId, $limit = 10)` method.
+- This will query the `video_views` table for the most recent record per video for the given user where `watch_percentage < 90` and `completed = 0`.
+
+#### [MODIFY] [VideoController.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/controllers/VideoController.php)
+- Add `getContinueWatching()` action to handle `GET /api/videos/continue-watching`.
+- Ensure it requires authentication.
+
+#### [MODIFY] [home.html](file:///c:/xampp/htdocs/LCMTVWebNew/frontend/app/views/pages/home.html)
+- Add a new section `Continue Watching` above "Recent Videos" that only appears if the user has incomplete videos.
+
+#### [MODIFY] [HomeController.js](file:///c:/xampp/htdocs/LCMTVWebNew/frontend/app/controllers/HomeController.js)
+- Fetch the "Continue Watching" list on initialization.
+
+---
+
+### 2. Daily Verse Section
+A dedicated section on the homepage showing a curated biblical verse for the day.
+
+#### [NEW] [schema_verses.sql](file:///c:/xampp/htdocs/LCMTVWebNew/backend/config/schema_verses.sql)
+- SQL script to create `daily_verses` table:
+    - `id` (INT, PK, AI)
+    - `verse_text` (TEXT)
+    - `verse_reference` (VARCHAR)
+    - `date_to_show` (DATE, UNIQUE)
+    - `created_at` (TIMESTAMP)
+
+#### [NEW] [Verse.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/models/Verse.php)
+- Methods: `getToday()`, `getByDate($date)`, `create($data)`.
+
+#### [NEW] [VerseController.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/controllers/VerseController.php)
+- Endpoint: `GET /api/verses/today`.
+
+#### [MODIFY] [home.html](file:///c:/xampp/htdocs/LCMTVWebNew/frontend/app/views/pages/home.html)
+- Insert a stylish, full-width "Word of the Day" section between the Hero and the Live sections.
+
+---
+
+### 3. Expanded Notifications
+Automate notifications for key user events.
+
+#### [MODIFY] [Video.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/models/Video.php)
+- Update `create()` method to trigger `Notification::notifyNewVideoInCategory()` automatically upon insertion.
+
+#### [MODIFY] [PrayerRequestController.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/controllers/PrayerRequestController.php)
+- In the admin response/update action, trigger a notification to the user: *"Your prayer request has been answered/responded to."*
+
+#### [MODIFY] [Notification.php](file:///c:/xampp/htdocs/LCMTVWebNew/backend/models/Notification.php)
+- Add `notifyPrayerAnswered($requestId, $userId)` helper method.
+
+---
+
+## Open Questions
+- **Daily Verse Content**: Should the Daily Verse be pulled from an external API (like Bible Gateway) or managed locally via the admin panel? (Plan assumes local management for now).
+- **Notification Frequency**: Should we limit "New Video" notifications to once per day per category, or send for every new upload?
+
+## Verification Plan
+
+### Automated Tests
+- Test API endpoints using Postman or CURL:
+    - `GET /api/videos/continue-watching` (verify user-specific results).
+    - `GET /api/verses/today`.
+- Verify database entry creation for `daily_verses`.
+
+### Manual Verification
+- **Continue Watching**: Play a video for 1 minute, go to home, verify it appears in "Continue Watching" with the correct progress.
+- **Daily Verse**: Change the system date (or DB date) and verify the verse updates.
+- **Notifications**: Respond to a prayer request as admin and verify the user receives a push notification on their device/browser.

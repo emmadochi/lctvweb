@@ -30,7 +30,7 @@ class DonationController {
             $userId = null;
             try {
                 $user = Auth::getUserFromToken();
-                $userId = $user ? $user['id'] : null;
+                $userId = $user ? $user['user_id'] : null;
             } catch (Exception $e) {
                 // User not authenticated - that's okay for donations
             }
@@ -123,7 +123,7 @@ class DonationController {
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
             $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
-            $donations = Donation::getByUser($user['id'], $limit, $offset);
+            $donations = Donation::getByUser($user['user_id'], $limit, $offset);
 
             return Response::success([
                 'donations' => $donations,
@@ -228,13 +228,15 @@ class DonationController {
             $rawInput = file_get_contents('php://input');
             $headers = getallheaders();
 
-            // Identify payment provider
+            // Identify payment provider (case-insensitive header check)
             $provider = null;
-            if (isset($headers['Stripe-Signature'])) {
+            $lowerHeaders = array_change_key_case($headers, CASE_LOWER);
+            
+            if (isset($lowerHeaders['stripe-signature'])) {
                 $provider = 'stripe';
-            } elseif (isset($headers['Paypal-Transmission-Id'])) {
+            } elseif (isset($lowerHeaders['paypal-transmission-id'])) {
                 $provider = 'paypal';
-            } elseif (isset($headers['x-paystack-signature'])) {
+            } elseif (isset($lowerHeaders['x-paystack-signature'])) {
                 $provider = 'paystack';
             }
 
@@ -326,22 +328,36 @@ class DonationController {
         return ['processed' => true, 'event_type' => $event['event_type']];
     }
 
-    /**
-     * Handle Paystack webhook
-     */
     private static function handlePaystackWebhook($payload, $headers) {
         $event = json_decode($payload, true);
         
-        // In a real scenario, you'd verify the signature here using the Paystack Secret Key
-        // $paystackSecret = getenv('PAYSTACK_SECRET_KEY');
+        require_once __DIR__ . '/../models/PaymentSetting.php';
+        $setting = PaymentSetting::getByKey('paystack_secret_key');
+        $paystackSecret = $setting && $setting['setting_value'] ? $setting['setting_value'] : getenv('PAYSTACK_SECRET_KEY');
         
-        if ($event['event'] === 'charge.success') {
+        // Find signature header (case-insensitive)
+        $signature = null;
+        foreach ($headers as $key => $value) {
+            if (strtolower($key) === 'x-paystack-signature') {
+                $signature = $value;
+                break;
+            }
+        }
+
+        // Verify signature
+        if ($paystackSecret && $signature) {
+            if ($signature !== hash_hmac('sha512', $payload, $paystackSecret)) {
+                throw new Exception('Invalid Paystack signature');
+            }
+        }
+        
+        if (isset($event['event']) && $event['event'] === 'charge.success') {
             $data = $event['data'];
             // Update donation status
             Donation::updateStatus(null, 'completed', $data['reference']);
         }
 
-        return ['processed' => true, 'event' => $event['event']];
+        return ['processed' => true, 'event' => $event['event'] ?? 'unknown'];
     }
 
     /**
@@ -366,9 +382,15 @@ class DonationController {
 
             $receiptUrl = null;
             if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/../uploads/receipts/';
+                // Ensure the path is relative to the backend root correctly
+                $baseDir = dirname(__DIR__);
+                $uploadDir = $baseDir . '/uploads/receipts/';
+                
                 if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
+                    if (!mkdir($uploadDir, 0755, true)) {
+                        error_log("DonationController::reportManualTransfer - Failed to create directory: " . $uploadDir);
+                        return Response::error('Server error: Could not create upload directory.', 500);
+                    }
                 }
 
                 $fileTmpPath = $_FILES['receipt']['tmp_name'];
@@ -377,13 +399,19 @@ class DonationController {
 
                 if (move_uploaded_file($fileTmpPath, $destPath)) {
                     $receiptUrl = 'uploads/receipts/' . $fileName;
+                } else {
+                    error_log("DonationController::reportManualTransfer - Failed to move uploaded file to: " . $destPath);
+                    return Response::error('Server error: Failed to save receipt file.', 500);
                 }
+            } elseif (isset($_FILES['receipt']) && $_FILES['receipt']['error'] !== UPLOAD_ERR_NO_FILE) {
+                error_log("DonationController::reportManualTransfer - File upload error code: " . $_FILES['receipt']['error']);
+                return Response::error('File upload failed. Error code: ' . $_FILES['receipt']['error'], 400);
             }
 
             // Prepare donation data as "pending"
             $donationData = [
-                'user_id' => $data['user_id'] ?? null,
-                'donor_name' => $data['donor_name'] ?? 'Manual Donor',
+                'user_id' => !empty($data['user_id']) ? (int)$data['user_id'] : null,
+                'donor_name' => !empty($data['donor_name']) ? $data['donor_name'] : 'Manual Donor',
                 'donor_email' => $data['donor_email'],
                 'amount' => (float)$data['amount'],
                 'currency' => $data['currency'] ?? 'USD',
@@ -403,10 +431,66 @@ class DonationController {
             if ($donationId) {
                 return Response::success(['donation_id' => $donationId], 'Transfer reported successfully. We will verify and update your status soon.');
             } else {
-                return Response::error('Failed to report transfer');
+                error_log("DonationController::reportManualTransfer - Donation::create returned false.");
+                return Response::error('Failed to save donation record to database.', 500);
             }
         } catch (Exception $e) {
-            return Response::error('Error reporting transfer: ' . $e->getMessage());
+            error_log("DonationController::reportManualTransfer - Exception: " . $e->getMessage());
+            return Response::error('Error reporting transfer: ' . $e->getMessage(), 500);
+        }
+    }
+    /**
+     * Approve a pending donation (admin only)
+     */
+    public static function approveDonation() {
+        try {
+            // Require admin authentication
+            Auth::requireAuth();
+            $user = Auth::getUserFromToken();
+
+            if (!$user || ($user['role'] !== 'admin' && $user['role'] !== 'super_admin')) {
+                return Response::forbidden('Admin access required');
+            }
+
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return Response::error('Invalid JSON data', 400);
+            }
+
+            $donationId = $data['donation_id'] ?? null;
+
+            if (!$donationId) {
+                return Response::error('Donation ID is required', 400);
+            }
+
+            // Verify donation exists and is pending
+            $donation = Donation::find($donationId);
+            if (!$donation) {
+                return Response::notFound('Donation not found');
+            }
+
+            if ($donation['transaction_status'] === 'completed') {
+                return Response::error('Donation is already completed', 400);
+            }
+
+            // Update status
+            $success = Donation::updateStatus($donationId, 'completed');
+
+            if ($success) {
+                return Response::success([
+                    'donation_id' => $donationId,
+                    'status' => 'completed',
+                    'message' => 'Donation approved successfully'
+                ]);
+            } else {
+                return Response::error('Failed to approve donation', 500);
+            }
+
+        } catch (Exception $e) {
+            error_log("DonationController::approveDonation - Error: " . $e->getMessage());
+            return Response::error('Failed to approve donation: ' . $e->getMessage(), 500);
         }
     }
     public static function createCampaign() {
@@ -453,7 +537,7 @@ class DonationController {
             $thankYouMessage = $data['thank_you_message'] ?? '';
             $impactDescription = $data['impact_description'] ?? '';
 
-            $stmt->bind_param("sdsssssiissssssi", $title, $description, $goalAmount, $currency, $startDate, $endDate, $campaignType, $isActive, $isFeatured, $imageUrl, $videoUrl, $thankYouMessage, $impactDescription, $user['id']);
+            $stmt->bind_param("sdsssssiissssssi", $title, $description, $goalAmount, $currency, $startDate, $endDate, $campaignType, $isActive, $isFeatured, $imageUrl, $videoUrl, $thankYouMessage, $impactDescription, $user['user_id']);
 
             if ($stmt->execute()) {
                 $campaignId = $conn->insert_id;

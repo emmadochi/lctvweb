@@ -8,16 +8,19 @@ USE lcmtv_db;
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NULL, -- Nullable for social logins
     first_name VARCHAR(100),
     last_name VARCHAR(100),
-    role ENUM('user', 'admin', 'super_admin') DEFAULT 'user',
+    role ENUM('user', 'leader', 'pastor', 'director', 'admin', 'super_admin') DEFAULT 'user',
+    google_id VARCHAR(255) NULL,
+    login_provider VARCHAR(50) DEFAULT 'local',
     is_active BOOLEAN DEFAULT TRUE,
     watch_history TEXT, -- JSON array of video IDs and timestamps
     favorites TEXT, -- JSON array of favorite video IDs
     my_channels TEXT, -- JSON array of channel IDs
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_google (google_id)
 );
 
 -- Categories table
@@ -47,12 +50,21 @@ CREATE TABLE videos (
     channel_id VARCHAR(50),
     view_count BIGINT DEFAULT 0,
     like_count BIGINT DEFAULT 0,
+    comment_count INT DEFAULT 0,
+    reaction_count INT DEFAULT 0,
     published_at DATETIME,
+    target_role VARCHAR(50) DEFAULT 'general',
     is_active BOOLEAN DEFAULT TRUE,
+    is_premium BOOLEAN DEFAULT FALSE,
+    price DECIMAL(10, 2) DEFAULT 0.00,
+    original_language VARCHAR(10) DEFAULT 'en',
+    has_subtitles BOOLEAN DEFAULT FALSE,
+    subtitle_languages TEXT, -- JSON array
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_videos_role (target_role)
 );
 
 -- Livestreams table
@@ -64,9 +76,11 @@ CREATE TABLE livestreams (
     thumbnail_url VARCHAR(500),
     channel_title VARCHAR(255),
     channel_id VARCHAR(50),
+    hls_url VARCHAR(500) NULL,
     viewer_count INT DEFAULT 0,
     category_id INT,
     is_live BOOLEAN DEFAULT TRUE,
+    target_role VARCHAR(50) DEFAULT 'general',
     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -74,7 +88,43 @@ CREATE TABLE livestreams (
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
     INDEX idx_livestreams_live (is_live),
     INDEX idx_livestreams_category (category_id),
-    INDEX idx_livestreams_viewers (viewer_count DESC)
+    INDEX idx_livestreams_role (target_role)
+);
+
+-- Livestream viewers (heartbeat tracking)
+CREATE TABLE IF NOT EXISTS livestream_viewers (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    livestream_id INT NOT NULL,
+    session_id VARCHAR(255) NOT NULL,
+    last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_session (livestream_id, session_id),
+    FOREIGN KEY (livestream_id) REFERENCES livestreams(id) ON DELETE CASCADE
+);
+
+-- Languages table
+CREATE TABLE IF NOT EXISTS languages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    native_name VARCHAR(100),
+    flag_emoji VARCHAR(10),
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Content translations
+CREATE TABLE IF NOT EXISTS content_translations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    language_id INT NOT NULL,
+    content_type ENUM('video', 'category', 'livestream', 'page') NOT NULL,
+    content_id INT NOT NULL,
+    field_name VARCHAR(100) NOT NULL,
+    translated_text TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (language_id) REFERENCES languages(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_translation (language_id, content_type, content_id, field_name)
 );
 
 -- Video stats table (for tracking views, engagement)
@@ -164,6 +214,30 @@ CREATE TABLE video_views (
     INDEX idx_video_views_session (session_id),
     INDEX idx_video_views_created (created_at),
     INDEX idx_video_views_completed (completed)
+);
+
+-- Content engagement events (comprehensive tracking)
+CREATE TABLE IF NOT EXISTS content_engagement (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    session_id VARCHAR(255) NOT NULL,
+    event_type VARCHAR(100) NOT NULL, -- e.g., 'click', 'play', 'comment_post', 'reaction_add'
+    event_data TEXT, -- JSON blob of event-specific data
+    page_url VARCHAR(500),
+    referrer_url VARCHAR(500),
+    user_agent TEXT,
+    ip_address VARCHAR(45),
+    country VARCHAR(2),
+    city VARCHAR(100),
+    device_type ENUM('desktop', 'mobile', 'tablet', 'unknown') DEFAULT 'unknown',
+    browser VARCHAR(50),
+    os VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_engagement_type (event_type),
+    INDEX idx_engagement_session (session_id),
+    INDEX idx_engagement_created (created_at)
 );
 
 -- Notifications table
@@ -320,6 +394,7 @@ CREATE TABLE IF NOT EXISTS donations (
     payment_method VARCHAR(50) NOT NULL, -- stripe, paypal, paystack, crypto, bank_transfer
     payment_provider VARCHAR(50), 
     transaction_id VARCHAR(255) UNIQUE,
+    receipt_url VARCHAR(500), 
     transaction_status ENUM('pending', 'completed', 'failed', 'refunded', 'cancelled') DEFAULT 'pending',
     is_recurring BOOLEAN DEFAULT FALSE,
     recurring_interval ENUM('daily', 'weekly', 'monthly', 'yearly') NULL,
@@ -424,9 +499,12 @@ CREATE TABLE IF NOT EXISTS prayer_requests (
     user_id INT NULL,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    country VARCHAR(100) NOT NULL,
     phone VARCHAR(20) NULL,
     category VARCHAR(100) DEFAULT 'General',
     request_text TEXT NOT NULL,
+    attachment_url VARCHAR(500) NULL,
     admin_response TEXT NULL,
     responded_by INT NULL,
     responded_at DATETIME NULL,
@@ -440,3 +518,77 @@ CREATE TABLE IF NOT EXISTS prayer_requests (
 CREATE INDEX idx_prayer_status ON prayer_requests(status);
 CREATE INDEX idx_prayer_user ON prayer_requests(user_id);
 CREATE INDEX idx_prayer_created ON prayer_requests(created_at);
+
+-- Password resets table
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(255) NOT NULL,
+    token VARCHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_password_resets_email (email),
+    INDEX idx_password_resets_token (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Video Purchases table
+CREATE TABLE IF NOT EXISTS video_purchases (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    video_id INT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'USD',
+    transaction_id VARCHAR(255) UNIQUE,
+    payment_status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+    INDEX idx_video_purchases_user (user_id),
+    INDEX idx_video_purchases_video (video_id),
+    INDEX idx_video_purchases_status (payment_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Comments table
+CREATE TABLE IF NOT EXISTS comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    video_id INT NULL,
+    livestream_id INT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    parent_id INT NULL,
+    is_approved BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+    FOREIGN KEY (livestream_id) REFERENCES livestreams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE,
+    INDEX idx_comments_video (video_id),
+    INDEX idx_comments_livestream (livestream_id),
+    INDEX idx_comments_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Reactions table
+CREATE TABLE IF NOT EXISTS reactions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    video_id INT NOT NULL,
+    user_id INT NOT NULL,
+    reaction_type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_reaction (video_id, user_id),
+    INDEX idx_reactions_video (video_id),
+    INDEX idx_reactions_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- User Favorites table (for relational favorites mapping)
+CREATE TABLE IF NOT EXISTS user_favorites (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    video_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_favorite (user_id, video_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

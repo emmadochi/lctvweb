@@ -441,6 +441,37 @@
                 });
             };
 
+            /**
+             * Get all prayer requests (Admin)
+             */
+            service.getPrayerRequests = function(filters) {
+                return $http.get(API_BASE + '/admin/prayer-requests', { params: filters })
+                    .then(function(response) {
+                        return response.data.data || [];
+                    });
+            };
+
+            /**
+             * Respond to prayer request (Admin)
+             */
+            service.respondToPrayerRequest = function(id, responseText) {
+                return $http.post(API_BASE + '/admin/prayer-requests/' + id + '/respond', {
+                    response: responseText
+                }).then(function(response) {
+                    return response.data;
+                });
+            };
+
+            /**
+             * Delete prayer request (Admin)
+             */
+            service.deletePrayerRequest = function(id) {
+                return $http.delete(API_BASE + '/admin/prayer-requests/' + id)
+                    .then(function(response) {
+                        return response.data;
+                    });
+            };
+
             return service;
         }]);
 })();

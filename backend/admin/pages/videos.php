@@ -46,10 +46,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $videoId = (int)$_POST['video_id'];
                 $newCategoryId = (int)$_POST['category_id'];
                 $reason = trim($_POST['reason']);
+                $isPremium = isset($_POST['is_premium']) ? 1 : 0;
+                $price = (float)($_POST['price'] ?? 0.00);
                 $userId = $_SESSION['admin_id'] ?? null;
                 
                 $channelSyncService = new ChannelSyncService();
                 $channelSyncService->overrideVideoCategory($videoId, $newCategoryId, $reason, $userId);
+                
+                // Update premium status
+                Video::update($videoId, [
+                    'title' => $_POST['video_title'] ?? '', // We need to be careful here, maybe just update specific fields
+                    'is_premium' => $isPremium,
+                    'price' => $price,
+                    'category_id' => $newCategoryId,
+                    // Keep other fields same by fetching them first or supporting partial update
+                ]);
+                
+                // Better: Let's fetch the video first to keep existing data
+                $videoData = Video::getById($videoId);
+                if ($videoData) {
+                    $videoData['category_id'] = $newCategoryId;
+                    $videoData['is_premium'] = $isPremium;
+                    $videoData['price'] = $price;
+                    Video::update($videoId, $videoData);
+                }
                 
                 $message = "Video category overridden successfully!";
                 $messageType = 'success';
@@ -172,6 +192,7 @@ $totalPages = ceil($totalVideos / $perPage);
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Video</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pricing</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Role</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
@@ -225,6 +246,17 @@ $totalPages = ceil($totalVideos / $perPage);
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            <?php if ($video['is_premium']): ?>
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gold-100 text-gold-800 border border-gold-200" style="background-color: #fef3c7; color: #92400e;">
+                                Premium ($<?php echo number_format($video['price'], 2); ?>)
+                            </span>
+                            <?php else: ?>
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                Free
+                            </span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full <?php 
                                 echo ($video['target_role'] ?? 'general') === 'general' ? 'bg-gray-100 text-gray-800' : 'bg-purple-100 text-purple-800'; 
                             ?>">
@@ -249,10 +281,13 @@ $totalPages = ceil($totalVideos / $perPage);
                                 </a>
                                 <button type="button" 
                                         class="text-orange-600 hover:text-orange-900 manual-override-btn" 
-                                        title="Override Category"
+                                        title="Video Settings"
                                         data-video-id="<?php echo $video['id']; ?>"
-                                        data-video-title="<?php echo htmlspecialchars($video['title']); ?>">
-                                    <i class="fas fa-exchange-alt"></i>
+                                        data-video-title="<?php echo htmlspecialchars($video['title']); ?>"
+                                        data-category-id="<?php echo $video['category_id']; ?>"
+                                        data-is-premium="<?php echo $video['is_premium']; ?>"
+                                        data-price="<?php echo $video['price']; ?>">
+                                    <i class="fas fa-cog"></i>
                                 </button>
                                 <button type="button" class="text-red-600 hover:text-red-900 delete-single-btn" title="Delete Video" data-video-id="<?php echo $video['id']; ?>">
                                     <i class="fas fa-trash"></i>
@@ -419,9 +454,16 @@ $totalPages = ceil($totalVideos / $perPage);
                     const videoId = this.getAttribute('data-video-id');
                     const videoTitle = this.getAttribute('data-video-title');
                     
+                    const isPremium = this.getAttribute('data-is-premium') == '1';
+                    const price = this.getAttribute('data-price');
+                    const categoryId = this.getAttribute('data-category-id');
+                    
                     // Set the video ID in the modal
                     document.getElementById('override_video_id').value = videoId;
                     document.getElementById('override_video_title').textContent = videoTitle;
+                    document.getElementById('override_category_id').value = categoryId;
+                    document.getElementById('override_is_premium').checked = isPremium;
+                    document.getElementById('override_price').value = price;
                     
                     // Show the modal
                     document.getElementById('overrideModal').classList.remove('hidden');
@@ -501,8 +543,19 @@ $totalPages = ceil($totalVideos / $perPage);
                     </div>
                     
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Override</label>
-                        <textarea name="reason" id="override_reason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Explain why this category change is needed..."></textarea>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Override (Optional)</label>
+                        <textarea name="reason" id="override_reason" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Optional explanation..."></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 border-t pt-4 mt-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="is_premium" id="override_is_premium" class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                            <label for="override_is_premium" class="ml-2 block text-sm text-gray-900 font-medium">Premium Video</label>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Price (USD)</label>
+                            <input type="number" step="0.01" name="price" id="override_price" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
                     </div>
                 </form>
                 

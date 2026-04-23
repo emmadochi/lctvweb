@@ -62,7 +62,16 @@
              * Report manual transfer (Bank/Crypto)
              */
             service.reportManualTransfer = function(data) {
-                return $http.post(API_BASE + '/donations/report-transfer', data)
+                var config = {};
+                var payload = data;
+                
+                // If it's FormData (for file uploads), set correct headers
+                if (data instanceof FormData) {
+                    config.headers = { 'Content-Type': undefined };
+                    config.transformRequest = angular.identity;
+                }
+                
+                return $http.post(API_BASE + '/donations/report-transfer', payload, config)
                     .then(function(response) {
                         return response.data;
                     });
@@ -344,32 +353,45 @@
             /**
              * Initialize PayPal buttons
              */
-            service.initializePayPal = function() {
-                if (typeof paypal === 'undefined') return;
+            service.initializePayPal = function(donationData) {
+                if (typeof paypal === 'undefined') {
+                    console.error('PayPal SDK not loaded');
+                    return;
+                }
+
+                // Clear previous buttons if any
+                var container = document.getElementById('paypal-button-container');
+                if (container) container.innerHTML = '';
 
                 paypal.Buttons({
                     createOrder: function(data, actions) {
-                        // Create PayPal order
                         return actions.order.create({
                             purchase_units: [{
                                 amount: {
-                                    value: service.currentDonation.amount.toString()
-                                }
+                                    value: donationData.amount.toString(),
+                                    currency_code: donationData.currency || 'USD'
+                                },
+                                description: 'Donation to LCM TV'
                             }]
                         });
                     },
                     onApprove: function(data, actions) {
                         return actions.order.capture().then(function(details) {
-                            // Process successful PayPal payment
-                            service.currentDonation.transaction_id = data.orderID;
-                            service.currentDonation.transaction_status = 'completed';
-                            service.currentDonation.payment_provider = 'paypal';
+                            var paymentData = angular.copy(donationData);
+                            paymentData.transaction_id = details.id;
+                            paymentData.transaction_status = 'completed';
+                            paymentData.payment_provider = 'paypal';
 
-                            return service.submitDonation(service.currentDonation);
+                            return service.submitDonation(paymentData);
                         });
+                    },
+                    onError: function(err) {
+                        console.error('PayPal Error:', err);
                     }
                 }).render('#paypal-button-container');
             };
+            
+            this.currentDonation = {}; // Placeholder
 
             /**
              * Get supported currencies

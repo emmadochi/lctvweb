@@ -65,6 +65,41 @@
                 </div>
             </div>
 
+            <!-- Paystack Configuration -->
+            <div class="col-md-12 mb-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-primary fw-bold"><i class="fa fa-layer-group"></i> Paystack Configuration</h5>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="paystackActive" ng-model="vm.paystack.is_active" ng-true-value="1" ng-false-value="0">
+                            <label class="form-check-label" for="paystackActive">{{vm.paystack.is_active ? 'Active' : 'Inactive'}}</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form ng-submit="vm.savePaystackSettings()">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Public Key</label>
+                                    <input type="text" class="form-control" ng-model="vm.paystack.public_key" placeholder="pk_test_..." required>
+                                    <small class="text-muted">Used on the frontend to initialize payment.</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Secret Key</label>
+                                    <input type="password" class="form-control" ng-model="vm.paystack.secret_key" placeholder="sk_test_..." required>
+                                    <small class="text-muted">Used on the backend to verify payments.</small>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="submit" class="btn btn-warning fw-bold" ng-disabled="vm.isLoading">
+                                    <span ng-if="!vm.isLoading"><i class="fa fa-save"></i> Save Configuration</span>
+                                    <i class="fa fa-spinner fa-spin" ng-if="vm.isLoading"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
             <!-- Other Settings info -->
             <div class="col-md-12">
                 <div class="alert alert-info shadow-sm border-0">

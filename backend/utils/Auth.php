@@ -73,6 +73,15 @@ class Auth {
         $headers = getallheaders();
         $authHeader = $headers['Authorization'] ?? '';
 
+        // Fallback for Apache/CGI environments where Authorization header is stripped
+        if (empty($authHeader)) {
+            if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+                $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+            } elseif (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+                $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+            }
+        }
+
         if (empty($authHeader) || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
             // Check if we have an active PHP session (for admin dashboard usage)
             if (session_status() === PHP_SESSION_NONE) {

@@ -34,6 +34,15 @@
                     </div>
                 </div>
 
+                <!-- Give Online & Prayer Point -->
+                <a href="#/donate" ng-class="{active: $location.path() === '/donate'}" class="nav-link-highlight">
+                    <i class="fa fa-heart"></i> Give Online
+                </a>
+
+                <a href="#/prayer" ng-class="{active: $location.path() === '/prayer'}" class="nav-link-prayer">
+                    <i class="fa fa-hands-praying"></i> Prayer Point
+                </a>
+
                 <!-- User Authentication -->
                 <div ng-if="!headerCtrl.authLoading && !headerCtrl.isAuthenticated" class="auth-links">
                     <button ng-click="headerCtrl.goToLogin()" class="btn btn-outline-light btn-sm">
@@ -133,6 +142,50 @@
 
     .dropdown-arrow.rotated {
         transform: rotate(180deg);
+    }
+
+    .nav-link-highlight, .nav-link-prayer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 14px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        margin-left: 8px;
+    }
+
+    .nav-link-highlight {
+        background: linear-gradient(135deg, #6a0dad 0%, #4a1978 100%);
+        color: #fff !important;
+        box-shadow: 0 4px 15px rgba(106, 13, 173, 0.3);
+    }
+
+    .nav-link-highlight:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(106, 13, 173, 0.4);
+        background: linear-gradient(135deg, #7b1fa2 0%, #5e35b1 100%);
+        color: #fff !important;
+    }
+
+    .nav-link-prayer {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff !important;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-link-prayer:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: #fff !important;
+    }
+    
+    .nav-link-highlight.active, .nav-link-prayer.active {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
     }
 
     .nav-dropdown-menu {

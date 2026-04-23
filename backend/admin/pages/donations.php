@@ -112,9 +112,14 @@ $totalPages = ceil($totalDonationsCount / $limit);
                                     <?php echo date('M j, Y H:i', strtotime($d['created_at'])); ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button class="text-orange-600 hover:text-orange-900" title="View Details">
+                                    <button class="text-orange-600 hover:text-orange-900 mr-2" title="View Details">
                                         <i class="fas fa-eye"></i>
                                     </button>
+                                    <?php if ($d['transaction_status'] === 'pending'): ?>
+                                    <button onclick="approveDonation(<?php echo $d['id']; ?>)" class="text-green-600 hover:text-green-900" title="Approve Payment">
+                                        <i class="fas fa-check-circle"></i>
+                                    </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -150,3 +155,33 @@ $totalPages = ceil($totalDonationsCount / $limit);
         <?php endif; ?>
     </div>
 </div>
+
+<script>
+async function approveDonation(id) {
+    if (!confirm('Are you sure you want to approve this donation? This will verify the payment and mark it as completed.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('../api/donations/approve', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ donation_id: id })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Donation approved successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + (result.message || 'Failed to approve donation'));
+        }
+    } catch (error) {
+        console.error('Approval error:', error);
+        alert('An unexpected error occurred. Please check your connection.');
+    }
+}
+</script>

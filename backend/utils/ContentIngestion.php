@@ -19,7 +19,7 @@ class ContentIngestion {
     /**
      * Import a single video by YouTube URL
      */
-    public function importByUrl($url, $categoryId, $targetRole = 'general') {
+    public function importByUrl($url, $categoryId, $targetRole = 'general', $isPremium = 0, $price = 0) {
         try {
             // Extract video ID from URL
             $videoId = $this->extractVideoIdFromUrl($url);
@@ -39,11 +39,19 @@ class ContentIngestion {
             }
 
             $videoData = $videos[0];
+            $videoData['is_premium'] = $isPremium;
+            $videoData['price'] = $price;
 
             // Import the video
-            if ($this->importVideo($videoData, $categoryId, $targetRole)) {
+            $insertedId = $this->importVideo($videoData, $categoryId, $targetRole);
+            if ($insertedId) {
                 echo "Successfully imported video: {$videoData['title']}\n";
-                return 1;
+                return [
+                    'id' => $insertedId,
+                    'title' => $videoData['title'],
+                    'description' => $videoData['description'],
+                    'target_role' => $targetRole
+                ];
             } else {
                 echo "Failed to import video: {$videoData['title']}\n";
                 return 0;
@@ -102,7 +110,7 @@ class ContentIngestion {
     /**
      * Import videos by keyword search
      */
-    public function importByKeyword($keyword, $categoryId, $maxResults = 20, $targetRole = 'general') {
+    public function importByKeyword($keyword, $categoryId, $maxResults = 20, $targetRole = 'general', $isPremium = 0, $price = 0) {
         try {
             echo "Searching YouTube for: '$keyword'\n";
 
@@ -122,6 +130,8 @@ class ContentIngestion {
 
             $imported = 0;
             foreach ($videos as $videoData) {
+                $videoData['is_premium'] = $isPremium;
+                $videoData['price'] = $price;
                 if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                     $imported++;
                 }
@@ -139,7 +149,7 @@ class ContentIngestion {
     /**
      * Import videos from YouTube playlist
      */
-    public function importFromPlaylist($playlistId, $categoryId, $maxResults = 50, $targetRole = 'general') {
+    public function importFromPlaylist($playlistId, $categoryId, $maxResults = 50, $targetRole = 'general', $isPremium = 0, $price = 0) {
         try {
             echo "Importing playlist: $playlistId\n";
 
@@ -157,6 +167,8 @@ class ContentIngestion {
 
             $imported = 0;
             foreach ($videos as $videoData) {
+                $videoData['is_premium'] = $isPremium;
+                $videoData['price'] = $price;
                 if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                     $imported++;
                 }
@@ -174,7 +186,7 @@ class ContentIngestion {
     /**
      * Import videos from YouTube channel
      */
-    public function importFromChannel($channelId, $categoryId, $maxResults = 20, $targetRole = 'general') {
+    public function importFromChannel($channelId, $categoryId, $maxResults = 20, $targetRole = 'general', $isPremium = 0, $price = 0) {
         try {
             echo "Importing channel: $channelId\n";
 
@@ -192,6 +204,8 @@ class ContentIngestion {
 
             $imported = 0;
             foreach ($videos as $videoData) {
+                $videoData['is_premium'] = $isPremium;
+                $videoData['price'] = $price;
                 if ($this->importVideo($videoData, $categoryId, $targetRole)) {
                     $imported++;
                 }
@@ -269,7 +283,9 @@ class ContentIngestion {
                 'view_count' => $videoData['view_count'],
                 'like_count' => $videoData['like_count'],
                 'published_at' => date('Y-m-d H:i:s', strtotime($videoData['published_at'])),
-                'target_role' => $targetRole
+                'target_role' => $targetRole,
+                'is_premium' => $videoData['is_premium'] ?? 0,
+                'price' => $videoData['price'] ?? 0.00
             ];
 
             $result = Video::create($videoInsertData);
@@ -285,7 +301,7 @@ class ContentIngestion {
                     // Don't fail the import if notifications fail
                 }
 
-                return true;
+                return $result;
             } else {
                 echo "✗ Failed to import: {$videoData['title']}\n";
                 return false;

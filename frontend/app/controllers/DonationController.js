@@ -199,6 +199,15 @@
                 if (method === 'card' && provider === 'stripe') {
                     initializeStripeElements();
                 }
+
+                // If switching to paypal, initialize buttons
+                if (method === 'paypal') {
+                    if (!vm.donation.amount || vm.donation.amount <= 0) {
+                        $rootScope.showToast('Please enter an amount first', 'warning');
+                        return;
+                    }
+                    DonationService.initializePayPal(vm.donation);
+                }
             };
 
             /**
@@ -240,12 +249,24 @@
                 }
 
                 // Add card element for Stripe payments
-                if (vm.donation.payment_method === 'card') {
+                if (vm.donation.payment_method === 'card' && vm.donation.payment_provider === 'stripe') {
                     donationData.cardElement = vm.cardElement;
                 }
 
+                // Handle manual transfer with file upload
+                var finalData = donationData;
+                if ((vm.donation.payment_method === 'bank_transfer' || vm.donation.payment_method === 'crypto') && vm.receiptFile) {
+                    finalData = new FormData();
+                    angular.forEach(donationData, function(value, key) {
+                        if (value !== null && value !== undefined) {
+                            finalData.append(key, value);
+                        }
+                    });
+                    finalData.append('receipt', vm.receiptFile);
+                }
+
                 // Process donation
-                DonationService.processDonation(donationData)
+                DonationService.processDonation(finalData)
                     .then(function(response) {
                         vm.processing = false;
                         vm.lastDonation = donationData;
@@ -386,6 +407,14 @@
                     vm.copiedKey = key;
                     $timeout(function() { vm.copiedKey = null; }, 2000);
                 }
+            };
+
+            /**
+             * Handle manual transfer receipt file selection
+             */
+            vm.onFileSelect = function(element) {
+                vm.receiptFile = element.files[0];
+                $scope.$apply();
             };
 
             // Watch for authentication changes

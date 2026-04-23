@@ -28,6 +28,20 @@ class User {
     }
 
     /**
+     * Find user by Google ID
+     */
+    public static function findByGoogleId($googleId) {
+        $conn = getDBConnection();
+
+        $stmt = $conn->prepare("SELECT * FROM users WHERE google_id = ?");
+        $stmt->bind_param("s", $googleId);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        return $result->fetch_assoc();
+    }
+
+    /**
      * Get user by ID
      */
     public static function getById($id) {
@@ -47,14 +61,20 @@ class User {
     public static function create($data) {
         $conn = getDBConnection();
 
-        $stmt = $conn->prepare("INSERT INTO users (email, password_hash, first_name, last_name, role)
-                               VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssss",
+        $googleId = $data['google_id'] ?? null;
+        $loginProvider = $data['login_provider'] ?? 'local';
+        $passwordHash = $data['password'] ?? null;
+
+        $stmt = $conn->prepare("INSERT INTO users (email, password_hash, first_name, last_name, role, google_id, login_provider)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssssss",
             $data['email'],
-            $data['password'],
+            $passwordHash,
             $data['first_name'],
             $data['last_name'],
-            $data['role']
+            $data['role'],
+            $googleId,
+            $loginProvider
         );
 
         if ($stmt->execute()) {

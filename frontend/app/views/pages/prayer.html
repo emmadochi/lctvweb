@@ -1,0 +1,417 @@
+<!-- Prayer Request Page -->
+<div class="prayer-page container animate-fade-in">
+    <div class="page-header text-center">
+        <h1 class="gradient-text">{{vm.title}}</h1>
+        <p class="lead text-muted">{{vm.subTitle}}</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 col-md-offset-2">
+            <div class="prayer-card card-premium">
+                <!-- Success State -->
+                <div class="success-message text-center" ng-if="vm.success">
+                    <div class="success-icon">
+                        <i class="fa fa-hands-praying"></i>
+                    </div>
+                    <h2>Thank You</h2>
+                    <p>Your prayer request has been received. Our prayer team will stand with you in faith. God bless you.</p>
+                    <button class="btn btn-primary btn-lg mt-3" ng-click="vm.success = false">Submit Another Request</button>
+                    <a href="#/" class="btn btn-link mt-3 block">Back to Home</a>
+                </div>
+
+                <!-- Form State -->
+                <div ng-if="!vm.success">
+                    <form name="prayerForm" ng-submit="vm.submitForm()" novalidate>
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="form-group" ng-class="{'has-error': prayerForm.fullName.$touched && prayerForm.fullName.$invalid}">
+                                    <label for="fullName">Full Name *</label>
+                                    <input type="text" 
+                                           id="fullName" 
+                                           name="fullName" 
+                                           class="form-control input-lg" 
+                                           ng-model="vm.formData.full_name" 
+                                           required 
+                                           placeholder="Enter your full name">
+                                    <span class="help-block" ng-show="prayerForm.fullName.$touched && prayerForm.fullName.$invalid">Name is required.</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-group" ng-class="{'has-error': prayerForm.email.$touched && prayerForm.email.$invalid}">
+                                    <label for="email">Email Address *</label>
+                                    <input type="email" 
+                                           id="email" 
+                                           name="email" 
+                                           class="form-control input-lg" 
+                                           ng-model="vm.formData.email" 
+                                           required 
+                                           placeholder="Ex: name@example.com">
+                                    <span class="help-block" ng-show="prayerForm.email.$touched && prayerForm.email.$invalid">Valid email is required.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="form-group" ng-class="{'has-error': prayerForm.city.$touched && prayerForm.city.$invalid}">
+                                    <label for="city">City *</label>
+                                    <input type="text" 
+                                           id="city" 
+                                           name="city" 
+                                           class="form-control input-lg" 
+                                           ng-model="vm.formData.city" 
+                                           required 
+                                           placeholder="Enter your city">
+                                    <span class="help-block" ng-show="prayerForm.city.$touched && prayerForm.city.$invalid">City is required.</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-group" ng-class="{'has-error': prayerForm.country.$touched && prayerForm.country.$invalid}">
+                                    <label for="country">Country *</label>
+                                    <input type="text" 
+                                           id="country" 
+                                           name="country" 
+                                           class="form-control input-lg" 
+                                           ng-model="vm.formData.country" 
+                                           required 
+                                           placeholder="Enter your country">
+                                    <span class="help-block" ng-show="prayerForm.country.$touched && prayerForm.country.$invalid">Country is required.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="form-group">
+                                    <label for="phone">Phone Number (Optional)</label>
+                                    <input type="tel" 
+                                           id="phone" 
+                                           class="form-control input-lg" 
+                                           ng-model="vm.formData.phone" 
+                                           placeholder="Ex: +1 234 567 890">
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-group">
+                                    <label for="category">Request Category</label>
+                                    <select id="category" 
+                                            class="form-control input-lg" 
+                                            ng-model="vm.formData.category" 
+                                            ng-options="cat for cat in vm.categories">
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" ng-class="{'has-error': prayerForm.request.$touched && prayerForm.request.$invalid}">
+                            <label for="request">Your Prayer Request *</label>
+                            <textarea id="request" 
+                                      name="request" 
+                                      class="form-control input-lg" 
+                                      rows="6" 
+                                      ng-model="vm.formData.request_text" 
+                                      required 
+                                      placeholder="Tell us what you would like us to pray for..."></textarea>
+                            <span class="help-block" ng-show="prayerForm.request.$touched && prayerForm.request.$invalid">Please enter your request.</span>
+                        </div>
+
+                        <!-- Attachment Upload -->
+                        <div class="form-group">
+                            <label>Attach Supporting Document (Optional)</label>
+                            <p class="text-muted small mb-2">You may attach an image or document (e.g., a medical test result). Max size: 5MB. Accepted: JPG, PNG, PDF.</p>
+                            
+                            <!-- Upload Area -->
+                            <div class="upload-area" ng-if="!vm.formData.attachment" onclick="document.getElementById('attachment').click()">
+                                <input type="file" 
+                                       id="attachment" 
+                                       name="attachment"
+                                       accept="image/jpeg,image/png,image/gif,application/pdf"
+                                       style="display:none"
+                                       onchange="angular.element(this).scope().vm.onFileSelect(this)">
+                                <div class="upload-placeholder text-center">
+                                    <i class="fa fa-cloud-upload-alt fa-2x mb-2"></i>
+                                    <p class="mb-0">Click to upload an image or PDF</p>
+                                    <small class="text-muted">JPG, PNG, GIF, PDF up to 5MB</small>
+                                </div>
+                            </div>
+
+                            <!-- File Preview -->
+                            <div class="file-preview" ng-if="vm.formData.attachment">
+                                <div class="file-preview-inner d-flex align-items-center">
+                                    <i class="fa fa-file-alt fa-2x mr-3 text-primary"></i>
+                                    <div class="flex-grow-1">
+                                        <p class="mb-0 text-white font-weight-bold">{{vm.formData.attachment.name}}</p>
+                                        <small class="text-muted">{{(vm.formData.attachment.size / 1024 / 1024).toFixed(2)}} MB</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger ml-3" ng-click="vm.removeFile()">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions text-center">
+                            <button type="submit" 
+                                    class="btn btn-primary btn-lg btn-block btn-submit" 
+                                    ng-disabled="prayerForm.$invalid || vm.submitting">
+                                <span ng-if="!vm.submitting"><i class="fa fa-paper-plane"></i> Submit Prayer Point</span>
+                                <span ng-if="vm.submitting"><i class="fa fa-spinner fa-spin"></i> Submitting...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Faith Banner -->
+            <div class="faith-banner mt-5">
+                <div class="banner-icon">
+                    <i class="fa fa-quote-left"></i>
+                </div>
+                <div class="banner-content text-center">
+                    <p class="verse-text">"Therefore I tell you, whatever you ask for in prayer, believe that you have received it, and it will be yours."</p>
+                    <p class="verse-ref">- Mark 11:24</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Prayer Requests History (Visible only for logged-in users) -->
+    <div class="row mt-5" ng-if="vm.prayerRequests.length > 0">
+        <div class="col-md-8 col-md-offset-2">
+            <div class="section-title mb-4">
+                <h2 class="h3 font-weight-bold text-white"><i class="fa fa-history mr-2"></i> My Prayer Requests</h2>
+            </div>
+            
+            <div class="prayer-history">
+                <div class="prayer-history-item card-premium mb-4 animate-fade-in" ng-repeat="request in vm.prayerRequests">
+                    <div class="request-header d-flex justify-content-between align-items-center mb-3">
+                        <span class="request-date text-muted h6 mb-0">{{request.created_at | date:'medium'}}</span>
+                        <span class="status-badge" ng-class="{'status-pending': request.status === 'pending', 'status-answered': request.status === 'answered'}">
+                            {{request.status | uppercase}}
+                        </span>
+                    </div>
+                    
+                    <div class="request-category mb-3">
+                        <span class="badge badge-outline-primary">{{request.category}}</span>
+                    </div>
+                    
+                    <div class="request-body mb-4">
+                        <p class="request-text text-white h5" style="line-height: 1.6;">{{request.request_text}}</p>
+                    </div>
+                    
+                    <!-- Admin Response -->
+                    <div class="admin-response-section p-4 rounded bg-dark border-left-premium" ng-if="request.admin_response">
+                        <div class="response-header mb-2 d-flex align-items-center">
+                            <i class="fa fa-reply mr-2 text-primary"></i>
+                            <strong class="text-primary">Ministry Response</strong>
+                            <span class="text-muted ml-auto small">{{request.responded_at | date:'medium'}}</span>
+                        </div>
+                        <div class="response-body">
+                            <p class="response-text italic mb-0">{{request.admin_response}}</p>
+                        </div>
+                        <div class="response-footer mt-2 text-right">
+                            <small class="text-muted">By {{request.responder_first}} {{request.responder_last}}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center p-5" ng-if="vm.loadingRequests">
+                <i class="fa fa-spinner fa-spin fa-3x text-primary"></i>
+                <p class="mt-3 text-muted">Loading your prayer history...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.prayer-page {
+    padding-top: 60px;
+    padding-bottom: 100px;
+}
+
+/* Upload Area */
+.upload-area {
+    border: 2px dashed rgba(106, 13, 173, 0.4);
+    border-radius: 12px;
+    padding: 30px 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(106, 13, 173, 0.03);
+    color: #94a3b8;
+}
+
+.upload-area:hover {
+    border-color: #6a0dad;
+    background: rgba(106, 13, 173, 0.08);
+    color: #a78bfa;
+}
+
+.upload-placeholder i {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.file-preview {
+    border: 1px solid rgba(106, 13, 173, 0.3);
+    border-radius: 12px;
+    padding: 15px 20px;
+    background: rgba(106, 13, 173, 0.05);
+}
+
+.file-preview-inner {
+    display: flex;
+    align-items: center;
+}
+
+.page-header h1 {
+    font-size: 42px;
+    font-weight: 800;
+    margin-bottom: 15px;
+}
+
+.card-premium {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.08);
+    border: 1px solid #f0f0f0;
+}
+
+.church-theme .card-premium {
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.form-control.input-lg {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #fff;
+    padding: 12px 20px;
+    height: auto;
+    transition: all 0.3s ease;
+}
+
+.form-control.input-lg:focus {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #6a0dad;
+    box-shadow: 0 0 0 4px rgba(106, 13, 173, 0.15);
+}
+
+.btn-submit {
+    height: 60px;
+    font-weight: 700;
+    font-size: 18px;
+    border-radius: 12px;
+    margin-top: 20px;
+    background: linear-gradient(135deg, #6a0dad 0%, #4a1978 100%);
+    border: none;
+    box-shadow: 0 10px 25px rgba(106, 13, 173, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(106, 13, 173, 0.4);
+    background: linear-gradient(135deg, #7b1fa2 0%, #5e35b1 100%);
+}
+
+.success-icon {
+    font-size: 64px;
+    color: #4caf50;
+    margin-bottom: 25px;
+}
+
+.faith-banner {
+    position: relative;
+    padding: 40px;
+    background: linear-gradient(135deg, rgba(106, 13, 173, 0.1) 0%, rgba(74, 25, 120, 0.1) 100%);
+    border-radius: 20px;
+    border: 1px dashed rgba(106, 13, 173, 0.3);
+}
+
+.banner-icon {
+    font-size: 24px;
+    color: #6a0dad;
+    opacity: 0.5;
+    margin-bottom: 15px;
+}
+
+.verse-text {
+    font-size: 20px;
+    font-style: italic;
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+.verse-ref {
+    margin-top: 10px;
+    font-weight: 700;
+    color: #6a0dad;
+}
+
+/* History Styles */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.status-pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-answered {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.badge-outline-primary {
+    border: 1px solid #6a0dad;
+    color: #6a0dad;
+    background: transparent;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.border-left-premium {
+    border-left: 4px solid #6a0dad;
+}
+
+.italic {
+    font-style: italic;
+}
+
+.prayer-history-item {
+    transition: transform 0.3s ease;
+}
+
+.prayer-history-item:hover {
+    transform: translateY(-5px);
+}
+
+@media (max-width: 768px) {
+    .card-premium {
+        padding: 25px 20px;
+    }
+    
+    .page-header h1 {
+        font-size: 32px;
+    }
+}
+</style>

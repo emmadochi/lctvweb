@@ -94,7 +94,7 @@ docs/_build/
 *.docx
 
 # Sensitive Firebase config
-backend/config/firebase-service-account.json
+backend/config/firebase-service-account*.json
 
 # Local Temporary files
 *.zip
@@ -105,4 +105,5 @@ lctv-logo-box.psd
 scratch/
 backend/scratch/
 .gemini/
+token.txt
 

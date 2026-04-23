@@ -73,7 +73,7 @@ class Donation {
             return $donationId;
         }
 
-        return false;
+        throw new Exception("Database error: " . $stmt->error);
     }
 
     /**
@@ -115,7 +115,7 @@ class Donation {
             return $conn->insert_id;
         }
 
-        return null;
+        throw new Exception("Failed to create donor record: " . $stmt->error);
     }
 
     /**
@@ -570,7 +570,7 @@ class Donation {
         $types = "si";
 
         if ($transactionId) {
-            $sql = str_replace("WHERE id = ?", "SET transaction_id = ? WHERE id = ?", $sql);
+            $sql = str_replace("WHERE id = ?", ", transaction_id = ? WHERE id = ?", $sql);
             $params = [$status, $transactionId, $donationId];
             $types = "ssi";
         }

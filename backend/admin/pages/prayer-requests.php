@@ -132,6 +132,13 @@ $stats = PrayerRequest::getStats();
                 <div id="modal-existing-response" class="text-green-900 whitespace-pre-wrap"></div>
             </div>
 
+            <div id="modal-attachment-container" class="hidden bg-white p-4 rounded-md border border-gray-200 mt-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Attached Image</h4>
+                <a id="modal-attachment-link" href="#" target="_blank" class="block">
+                    <img id="modal-attachment-img" src="" alt="Prayer Request Attachment" class="max-w-full h-auto rounded-md shadow-sm max-h-64 object-contain">
+                </a>
+            </div>
+
             <form id="responseForm" onsubmit="submitResponse(event)">
                 <input type="hidden" id="request-id-input">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Your Response / Prayer</label>
@@ -169,6 +176,19 @@ function viewRequest(request) {
         existingResponse.classList.add('hidden');
         document.getElementById('response-text').value = '';
         document.getElementById('btn-text').textContent = 'Send Response';
+    }
+
+    const attachmentContainer = document.getElementById('modal-attachment-container');
+    if (request.attachment_url) {
+        let imageUrl = request.attachment_url;
+        if (!imageUrl.startsWith('http')) {
+            imageUrl = '../' + imageUrl;
+        }
+        document.getElementById('modal-attachment-img').src = imageUrl;
+        document.getElementById('modal-attachment-link').href = imageUrl;
+        attachmentContainer.classList.remove('hidden');
+    } else {
+        attachmentContainer.classList.add('hidden');
     }
 
     document.getElementById('responseModal').classList.remove('hidden');

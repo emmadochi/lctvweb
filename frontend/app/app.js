@@ -118,6 +118,11 @@
                     controller: 'DonationController',
                     controllerAs: 'vm'
                 })
+                .when('/prayer', {
+                    templateUrl: 'app/views/pages/prayer.html',
+                    controller: 'PrayerController',
+                    controllerAs: 'vm'
+                })
                 .when('/favorites', {
                     templateUrl: 'app/views/pages/favorites.html',
                     controller: 'FavoritesController',
@@ -159,6 +164,11 @@
                 .when('/reset-password', {
                     templateUrl: 'app/views/pages/reset-password.html',
                     controller: 'ResetPasswordController',
+                    controllerAs: 'vm'
+                })
+                .when('/forgot-password', {
+                    templateUrl: 'app/views/pages/forgot-password.html',
+                    controller: 'ForgotPasswordController',
                     controllerAs: 'vm'
                 })
                 .when('/login', {
@@ -213,6 +223,11 @@
                 .when('/admin/donations', {
                     templateUrl: 'app/views/pages/admin-donations.html',
                     controller: 'AdminDonationsController',
+                    controllerAs: 'vm'
+                })
+                .when('/admin/prayer', {
+                    templateUrl: 'app/views/pages/admin-prayer.html',
+                    controller: 'AdminPrayerController',
                     controllerAs: 'vm'
                 })
 

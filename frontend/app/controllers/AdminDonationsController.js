@@ -24,6 +24,12 @@
                 is_active: 1
             };
 
+            vm.paystack = {
+                public_key: '',
+                secret_key: '',
+                is_active: 1
+            };
+
             // Initialize
             vm.init = function() {
                 vm.loadSettings();
@@ -34,6 +40,19 @@
                 AdminService.getDonationSettings()
                     .then(function(response) {
                         vm.settings = response.data || { giving_type: [], bank: [], crypto: [], gateway: [] };
+                        
+                        // Extract Paystack settings
+                        if (vm.settings.gateway) {
+                            var pPub = vm.settings.gateway.find(s => s.setting_key === 'paystack_public_key');
+                            var pSec = vm.settings.gateway.find(s => s.setting_key === 'paystack_secret_key');
+                            if (pPub) {
+                                vm.paystack.public_key = pPub.setting_value;
+                                vm.paystack.is_active = pPub.is_active;
+                            }
+                            if (pSec) {
+                                vm.paystack.secret_key = pSec.setting_value;
+                            }
+                        }
                     })
                     .catch(function(error) {
                         $rootScope.showToast('Failed to load settings', 'error');
@@ -80,6 +99,43 @@
                     })
                     .finally(function() {
                         vm.isLoading = false;
+                    });
+            };
+
+            vm.savePaystackSettings = function() {
+                if (!vm.paystack.public_key || !vm.paystack.secret_key) {
+                    $rootScope.showToast('Please enter both Public and Secret Keys', 'warning');
+                    return;
+                }
+
+                vm.isLoading = true;
+                
+                var pubPromise = AdminService.saveDonationSetting({
+                    key: 'paystack_public_key',
+                    value: vm.paystack.public_key,
+                    group: 'gateway',
+                    is_active: vm.paystack.is_active
+                });
+                
+                var secPromise = AdminService.saveDonationSetting({
+                    key: 'paystack_secret_key',
+                    value: vm.paystack.secret_key,
+                    group: 'gateway',
+                    is_active: vm.paystack.is_active,
+                    is_encrypted: 1
+                });
+
+                Promise.all([pubPromise, secPromise])
+                    .then(function() {
+                        $rootScope.showToast('Paystack settings saved successfully', 'success');
+                        vm.loadSettings();
+                    })
+                    .catch(function(error) {
+                        $rootScope.showToast('Failed to save Paystack settings', 'error');
+                    })
+                    .finally(function() {
+                        vm.isLoading = false;
+                        $scope.$applyAsync();
                     });
             };
 

@@ -11,49 +11,75 @@
             <span class="nav-label">Search</span>
         </a>
 
-        <button class="bottom-nav-item bottom-nav-categories" ng-click="bottomNavCtrl.toggleCategoriesModal()">
-            <i class="fa fa-list"></i>
-            <span class="nav-label">Categories</span>
-        </button>
-
-        <a href="#/favorites" class="bottom-nav-item" ng-class="{active: $location.path() === '/favorites'}" ng-if="bottomNavCtrl.isAuthenticated">
+        <a href="#/donate" class="bottom-nav-item nav-item-special" ng-class="{active: $location.path() === '/donate'}">
             <i class="fa fa-heart"></i>
-            <span class="nav-label">Favorites</span>
+            <span class="nav-label">Give</span>
         </a>
 
-        <button class="bottom-nav-item bottom-nav-profile" ng-click="bottomNavCtrl.toggleProfileModal()" ng-if="bottomNavCtrl.isAuthenticated">
-            <i class="fa fa-user"></i>
-            <span class="nav-label">Profile</span>
-        </button>
+        <a href="#/prayer" class="bottom-nav-item" ng-class="{active: $location.path() === '/prayer'}">
+            <i class="fa fa-hands-praying"></i>
+            <span class="nav-label">Prayer</span>
+        </a>
 
-        <button class="bottom-nav-item bottom-nav-login" ng-click="bottomNavCtrl.goToLogin()" ng-if="!bottomNavCtrl.isAuthenticated">
-            <i class="fa fa-sign-in"></i>
-            <span class="nav-label">Login</span>
+        <button class="bottom-nav-item" ng-click="bottomNavCtrl.toggleMenuModal()" ng-class="{active: bottomNavCtrl.showMenuModal}">
+            <i class="fa fa-bars"></i>
+            <span class="nav-label">Menu</span>
         </button>
     </nav>
 
-    <!-- Categories Modal -->
-    <div class="mobile-modal-overlay" ng-show="bottomNavCtrl.showCategoriesModal" ng-click="bottomNavCtrl.closeCategoriesModal()">
-        <div class="mobile-modal-content categories-modal" ng-click="$event.stopPropagation()">
+    <!-- Menu Modal (Consolidated categories and user profile) -->
+    <div class="mobile-modal-overlay" ng-show="bottomNavCtrl.showMenuModal" ng-click="bottomNavCtrl.closeMenuModal()">
+        <div class="mobile-modal-content menu-modal" ng-click="$event.stopPropagation()">
             <div class="modal-header">
-                <h3>Categories</h3>
-                <button class="modal-close" ng-click="bottomNavCtrl.closeCategoriesModal()">
+                <h3>Menu</h3>
+                <button class="modal-close" ng-click="bottomNavCtrl.closeMenuModal()">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
+                <!-- User Section -->
+                <div class="menu-user-section" ng-if="bottomNavCtrl.isAuthenticated">
+                    <div class="profile-header" ng-click="bottomNavCtrl.toggleProfileModal()">
+                        <div class="profile-avatar">
+                            <i class="fa fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h4>{{bottomNavCtrl.currentUser.first_name}}</h4>
+                            <p>View Profile <i class="fa fa-chevron-right"></i></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="menu-auth-section" ng-if="!bottomNavCtrl.isAuthenticated">
+                    <button class="btn btn-primary btn-block btn-lg" ng-click="bottomNavCtrl.goToLogin()">
+                        <i class="fa fa-sign-in"></i> Sign In / Register
+                    </button>
+                </div>
+
+                <div class="menu-divider"></div>
+
+                <!-- Main Menu Links -->
+                <div class="menu-quick-links">
+                    <a href="#/favorites" class="menu-link-item" ng-click="bottomNavCtrl.closeMenuModal()">
+                        <i class="fa fa-heart"></i> <span>Favorites</span>
+                    </a>
+                    <a href="#/favorites?tab=history" class="menu-link-item" ng-click="bottomNavCtrl.closeMenuModal()">
+                        <i class="fa fa-history"></i> <span>History</span>
+                    </a>
+                </div>
+
+                <div class="menu-section-title">Categories</div>
                 <div class="categories-grid" ng-if="bottomNavCtrl.categories.length > 0">
                     <a href="#/category/{{category.slug}}"
                        class="category-modal-item"
                        ng-repeat="category in bottomNavCtrl.categories"
-                       ng-click="bottomNavCtrl.closeCategoriesModal()">
+                       ng-click="bottomNavCtrl.closeMenuModal()">
                         <i class="fa {{bottomNavCtrl.getCategoryIcon(category.slug)}}"></i>
                         <span>{{category.name}}</span>
                     </a>
                 </div>
-                <div class="text-center" ng-if="bottomNavCtrl.categories.length === 0">
+                <div class="text-center p-4" ng-show="bottomNavCtrl.categories.length === 0">
                     <i class="fa fa-spinner fa-spin fa-2x"></i>
-                    <p>Loading categories...</p>
                 </div>
             </div>
         </div>
@@ -189,6 +215,10 @@
         line-height: 1.2;
     }
 
+    .nav-item-special i {
+        color: #ec4899; /* Pink/Heart color */
+    }
+
     .bottom-nav-item.active::before {
         content: '';
         position: absolute;
@@ -197,9 +227,72 @@
         transform: translateX(-50%);
         width: 32px;
         height: 4px;
-        background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+        background: linear-gradient(90deg, #6a0dad, #ec4899);
         border-radius: 2px;
-        box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 2px 4px rgba(106, 13, 173, 0.3);
+    }
+
+    /* ===== MENU MODAL STYLES ===== */
+    .menu-user-section {
+        margin-bottom: 24px;
+        padding: 4px;
+    }
+
+    .menu-user-section .profile-header {
+        background: rgba(106, 13, 173, 0.05);
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(106, 13, 173, 0.1);
+        cursor: pointer;
+    }
+
+    .menu-auth-section {
+        margin-bottom: 24px;
+    }
+
+    .menu-divider {
+        height: 1px;
+        background: rgba(148, 163, 184, 0.2);
+        margin: 20px 0;
+    }
+
+    .menu-section-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .menu-quick-links {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .menu-link-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px;
+        background: #f8fafc;
+        border-radius: 12px;
+        text-decoration: none !important;
+        color: #334155;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .church-theme .menu-link-item {
+        background: rgba(255, 255, 255, 0.03);
+        color: #fff;
+    }
+
+    .menu-link-item i {
+        color: #6a0dad;
+        font-size: 18px;
     }
 
     /* ===== MOBILE MODALS ===== */

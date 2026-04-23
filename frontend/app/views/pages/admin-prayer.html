@@ -1,0 +1,226 @@
+<!-- Admin Prayer Management Page -->
+<div class="admin-prayer-page" ng-init="vm.init()" ng-controller="AdminPrayerController as vm">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="container-fluid">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="page-title">
+                        <i class="fa fa-handshake-o"></i> Prayer Request Management
+                    </h1>
+                    <p class="page-subtitle">Track and respond to prayer requests from the community</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-outline-light btn-sm" ng-click="vm.loadRequests()" ng-disabled="vm.isLoading">
+                        <i class="fa fa-refresh" ng-class="{'fa-spin': vm.isLoading}"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <div class="container-fluid">
+            <div class="filters-content">
+                <div class="filter-group">
+                    <label class="filter-label">Filter by Status</label>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" 
+                                ng-class="vm.filters.status === 'pending' ? 'btn-primary' : 'btn-outline-secondary'"
+                                ng-click="vm.filters.status = 'pending'; vm.applyFilters()">Pending</button>
+                        <button class="btn btn-sm" 
+                                ng-class="vm.filters.status === 'answered' ? 'btn-primary' : 'btn-outline-secondary'"
+                                ng-click="vm.filters.status = 'answered'; vm.applyFilters()">Answered</button>
+                        <button class="btn btn-sm" 
+                                ng-class="vm.filters.status === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
+                                ng-click="vm.filters.status = 'all'; vm.applyFilters()">All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="requests-section">
+        <div class="container-fluid">
+            <!-- Loading State -->
+            <div class="loading-state text-center p-5" ng-if="vm.isLoading">
+                <i class="fa fa-spinner fa-spin fa-3x text-primary"></i>
+                <p class="mt-3">Loading prayer requests...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state text-center p-5 card shadow-sm" ng-if="!vm.isLoading && vm.prayerRequests.length === 0">
+                <i class="fa fa-check-circle fa-4x text-success mb-3"></i>
+                <h3>No prayer requests found</h3>
+                <p class="text-muted">There are currenty no requests matching your filters.</p>
+            </div>
+
+            <!-- Table -->
+            <div class="requests-table-container card shadow-sm" ng-if="!vm.isLoading && vm.prayerRequests.length > 0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Category</th>
+                                <th>Request</th>
+                                <th>Attachment</th>
+                                <th>Status</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="request in vm.prayerRequests">
+                                <td class="text-nowrap">{{request.created_at | date:'short'}}</td>
+                                <td>
+                                    <div class="user-info">
+                                        <div class="font-weight-bold">{{request.full_name}}</div>
+                                        <small class="text-muted">{{request.email}}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <small>{{request.city}}, {{request.country}}</small>
+                                </td>
+                                <td>
+                                    <span class="badge badge-outline-info">{{request.category}}</span>
+                                </td>
+                                <td>
+                                    <div class="request-text-truncate" title="{{request.request_text}}">
+                                        {{request.request_text | limitTo: 80}}{{request.request_text.length > 80 ? '...' : ''}}
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-xs btn-outline-primary" 
+                                            ng-if="request.attachment_url"
+                                            ng-click="vm.viewAttachment(request.attachment_url)">
+                                        <i class="fa fa-file-image-o"></i> View Image
+                                    </button>
+                                    <span class="text-muted small" ng-if="!request.attachment_url">None</span>
+                                </td>
+                                <td>
+                                    <span class="badge" ng-class="request.status === 'pending' ? 'badge-warning' : 'badge-success'">
+                                        {{request.status | uppercase}}
+                                    </span>
+                                </td>
+                                <td class="text-right">
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-primary" 
+                                                ng-click="vm.openRespondModal(request)"
+                                                title="Respond">
+                                            <i class="fa fa-reply"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" 
+                                                ng-click="vm.deleteRequest(request)"
+                                                title="Delete">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Respond Modal -->
+    <div class="modal fade" id="respondModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fa fa-reply"></i> Respond to {{vm.selectedRequest.full_name}}</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="request-preview mb-4 p-3 bg-light rounded">
+                        <h6 class="text-muted small mb-2 text-uppercase font-weight-bold">Original Request</h6>
+                        <p class="mb-0">{{vm.selectedRequest.request_text}}</p>
+                        <div class="mt-2" ng-if="vm.selectedRequest.attachment_url">
+                            <button class="btn btn-sm btn-link p-0" ng-click="vm.viewAttachment(vm.selectedRequest.attachment_url)">
+                                <i class="fa fa-paperclip"></i> View Attached Document
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="adminResponse" class="font-weight-bold">Ministry Response</label>
+                        <p class="text-muted small">This message will be sent to the user via email and push notification.</p>
+                        <textarea id="adminResponse" 
+                                  class="form-control" 
+                                  rows="6" 
+                                  ng-model="vm.adminResponse" 
+                                  placeholder="Write a comforting and prayerful response..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" 
+                            ng-click="vm.submitResponse()" 
+                            ng-disabled="vm.isSubmittingResponse || !vm.adminResponse">
+                        <span ng-if="!vm.isSubmittingResponse"><i class="fa fa-paper-plane"></i> Send Response</span>
+                        <span ng-if="vm.isSubmittingResponse"><i class="fa fa-spinner fa-spin"></i> Sending...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .admin-prayer-page {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 30px 0;
+        }
+        .page-title {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        .filters-section {
+            background-color: white;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 30px;
+        }
+        .request-text-truncate {
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .badge-outline-info {
+            color: #17a2b8;
+            border: 1px solid #17a2b8;
+            background-color: transparent;
+        }
+        .btn-xs {
+            padding: 1px 5px;
+            font-size: 11px;
+        }
+        .bg-primary {
+            background-color: #6a0dad !important;
+        }
+        .text-primary {
+            color: #6a0dad !important;
+        }
+        .btn-primary {
+            background-color: #6a0dad;
+            border-color: #6a0dad;
+        }
+        .btn-primary:hover {
+            background-color: #4c1d95;
+            border-color: #4c1d95;
+        }
+    </style>
+</div>

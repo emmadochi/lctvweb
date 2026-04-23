@@ -35,6 +35,7 @@ class PushSubscription {
                                (user_id, endpoint, p256dh_key, auth_key, user_agent, ip_address)
                                VALUES (?, ?, ?, ?, ?, ?)
                                ON DUPLICATE KEY UPDATE 
+                               user_id = VALUES(user_id),
                                p256dh_key = VALUES(p256dh_key),
                                auth_key = VALUES(auth_key),
                                user_agent = VALUES(user_agent),
@@ -42,13 +43,16 @@ class PushSubscription {
                                updated_at = CURRENT_TIMESTAMP,
                                is_active = TRUE");
 
+        $userAgent = $data['user_agent'] ?? null;
+        $ipAddress = $data['ip_address'] ?? null;
+        
         $stmt->bind_param("isssss",
             $data['user_id'],
             $data['endpoint'],
             $data['p256dh_key'],
             $data['auth_key'],
-            $data['user_agent'] ?? null,
-            $data['ip_address'] ?? null
+            $userAgent,
+            $ipAddress
         );
 
         if ($stmt->execute()) {
@@ -81,7 +85,12 @@ class PushSubscription {
     private static function getFcmAccessToken() {
         $jsonPath = __DIR__ . '/../config/firebase-service-account.json';
         if (!file_exists($jsonPath)) {
-            error_log("FCM V1: Service account JSON not found at $jsonPath");
+            // Try absolute path if relative fails
+            $jsonPath = realpath(__DIR__ . '/../config/firebase-service-account.json');
+        }
+
+        if (!$jsonPath || !file_exists($jsonPath)) {
+            error_log("FCM V1 Error: Service account JSON not found at " . (__DIR__ . '/../config/firebase-service-account.json'));
             return null;
         }
 
@@ -102,7 +111,12 @@ class PushSubscription {
         
         $signatureInput = $base64UrlHeader . "." . $base64UrlPayload;
         $signature = '';
-        openssl_sign($signatureInput, $signature, $config['private_key'], 'SHA256');
+        
+        // Sanitize private key just in case it contains literal \n instead of actual newlines
+        $privateKey = str_replace('\n', "\n", $config['private_key']);
+        $privateKey = str_replace('\r', '', $privateKey); // remove literal \r if any
+        
+        openssl_sign($signatureInput, $signature, $privateKey, 'SHA256');
         $base64UrlSignature = self::base64UrlEncode($signature);
         
         $jwt = $signatureInput . "." . $base64UrlSignature;
@@ -226,11 +240,25 @@ class PushSubscription {
                 'android' => [
                     'priority' => 'high',
                     'notification' => [
-                        'color' => '#FF8C00'
+                        'color' => '#FF8C00',
+                        'channel_id' => 'high_importance_channel'
+                    ]
+                ],
+                'apns' => [
+                    'payload' => [
+                        'aps' => [
+                            'mutable-content' => 1
+                        ]
                     ]
                 ]
             ]
         ];
+
+        if (isset($payload['image']) && !empty($payload['image'])) {
+            $message['message']['notification']['image'] = $payload['image'];
+            $message['message']['android']['notification']['image'] = $payload['image'];
+            $message['message']['apns']['fcm_options']['image'] = $payload['image'];
+        }
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -246,13 +274,16 @@ class PushSubscription {
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($httpCode === 200) return true;
+        if ($httpCode === 200) {
+            return true;
+        }
         
         if ($httpCode === 404 || $httpCode === 410) {
+            error_log("FCM V1: Deactivating invalid token: " . substr($token, 0, 20) . "...");
             self::deactivateByEndpoint($token);
         }
 
-        error_log("FCM V1 Send Error ($httpCode): " . $response);
+        error_log("FCM V1 Send Error (HTTP $httpCode): " . $response);
         return false;
     }
 
@@ -286,6 +317,7 @@ class PushSubscription {
                 'body' => $payload['body'] ?? 'You have a new notification',
                 'icon' => $payload['icon'] ?? '/icon-192x192.png',
                 'badge' => $payload['badge'] ?? '/icon-192x192.png',
+                'image' => $payload['image'] ?? null,
                 'data' => $payload['data'] ?? [],
                 'requireInteraction' => true,
             ]));
@@ -317,6 +349,10 @@ class PushSubscription {
             'badge' => '/icon-192x192.png',
             'data' => $data,
         ];
+        
+        if (isset($data['image'])) {
+            $payload['image'] = $data['image'];
+        }
 
         foreach ($subscriptions as $subscription) {
             if (self::sendPushNotification($subscription, $payload)) {

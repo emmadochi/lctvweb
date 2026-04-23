@@ -20,6 +20,9 @@
                 'NAV_ABOUT': 'About',
                 'NAV_CONTACT': 'Contact',
 
+                'NAV_GIVE_ONLINE': 'Give Online',
+                'NAV_PRAYER_POINT': 'Prayer Point',
+
                 // Common Actions
                 'ACTION_SAVE': 'Save',
                 'ACTION_CANCEL': 'Cancel',
@@ -117,6 +120,9 @@
                 'NAV_DONATE': 'Donar',
                 'NAV_ABOUT': 'Acerca de',
                 'NAV_CONTACT': 'Contacto',
+
+                'NAV_GIVE_ONLINE': 'Dar en Línea',
+                'NAV_PRAYER_POINT': 'Petición de Oración',
 
                 'ACTION_SAVE': 'Guardar',
                 'ACTION_CANCEL': 'Cancelar',

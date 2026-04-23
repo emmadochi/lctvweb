@@ -282,7 +282,7 @@ class ReactionController {
             $row = $result->fetch_assoc();
 
             $count = $row['count'];
-            Video::update($videoId, ['reaction_count' => $count]);
+            Video::updateReactionCount($videoId, $count);
 
         } catch (Exception $e) {
             error_log("Failed to update video reaction count: " . $e->getMessage());

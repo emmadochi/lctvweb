@@ -11,6 +11,87 @@ require_once __DIR__ . '/../utils/NotificationService.php';
 
 class UserController {
 
+    public function googleLogin($data) {
+        try {
+            // Validate input
+            if (empty($data['google_id']) || empty($data['email'])) {
+                Response::validationError(['google_id' => 'Google ID is required', 'email' => 'Email is required']);
+            }
+
+            // Optional: Verify token with Google (recommended for security)
+            /*
+            if (isset($data['id_token'])) {
+                $verify = file_get_contents("https://oauth2.googleapis.com/tokeninfo?id_token=" . $data['id_token']);
+                $verifyData = json_decode($verify, true);
+                if (isset($verifyData['error'])) {
+                    Response::error('Invalid Google token', 401);
+                }
+            }
+            */
+
+            // Find user by Google ID
+            $user = User::findByGoogleId($data['google_id']);
+
+            if (!$user) {
+                // Check if user exists by email but not linked to Google
+                $userByEmail = User::findByEmail($data['email']);
+                
+                if ($userByEmail) {
+                    // Update existing user with Google ID
+                    $conn = getDBConnection();
+                    $stmt = $conn->prepare("UPDATE users SET google_id = ?, login_provider = 'google' WHERE id = ?");
+                    $stmt->bind_param("si", $data['google_id'], $userByEmail['id']);
+                    $stmt->execute();
+                    $stmt->close();
+                    
+                    $user = User::getById($userByEmail['id']);
+                } else {
+                    // Create new user
+                    $userData = [
+                        'email' => $data['email'],
+                        'first_name' => $data['first_name'] ?? '',
+                        'last_name' => $data['last_name'] ?? '',
+                        'role' => 'user',
+                        'google_id' => $data['google_id'],
+                        'login_provider' => 'google',
+                        'password' => null // Social logins don't need local password
+                    ];
+
+                    $userId = User::create($userData);
+                    if ($userId) {
+                        $user = User::getById($userId);
+                    } else {
+                        error_log("UserController googleLogin: Failed to create user for " . $data['email']);
+                        Response::error('Failed to create user', 500);
+                        return;
+                    }
+                }
+            }
+
+            if (!$user['is_active']) {
+                Response::validationError(['general' => 'Account is disabled']);
+            }
+
+            // Generate token
+            $token = Auth::generateToken($user);
+
+            Response::success([
+                'user' => [
+                    'id' => $user['id'],
+                    'email' => $user['email'],
+                    'first_name' => $user['first_name'],
+                    'last_name' => $user['last_name'],
+                    'role' => $user['role']
+                ],
+                'token' => $token
+            ], 'Google login successful');
+
+        } catch (Exception $e) {
+            error_log("UserController googleLogin exception: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
+            Response::error('Google login failed: ' . $e->getMessage(), 500);
+        }
+    }
+
     public function register($data) {
         try {
             // Validate input
@@ -65,12 +146,13 @@ class UserController {
                     'token' => $token
                 ], 'User registered successfully', 201);
             } else {
+                error_log("UserController register: Failed to create user for " . ($data['email'] ?? 'unknown email'));
                 Response::error('Failed to create user', 500);
             }
 
         } catch (Exception $e) {
-            error_log("UserController register error: " . $e->getMessage());
-            Response::error('Registration failed', 500);
+            error_log("UserController register exception: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
+            Response::error('Registration failed: ' . $e->getMessage(), 500);
         }
     }
 
@@ -177,7 +259,7 @@ class UserController {
             // Build reset link
             $appUrl = getenv('APP_URL') ?: 'http://localhost/LCMTVWebNew/frontend';
             // Angular app uses hash-based routing (#/...)
-            $resetUrl = rtrim($appUrl, '/') . '#/reset-password?token=' . urlencode($token);
+            $resetUrl = rtrim($appUrl, '/') . '/#/reset-password?token=' . urlencode($token);
 
             // Send reset email
             try {

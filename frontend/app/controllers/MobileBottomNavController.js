@@ -20,7 +20,7 @@
             vm.categories = [];
             vm.currentUser = null;
             vm.isAuthenticated = false;
-            vm.showCategoriesModal = false;
+            vm.showMenuModal = false;
             vm.showProfileModal = false;
 
             // Initialize controller
@@ -58,14 +58,14 @@
             }
 
             /**
-             * Toggle categories modal
+             * Toggle Menu modal
              */
-            vm.toggleCategoriesModal = function() {
-                vm.showCategoriesModal = !vm.showCategoriesModal;
+            vm.toggleMenuModal = function() {
+                vm.showMenuModal = !vm.showMenuModal;
                 vm.showProfileModal = false; // Close profile modal
 
                 // Prevent body scroll when modal is open
-                if (vm.showCategoriesModal) {
+                if (vm.showMenuModal) {
                     document.body.style.overflow = 'hidden';
                 } else {
                     document.body.style.overflow = '';
@@ -73,10 +73,10 @@
             };
 
             /**
-             * Close categories modal
+             * Close Menu modal
              */
-            vm.closeCategoriesModal = function() {
-                vm.showCategoriesModal = false;
+            vm.closeMenuModal = function() {
+                vm.showMenuModal = false;
                 document.body.style.overflow = '';
             };
 
@@ -85,7 +85,7 @@
              */
             vm.toggleProfileModal = function() {
                 vm.showProfileModal = !vm.showProfileModal;
-                vm.showCategoriesModal = false; // Close categories modal
+                vm.showMenuModal = false; // Close Menu modal
 
                 // Prevent body scroll when modal is open
                 if (vm.showProfileModal) {
@@ -129,7 +129,7 @@
 
             // Close modals on route change
             $scope.$on('$locationChangeStart', function() {
-                vm.showCategoriesModal = false;
+                vm.showMenuModal = false;
                 vm.showProfileModal = false;
                 document.body.style.overflow = '';
             });

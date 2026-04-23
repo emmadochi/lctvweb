@@ -25,7 +25,7 @@ class SearchController {
             $userId = null;
             try {
                 $user = Auth::getUserFromToken();
-                $userId = $user ? $user['id'] : null;
+                $userId = $user['user_id'] ?? $user['id'] ?? null;
             } catch (Exception $e) {
                 // User not authenticated - that's okay for search
             }
@@ -53,7 +53,7 @@ class SearchController {
             $userId = null;
             try {
                 $user = Auth::getUserFromToken();
-                $userId = $user ? $user['id'] : null;
+                $userId = $user['user_id'] ?? $user['id'] ?? null;
             } catch (Exception $e) {
                 // User not authenticated - that's okay for suggestions
             }
@@ -83,7 +83,7 @@ class SearchController {
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
             $excludeWatched = isset($_GET['exclude_watched']) ? (bool)$_GET['exclude_watched'] : true;
 
-            $recommendations = Search::getRecommendations($user['id'], $limit, $excludeWatched);
+            $recommendations = Search::getRecommendations($user['user_id'] ?? $user['id'] ?? null, $limit, $excludeWatched);
 
             return Response::success($recommendations);
 
@@ -136,7 +136,7 @@ class SearchController {
                 return Response::error('Playlist type is required', 400);
             }
 
-            $videos = Search::createSmartPlaylist($user['id'], $playlistType, $limit);
+            $videos = Search::createSmartPlaylist($user['user_id'] ?? $user['id'] ?? null, $playlistType, $limit);
 
             // Generate playlist title and description
             $playlistInfo = self::getPlaylistInfo($playlistType);

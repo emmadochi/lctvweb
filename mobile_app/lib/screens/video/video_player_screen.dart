@@ -332,6 +332,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
 
     audioHandler.onPlayCallback = () async => _youtubeController?.play();
     audioHandler.onPauseCallback = () async => _youtubeController?.pause();
+    audioHandler.onSeekCallback = (position) async => _youtubeController?.seekTo(position);
+    audioHandler.onStopCallback = () async => _youtubeController?.pause();
     
     _youtubeController!.addListener(() {
       if (!mounted) return;
@@ -407,6 +409,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
     _chewieController?.dispose();
     _youtubeController?.dispose();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -427,6 +430,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
   Widget build(BuildContext context) {
     final videoProvider = context.watch<VideoProvider>();
     final isFavorited = videoProvider.isFavorite(widget.video.id);
+
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // In landscape, we want the player to take the full screen if not showing paywall
+    if (isLandscape && !_showPaywall && !LivestreamScreen.isPipMode.value) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            Center(child: _buildPlayer()),
+            Positioned(
+              top: 20,
+              left: 20,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
 
     return PipWidget(
       onPipEntered: _onPipEntered,

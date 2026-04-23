@@ -26,8 +26,13 @@ class CategoryController {
                 Response::notFound('Category not found');
             }
 
+            // Get current user context
+            $user = Auth::getCurrentUser();
+            $userRole = $user['role'] ?? 'general';
+            $userId = $user['user_id'] ?? $user['id'] ?? null;
+
             // Get videos for this category
-            $videos = Video::getByCategory($id, 20);
+            $videos = Video::getByCategory($id, 20, $userRole, $userId);
 
             Response::success([
                 'category' => $category,

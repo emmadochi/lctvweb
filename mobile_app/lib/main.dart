@@ -38,7 +38,7 @@ void main() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.lcmtv.app.channel.audio',
       androidNotificationChannelName: 'LCMTV Playback',
-      androidNotificationOngoing: true,
+      androidNotificationOngoing: false,
       androidStopForegroundOnPause: true,
     ),
   );
@@ -51,8 +51,34 @@ void main() async {
 
 }
 
-class LCMTVApp extends StatelessWidget {
+class LCMTVApp extends StatefulWidget {
   const LCMTVApp({super.key});
+
+  @override
+  State<LCMTVApp> createState() => _LCMTVAppState();
+}
+
+class _LCMTVAppState extends State<LCMTVApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the app is swiped away (detached), stop the audio handler
+    // to clear the notification area completely.
+    if (state == AppLifecycleState.detached) {
+      audioHandler.stop();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

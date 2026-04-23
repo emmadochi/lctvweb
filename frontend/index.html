@@ -88,16 +88,16 @@
     <!-- Main Application Container -->
     <div class="app-container">
         <!-- Header/Navigation -->
-        <header ng-include="'app/views/components/header.html'" class="main-header"></header>
+        <header ng-include="'app/views/components/header.html?v=1.2'" class="main-header"></header>
 
         <!-- Main Content Area -->
         <main class="main-content" ng-view></main>
 
         <!-- Footer -->
-        <footer ng-include="'app/views/components/footer.html'" class="main-footer"></footer>
+        <footer ng-include="'app/views/components/footer.html?v=1.2'" class="main-footer"></footer>
 
         <!-- Mobile Bottom Navigation (visible only on small screens) -->
-        <div ng-include="'app/views/components/mobile-bottom-nav.html'"></div>
+        <div ng-include="'app/views/components/mobile-bottom-nav.html?v=1.2'"></div>
     </div>
 
     <!-- Error Modal -->
@@ -136,7 +136,7 @@
 
     <!-- Application Files -->
     <script src="app/i18n/translations.js?v=1.1"></script>
-    <script src="app/app.js?v=1.1"></script>
+    <script src="app/app.js?v=1.2"></script>
 
     <!-- Services -->
     <script src="app/services/VideoService.js?v=1.1"></script>
@@ -147,6 +147,7 @@
     <script src="app/services/ReactionService.js"></script>
     <script src="app/services/AnalyticsService.js"></script>
     <script src="app/services/DonationService.js"></script>
+    <script src="app/services/PrayerService.js?v=1.2"></script>
     <script src="app/services/I18nService.js?v=1.1"></script>
     <script src="app/services/CategoryService.js"></script>
     <script src="app/services/SearchService.js"></script>
@@ -154,7 +155,7 @@
     <script src="app/services/AuthService.js"></script>
     <script src="app/services/PlaylistService.js"></script>
     <script src="app/services/AdminService.js"></script>
-
+ 
     <!-- Controllers -->
     <script src="app/controllers/HomeController.js"></script>
     <script src="app/controllers/CategoryController.js"></script>
@@ -164,6 +165,7 @@
     <script src="app/controllers/LeadershipController.js"></script>
     <script src="app/services/DonationService.js"></script>
     <script src="app/controllers/DonationController.js"></script>
+    <script src="app/controllers/PrayerController.js?v=1.2"></script>
     <script src="app/directives/languageSwitcher.js"></script>
     <script src="app/controllers/FavoritesController.js"></script>
     <script src="app/controllers/PlaylistController.js"></script>
@@ -178,6 +180,7 @@
     <script src="app/controllers/AdminVideosController.js"></script>
     <script src="app/controllers/AdminCategoriesController.js"></script>
     <script src="app/controllers/AdminDonationsController.js"></script>
+    <script src="app/controllers/AdminPrayerController.js"></script>
     <script src="app/controllers/NotFoundController.js"></script>
 
     <!-- Directives -->

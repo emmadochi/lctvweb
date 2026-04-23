@@ -92,6 +92,10 @@ class LcmAudioHandler extends BaseAudioHandler {
       ],
       systemActions: const {
         MediaAction.seek,
+        MediaAction.playPause,
+        MediaAction.stop,
+        MediaAction.pause,
+        MediaAction.play,
       },
       androidCompactActionIndices: const [0, 1],
       playing: playing,
