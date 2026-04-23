@@ -11,6 +11,7 @@ import 'notifications_screen.dart';
 import 'history_screen.dart';
 import 'about_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'prayer_requests_screen.dart';
 import '../giving_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/video_provider.dart';
@@ -383,6 +384,16 @@ class _LoggedInProfileView extends StatelessWidget {
                         );
                       },
                     ),
+                  _SettingsTile(
+                    icon: Icons.front_hand_outlined,
+                    label: 'Prayer Requests',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PrayerRequestsScreen()),
+                      );
+                    },
+                  ),
                   _SettingsTile(
                     icon: Icons.lock_outline,
                     label: 'Change Password',

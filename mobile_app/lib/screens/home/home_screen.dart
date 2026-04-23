@@ -14,6 +14,9 @@ import '../video/my_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../leadership/leadership_screen.dart';
 import '../giving_screen.dart';
+import '../profile/submit_prayer_screen.dart';
+import '../profile/notifications_screen.dart';
+import '../../providers/notification_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -217,6 +220,9 @@ class _MainHomeViewState extends State<MainHomeView> {
   void initState() {
     super.initState();
     _updateTabs();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().fetchUnreadCount();
+    });
   }
 
   void _updateTabs() {
@@ -245,6 +251,7 @@ class _MainHomeViewState extends State<MainHomeView> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final videos = context.watch<VideoProvider>();
+    final notifications = context.watch<NotificationProvider>();
 
     return SafeArea(
       child: RefreshIndicator(
@@ -276,6 +283,15 @@ class _MainHomeViewState extends State<MainHomeView> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const GivingScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.front_hand_outlined, color: Colors.white, size: 22),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SubmitPrayerScreen()),
                     );
                   },
                 ),
@@ -406,25 +422,34 @@ class _MainHomeViewState extends State<MainHomeView> {
   }
 
   Widget _buildNotificationIcon() {
+    final notifications = context.watch<NotificationProvider>();
+    final hasUnread = notifications.unreadCount > 0;
+
     return Stack(
       alignment: Alignment.center,
       children: [
         IconButton(
           icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
+          },
         ),
-        Positioned(
-          top: 12,
-          right: 12,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFB800),
-              shape: BoxShape.circle,
+        if (hasUnread)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFB800),
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-        ),
       ],
     );
   }

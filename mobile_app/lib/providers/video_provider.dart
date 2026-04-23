@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
@@ -231,5 +232,68 @@ class VideoProvider with ChangeNotifier {
     if (data == null) return [];
     if (data is List) return data.map((v) => VideoModel.fromJson(v)).toList();
     return [];
+  }
+
+  Future<Map<String, dynamic>?> initiatePurchase(int videoId, {String currency = 'USD'}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.post('/videos/purchase', data: {
+        'video_id': videoId,
+        'currency': currency
+      });
+      _isLoading = false;
+      notifyListeners();
+      return response.data['success'] == true ? response.data['data'] : null;
+    } catch (e) {
+      _isLoading = false;
+      if (e is DioException && e.response?.data != null) {
+        _error = e.response?.data['message'] ?? 'Server error during purchase';
+      } else {
+        _error = 'Network error: Failed to initiate purchase';
+      }
+      print('initiatePurchase Error: $e');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> verifyPurchase(String reference) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.post('/videos/verify-purchase', data: {'reference': reference});
+      _isLoading = false;
+      notifyListeners();
+      return (response.data['success'] == true && response.data['data']['status'] == 'completed');
+    } catch (e) {
+      _isLoading = false;
+      if (e is DioException && e.response?.data != null) {
+        _error = e.response?.data['message'] ?? 'Verification failed';
+      } else {
+        _error = 'Network error: Failed to verify purchase';
+      }
+      print('verifyPurchase Error: $e');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<VideoModel?> getVideoById(int id) async {
+    try {
+      final response = await _apiService.get('/videos/$id');
+      final bool isSuccess = response.data['success'] == true || response.data['status'] == 'success';
+      if (isSuccess) {
+        return VideoModel.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (e) {
+      print('getVideoById Error: $e');
+      return null;
+    }
   }
 }

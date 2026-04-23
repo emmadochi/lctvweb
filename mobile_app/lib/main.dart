@@ -11,9 +11,17 @@ import 'providers/comment_provider.dart';
 import 'providers/history_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/donation_provider.dart';
+import 'providers/prayer_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
+import 'package:audio_service/audio_service.dart';
+import 'services/audio_handler.dart';
+import 'package:audio_session/audio_session.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+late LcmAudioHandler audioHandler;
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,8 +31,24 @@ void main() async {
   
   // Initialize Push Notifications
   await PushNotificationService.initialize();
+
+  // Initialize Audio Service
+  audioHandler = await AudioService.init(
+    builder: () => LcmAudioHandler(),
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.lcmtv.app.channel.audio',
+      androidNotificationChannelName: 'LCMTV Playback',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true,
+    ),
+  );
+  
+  // Configure Audio Session
+  final session = await AudioSession.instance;
+  await session.configure(const AudioSessionConfiguration.music());
   
   runApp(const LCMTVApp());
+
 }
 
 class LCMTVApp extends StatelessWidget {
@@ -41,9 +65,11 @@ class LCMTVApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => HistoryProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => DonationProvider()),
+        ChangeNotifierProvider(create: (_) => PrayerProvider()),
       ],
       child: MaterialApp(
         title: 'LCMTV Mobile',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: const AppEntry(),

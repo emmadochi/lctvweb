@@ -126,6 +126,29 @@ class VideoListCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Premium Badge
+                  if (video.isPremium)
+                    Positioned(
+                      bottom: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFB800), Color(0xFFFFD700)],
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'PREMIUM ${video.price > 0 ? "(\$${video.price.toStringAsFixed(2)})" : ""}',
+                          style: const TextStyle(
+                            color: Color(0xFF25284B),
+                            fontSize: 7,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

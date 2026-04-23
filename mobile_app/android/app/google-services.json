@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "679833147395-1dcmce3eoei9ve2v6j6v2kvnmtvik234.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lcmtv.app",
+            "certificate_hash": "61162ed6fb0171f2cdd75e0c6553e4df50e9c24d"
+          }
+        },
+        {
           "client_id": "679833147395-2nincl82buv90m8htqp3l67q1kd2eh2c.apps.googleusercontent.com",
           "client_type": 3
         }

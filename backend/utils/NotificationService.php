@@ -102,7 +102,9 @@ class NotificationService {
                 'type' => 'livestream',
                 'id' => $livestream['id']
             ]);
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            error_log("Broadcast live event push failed: " . $e->getMessage());
+        }
 
         return true;
     }
@@ -166,7 +168,13 @@ class NotificationService {
             <p><strong>About this video:</strong> " . htmlspecialchars(substr($video['description'] ?? '', 0, 150)) . "...</p>
         ";
 
-        self::batchSend($emails, $subject, $body);
+        $appUrl = getenv('APP_URL');
+        if (!$appUrl || strpos($appUrl, 'localhost') !== false) {
+            $appUrl = 'https://tv.lifechangerstouch.org';
+        }
+        $videoUrl = rtrim($appUrl, '/') . '/frontend/#/video/' . ($video['id'] ?? '');
+
+        self::batchSend($emails, $subject, $body, $videoUrl, "Watch " . htmlspecialchars($video['title']));
 
         // Broadcast Push Notification
         try {
@@ -178,9 +186,12 @@ class NotificationService {
 
             PushSubscription::sendToUsers($userIds, "📹 New Video Available", $video['title'], [
                 'type' => 'video',
-                'id' => $video['id'] ?? null
+                'id' => $video['id'] ?? null,
+                'image' => $video['thumbnail_url'] ?? null
             ]);
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            error_log("Broadcast new video push failed: " . $e->getMessage());
+        }
 
         return true;
     }
@@ -188,13 +199,13 @@ class NotificationService {
     /**
      * Internal helper to handle looping through emails
      */
-    private static function batchSend($emails, $subject, $body) {
+    private static function batchSend($emails, $subject, $body, $actionUrl = null, $actionText = null) {
         // Extend execution time for large lists
         @set_time_limit(300); 
         
         $successCount = 0;
         foreach ($emails as $email) {
-            if (Mailer::send($email, $subject, $body)) {
+            if (Mailer::send($email, $subject, $body, null, $actionUrl, $actionText)) {
                 $successCount++;
             }
             // Small Sleep to avoid hitting local rate limits (optional)

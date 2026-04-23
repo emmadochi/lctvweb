@@ -9,6 +9,10 @@ import 'package:simple_pip_mode/actions/pip_action.dart';
 import 'package:simple_pip_mode/actions/pip_actions_layout.dart';
 import '../../providers/livestream_provider.dart';
 import '../../widgets/chat_widget.dart';
+import '../../main.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
+
 
 class LivestreamScreen extends StatefulWidget {
   const LivestreamScreen({super.key});
@@ -84,15 +88,21 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
     }
     SimplePip().setIsPlaying(true);
   }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       if (LivestreamScreen.isPipMode.value) {
         _resumeIfInPip();
       }
+      // Keep playing in background
     }
   }
+
+  Future<void> _requestAudioFocus() async {
+    final session = await AudioSession.instance;
+    await session.setActive(true);
+  }
+
 
   Future<void> _initHybridPlayer(dynamic stream) async {
     // Stop heartbeat for previous stream if any
@@ -102,11 +112,22 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
     try {
       // Prefer HLS if available
       if (stream.hlsUrl != null && stream.hlsUrl!.isNotEmpty) {
-        _hlsController = VideoPlayerController.networkUrl(Uri.parse(stream.hlsUrl!));
+        _hlsController = VideoPlayerController.networkUrl(
+          Uri.parse(stream.hlsUrl!),
+          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+        );
         await _hlsController!.initialize();
+
+        // Request audio focus
+        await _requestAudioFocus();
+
+        // Setup Audio Service for Livestream
+        _setupAudioHandler(stream);
+
         _hlsController!.play();
         setState(() => _isPlayerInitialized = true);
         SimplePip().setIsPlaying(true);
+
       } else {
         _youtubeController = YoutubePlayerController(
           initialVideoId: stream.youtubeId,
@@ -118,6 +139,9 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
             enableCaption: true,
           ),
         );
+        
+        _setupYoutubeAudioHandler(stream);
+        
         setState(() => _isPlayerInitialized = true);
         SimplePip().setIsPlaying(true);
       }
@@ -126,6 +150,66 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
       if (mounted) setState(() => _hasError = true);
     }
   }
+
+  void _setupAudioHandler(dynamic stream) {
+    if (_hlsController == null) return;
+
+    // 1. Update Metadata
+    audioHandler.updateMetadata(
+      id: stream.id.toString(),
+
+      title: stream.title,
+      artist: 'LIVE - LCMTV',
+      artUri: stream.thumbnailUrl.isNotEmpty ? stream.thumbnailUrl : null,
+      duration: null, // Livestreams don't have a fixed duration
+    );
+
+    // 2. Set Callbacks
+    audioHandler.onPlayCallback = () async => await _hlsController?.play();
+    audioHandler.onPauseCallback = () async => await _hlsController?.pause();
+    audioHandler.onStopCallback = () async => await _hlsController?.pause();
+
+
+    // 3. Listen for changes
+    _hlsController!.addListener(() {
+      if (!mounted) return;
+      
+      final value = _hlsController!.value;
+      audioHandler.updatePlaybackState(
+        playing: value.isPlaying,
+        processingState: value.isBuffering 
+          ? AudioProcessingState.buffering 
+          : (value.isInitialized ? AudioProcessingState.ready : AudioProcessingState.idle),
+        position: value.position,
+        bufferedPosition: value.buffered.isNotEmpty ? value.buffered.last.end : Duration.zero,
+      );
+
+    });
+  }
+
+  void _setupYoutubeAudioHandler(dynamic stream) {
+    // Basic handler for YouTube to show metadata on lock screen
+    audioHandler.updateMetadata(
+      id: stream.id.toString(),
+      title: stream.title,
+      artist: 'LIVE - LCMTV',
+      artUri: stream.thumbnailUrl.isNotEmpty ? stream.thumbnailUrl : null,
+    );
+
+    audioHandler.onPlayCallback = () async => _youtubeController?.play();
+    audioHandler.onPauseCallback = () async => _youtubeController?.pause();
+    
+    _youtubeController!.addListener(() {
+      if (!mounted) return;
+      audioHandler.updatePlaybackState(
+        playing: _youtubeController!.value.isPlaying,
+        processingState: _youtubeController!.value.isReady 
+          ? AudioProcessingState.ready 
+          : AudioProcessingState.buffering,
+      );
+    });
+  }
+
 
   @override
   void dispose() {
@@ -168,15 +252,18 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
             Expanded(
               child: Stack(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                  CustomScrollView(
+                    slivers: [
                       // Stream Info Bar
-                      if (stream != null) _buildStreamMeta(stream),
+                      if (stream != null)
+                        SliverToBoxAdapter(
+                          child: _buildStreamMeta(stream),
+                        ),
                       
                       // Chat Zone
                       if (!_isChatExpanded && stream != null)
-                        Expanded(
+                        SliverFillRemaining(
+                          hasScrollBody: true,
                           child: ChatWidget(
                             videoId: stream.id,
                             isLivestream: true,
@@ -185,9 +272,12 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
                           ),
                         ),
                       
-                      if (_hasError) _buildEmptyState(),
+                      if (_hasError) SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState()),
                       if (provider.isLoading && stream == null)
-                        const Expanded(child: Center(child: CircularProgressIndicator(color: Color(0xFFFFB800)))),
+                        const SliverFillRemaining(
+                          hasScrollBody: false, 
+                          child: Center(child: CircularProgressIndicator(color: Color(0xFFFFB800))),
+                        ),
                     ],
                   ),
 
@@ -330,19 +420,18 @@ class _LivestreamScreenState extends State<LivestreamScreen> with WidgetsBinding
   }
 
   Widget _buildEmptyState() {
-    return Expanded(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.sensors_off, size: 80, color: Colors.white.withOpacity(0.1)),
-            const SizedBox(height: 20),
-            const Text(
-              'No active livestreams at the moment.',
-              style: TextStyle(color: Colors.white54, fontSize: 16),
-            ),
-          ],
-        ),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.sensors_off, size: 80, color: Colors.white.withOpacity(0.1)),
+          const SizedBox(height: 20),
+          const Text(
+            'No active livestreams at the moment.',
+            style: TextStyle(color: Colors.white54, fontSize: 16),
+          ),
+        ],
       ),
     );
   }

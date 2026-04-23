@@ -8,7 +8,10 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/video_model.dart';
 import '../../providers/video_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/history_provider.dart';
+import '../../providers/donation_provider.dart';
+import 'package:flutter_paystack/flutter_paystack.dart';
 import '../../widgets/video_list_card.dart';
 import '../../widgets/video_grid_card.dart';
 import '../home/livestream_screen.dart';
@@ -17,6 +20,10 @@ import 'package:simple_pip_mode/simple_pip.dart';
 import 'package:simple_pip_mode/pip_widget.dart';
 import 'package:simple_pip_mode/actions/pip_action.dart';
 import 'package:simple_pip_mode/actions/pip_actions_layout.dart';
+import '../../main.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
+
 
 class VideoPlayerScreen extends StatefulWidget {
   final VideoModel video;
@@ -35,6 +42,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
   
   bool _isPlayerInitialized = false;
   bool _hasError = false;
+  bool _showPaywall = false;
+  bool _isPurchasing = false;
+  final _paystackPlugin = PaystackPlugin();
+  bool _isPaystackInitialized = false;
   List<VideoModel> _relatedVideos = [];
 
   @override
@@ -42,7 +53,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    _initHybridPlayer();
+    _checkAccessAndInit();
     _loadRelated();
     
     // Configure auto PIP on start
@@ -92,14 +103,126 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
     SimplePip().setIsPlaying(true);
   }
 
+
+  void _checkAccessAndInit() {
+    if (widget.video.isPremium && !widget.video.hasAccess) {
+      setState(() => _showPaywall = true);
+    } else {
+      _initHybridPlayer();
+    }
+  }
+
+  Future<void> _handlePurchase() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to purchase this video')),
+      );
+      return;
+    }
+
+    setState(() => _isPurchasing = true);
+
+    try {
+      final videoProvider = context.read<VideoProvider>();
+      final purchaseData = await videoProvider.initiatePurchase(widget.video.id, currency: 'NGN');
+
+      if (purchaseData == null) {
+        throw videoProvider.error ?? 'Failed to initiate purchase. Please check your connection.';
+      }
+
+      final String reference = purchaseData['reference'];
+      
+      // Handle case where video is already purchased
+      if (reference == 'ALREADY_PURCHASED' || purchaseData['already_purchased'] == true) {
+        if (mounted) {
+          setState(() {
+            _showPaywall = false;
+            _isPurchasing = false;
+          });
+          _initHybridPlayer();
+        }
+        return;
+      }
+
+      final donationProvider = context.read<DonationProvider>();
+      if (donationProvider.paymentSettings.isEmpty) {
+        await donationProvider.loadPaymentSettings();
+      }
+      
+      final publicKey = donationProvider.paymentSettings['gateway']?.firstWhere(
+        (s) => s['setting_key'].toString().toLowerCase().contains('paystack_public'),
+        orElse: () => null,
+      )?['setting_value'];
+
+      if (publicKey == null) {
+        throw 'Payment gateway is not currently configured.';
+      }
+
+      if (!_isPaystackInitialized) {
+        await _paystackPlugin.initialize(publicKey: publicKey);
+        _isPaystackInitialized = true;
+      }
+
+      final int amountInKobo = (widget.video.price * 100).toInt();
+
+      Charge charge = Charge()
+        ..amount = amountInKobo
+        ..reference = reference
+        ..email = auth.user?.email ?? ''
+        ..currency = 'NGN';
+
+      final response = await _paystackPlugin.checkout(
+        context,
+        charge: charge,
+        method: CheckoutMethod.card,
+        logo: Image.asset('assets/images/logo.png', width: 40),
+      );
+
+      if (response.status) {
+        final verified = await videoProvider.verifyPurchase(reference);
+        if (verified && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Purchase successful!')),
+          );
+          setState(() {
+            _showPaywall = false;
+            _isPurchasing = false;
+          });
+          _initHybridPlayer();
+        } else {
+          throw 'Payment verification failed';
+        }
+      } else {
+        setState(() => _isPurchasing = false);
+      }
+    } catch (e) {
+      debugPrint('Purchase error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+        setState(() => _isPurchasing = false);
+      }
+    }
+  }
+
+  Future<void> _requestAudioFocus() async {
+    final session = await AudioSession.instance;
+    await session.setActive(true);
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       if (LivestreamScreen.isPipMode.value) {
         _resumeIfInPip();
       }
+      // Note: We don't pause the player here anymore, 
+      // allowing background audio to continue.
     }
   }
+
 
   Future<void> _initHybridPlayer() async {
     try {
@@ -116,18 +239,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
             enableCaption: true,
           ),
         );
+        
+        _setupYoutubeAudioHandler();
+        
         setState(() => _isPlayerInitialized = true);
       } else {
         final url = widget.video.videoUrl;
         if (url.isEmpty) {
-          setState(() => _hasError = true);
           return;
         }
 
-        _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+        _videoController = VideoPlayerController.networkUrl(
+          Uri.parse(url),
+          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+        );
         await _videoController!.initialize();
 
+        // Request audio focus before starting background playback
+        await _requestAudioFocus();
+
+        // Initialize Audio Service Handler for this video
+        _setupAudioHandler();
+
         _chewieController = ChewieController(
+
           videoPlayerController: _videoController!,
           autoPlay: true,
           looping: false,
@@ -148,6 +283,67 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
       if (mounted) setState(() => _hasError = true);
     }
   }
+
+  void _setupAudioHandler() {
+    if (_videoController == null) return;
+
+    // 1. Update Metadata
+    audioHandler.updateMetadata(
+      id: widget.video.id.toString(),
+
+      title: widget.video.title,
+      artist: widget.video.channelTitle,
+      artUri: widget.video.thumbnailUrl,
+      duration: _videoController!.value.duration,
+    );
+
+    // 2. Set Callbacks for lock screen controls
+    audioHandler.onPlayCallback = () async => await _videoController?.play();
+    audioHandler.onPauseCallback = () async => await _videoController?.pause();
+    audioHandler.onSeekCallback = (position) async => await _videoController?.seekTo(position);
+    audioHandler.onStopCallback = () async => await _videoController?.pause();
+
+
+    // 3. Listen for changes in the player to update notification state
+    _videoController!.addListener(() {
+      if (!mounted) return;
+      
+      final value = _videoController!.value;
+      audioHandler.updatePlaybackState(
+        playing: value.isPlaying,
+        processingState: value.isBuffering 
+          ? AudioProcessingState.buffering 
+          : (value.isInitialized ? AudioProcessingState.ready : AudioProcessingState.idle),
+        position: value.position,
+        bufferedPosition: value.buffered.isNotEmpty ? value.buffered.last.end : Duration.zero,
+      );
+
+    });
+  }
+
+  void _setupYoutubeAudioHandler() {
+    // Basic handler for YouTube to show metadata on lock screen
+    audioHandler.updateMetadata(
+      id: widget.video.id.toString(),
+      title: widget.video.title,
+      artist: widget.video.channelTitle,
+      artUri: widget.video.thumbnailUrl,
+    );
+
+    audioHandler.onPlayCallback = () async => _youtubeController?.play();
+    audioHandler.onPauseCallback = () async => _youtubeController?.pause();
+    
+    _youtubeController!.addListener(() {
+      if (!mounted) return;
+      audioHandler.updatePlaybackState(
+        playing: _youtubeController!.value.isPlaying,
+        processingState: _youtubeController!.value.isReady 
+          ? AudioProcessingState.ready 
+          : AudioProcessingState.buffering,
+      );
+    });
+  }
+
 
   Future<void> _loadRelated() async {
     final provider = context.read<VideoProvider>();
@@ -248,7 +444,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
                 bottom: false,
                 top: !LivestreamScreen.isPipMode.value,
                 child: AspectRatio(
-                  aspectRatio: 16 / 9,
+                  aspectRatio: _showPaywall ? 1.0 : 16 / 9,
                   child: _buildPlayer(),
                 ),
               ),
@@ -391,42 +587,97 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
 }
 
   Widget _buildPlayer({bool isPip = false}) {
-    if (!_isPlayerInitialized) {
-      return Stack(
-        children: [
-          _buildThumbnailPlaceholder(),
-          if (!_hasError)
-            const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFFFB800),
-                strokeWidth: 2,
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // 1. Paywall Overlay (Highest Priority)
+        if (_showPaywall)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black87,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.lock_outline, color: Color(0xFFFFB800), size: 40),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Premium Content',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'This video requires a purchase to watch',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'NGN ${widget.video.price.toStringAsFixed(2)}',
+                        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isPurchasing ? null : _handlePurchase,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFB800),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: _isPurchasing
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                               : const Text('PURCHASE NOW', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          if (_hasError)
-            const Center(
-              child: Text('Failed to load video', 
-                style: TextStyle(color: Colors.redAccent)),
-            ),
+          ),
+
+        // 2. Main Player Area
+        if (!_showPaywall) ...[
+          if (_isPlayerInitialized) ...[
+            if (_youtubeController != null)
+              YoutubePlayer(
+                controller: _youtubeController!,
+                showVideoProgressIndicator: true,
+                progressIndicatorColor: const Color(0xFFFFB800),
+                progressColors: const ProgressBarColors(
+                  playedColor: Color(0xFFFFB800),
+                  handleColor: Color(0xFFFFB800),
+                ),
+              )
+            else if (_chewieController != null)
+              Chewie(controller: _chewieController!)
+            else
+              const SizedBox.shrink(),
+          ] else ...[
+            // Loading/Error placeholders
+            _buildThumbnailPlaceholder(),
+            if (_hasError)
+              const Center(
+                child: Text('Failed to load video',
+                    style: TextStyle(color: Colors.redAccent)),
+              )
+            else
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFFFFB800),
+                  strokeWidth: 2,
+                ),
+              ),
+          ],
         ],
-      );
-    }
-
-    if (_youtubeController != null) {
-      return YoutubePlayer(
-        controller: _youtubeController!,
-        showVideoProgressIndicator: true,
-        progressIndicatorColor: const Color(0xFFFFB800),
-        progressColors: const ProgressBarColors(
-          playedColor: Color(0xFFFFB800),
-          handleColor: Color(0xFFFFB800),
-        ),
-      );
-    }
-
-    if (_chewieController != null) {
-      return Chewie(controller: _chewieController!);
-    }
-
-    return const SizedBox.shrink();
+      ],
+    );
   }
 }

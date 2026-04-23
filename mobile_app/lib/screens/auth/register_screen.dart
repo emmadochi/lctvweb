@@ -54,6 +54,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await authProvider.signInWithGoogle();
+
+    if (success) {
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      }
+    } else if (authProvider.error != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error!),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -223,9 +243,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     // Register Button
                     authProvider.isLoading
                         ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFB800)))
-                        : ElevatedButton(
-                            onPressed: _handleRegister,
-                            child: const Text('CREATE ACCOUNT'),
+                        : Column(
+                            children: [
+                              ElevatedButton(
+                                onPressed: _handleRegister,
+                                child: const Text('CREATE ACCOUNT'),
+                              ),
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: _handleGoogleSignIn,
+                                icon: Image.network(
+                                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_\"G\"_logo.svg/1200px-Google_\"G\"_logo.svg.png',
+                                  height: 24,
+                                ),
+                                label: const Text(
+                                  'Sign up with Google',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.white24),
+                                  minimumSize: const Size(double.infinity, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                     const SizedBox(height: 40),
                   ],

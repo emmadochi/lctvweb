@@ -84,6 +84,43 @@ class VideoGridCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Premium Badge Overlay
+                  if (video.isPremium)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFB800), Color(0xFFFFD700)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star, color: Color(0xFF25284B), size: 10),
+                            const SizedBox(width: 4),
+                            Text(
+                              'PREMIUM ${video.price > 0 ? "(\$${video.price.toStringAsFixed(2)})" : ""}',
+                              style: const TextStyle(
+                                color: Color(0xFF25284B),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

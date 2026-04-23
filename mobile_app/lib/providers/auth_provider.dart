@@ -2,16 +2,21 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../services/api_service.dart';
 import '../models/user_model.dart';
 import '../utils/constants.dart';
+import '../services/push_notification_service.dart';
 
 class AuthProvider with ChangeNotifier {
   UserModel? _user;
   bool _isLoading = false;
   String? _error;
-  final ApiService _apiService = ApiService();
+   final ApiService _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
@@ -70,6 +75,10 @@ class AuthProvider with ChangeNotifier {
         _user = UserModel.fromJson(userJson);
         _isLoading = false;
         notifyListeners();
+        
+        // Register push notification token now that user is logged in
+        PushNotificationService.registerDevice();
+        
         return true;
       }
     } catch (e) {
@@ -119,6 +128,10 @@ class AuthProvider with ChangeNotifier {
         _user = UserModel.fromJson(userJson);
         _isLoading = false;
         notifyListeners();
+        
+        // Register push notification token now that user is logged in
+        PushNotificationService.registerDevice();
+        
         return true;
       }
     } catch (e) {
@@ -136,6 +149,122 @@ class AuthProvider with ChangeNotifier {
         _error = 'Network error. Please try again later.';
       }
       print('Registration error: $e');
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        _isLoading = false;
+        notifyListeners();
+        return false; // User cancelled
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Once signed in, return the UserCredential
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final User? firebaseUser = userCredential.user;
+
+      if (firebaseUser != null) {
+        // Send to backend
+        final response = await _apiService.post('/users', data: {
+          'action': 'google_login',
+          'google_id': firebaseUser.uid,
+          'email': firebaseUser.email,
+          'first_name': firebaseUser.displayName?.split(' ').first ?? '',
+          'last_name': firebaseUser.displayName?.split(' ').skip(1).join(' ') ?? '',
+          'id_token': await firebaseUser.getIdToken(),
+        });
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final data = response.data['data'];
+          final token = data['token'];
+          final userJson = data['user'];
+
+          await _storage.write(key: AppConstants.tokenKey, value: token);
+          await _storage.write(key: AppConstants.userKey, value: jsonEncode(userJson));
+
+          _user = UserModel.fromJson(userJson);
+          _isLoading = false;
+          notifyListeners();
+          
+          // Register push notification token now that user is logged in
+          PushNotificationService.registerDevice();
+          
+          return true;
+        }
+      }
+    } catch (e) {
+      _error = 'Google Sign-In failed: ${e.toString()}';
+      print('Google Sign-In error: $e');
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  Future<bool> requestPasswordReset(String email) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.post('/users/forgot-password', data: {
+        'email': email,
+      });
+
+      if (response.data['success'] == true) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      _error = _handleError(e);
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  Future<bool> resetPassword(String token, String newPassword) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.post('/users/reset-password', data: {
+        'token': token,
+        'password': newPassword,
+      });
+
+      if (response.data['success'] == true) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      _error = _handleError(e);
     }
 
     _isLoading = false;

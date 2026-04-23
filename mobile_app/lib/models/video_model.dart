@@ -12,6 +12,9 @@ class VideoModel {
   final List<String> tags;
   final int? categoryId;
   final String targetRole;
+  final bool isPremium;
+  final double price;
+  final bool hasAccess;
 
   VideoModel({
     required this.id,
@@ -27,6 +30,9 @@ class VideoModel {
     this.tags = const [],
     this.categoryId,
     this.targetRole = 'general',
+    this.isPremium = false,
+    this.price = 0.0,
+    this.hasAccess = true,
   });
 
   factory VideoModel.fromJson(Map<String, dynamic> json) {
@@ -67,6 +73,9 @@ class VideoModel {
       tags: json['tags'] is List ? List<String>.from(json['tags']) : [],
       categoryId: catId,
       targetRole: json['target_role'] ?? 'general',
+      isPremium: json['is_premium'] == 1 || json['is_premium'] == true,
+      price: json['price'] != null ? double.parse(json['price'].toString()) : 0.0,
+      hasAccess: json['has_access'] != false,
     );
   }
 
@@ -85,6 +94,9 @@ class VideoModel {
       'tags': tags,
       'category_id': categoryId,
       'target_role': targetRole,
+      'is_premium': isPremium,
+      'price': price,
+      'has_access': hasAccess,
     };
   }
 }

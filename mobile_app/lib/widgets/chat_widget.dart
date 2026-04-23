@@ -217,7 +217,12 @@ class _ChatWidgetState extends State<ChatWidget> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: EdgeInsets.fromLTRB(
+            16, 
+            12, 
+            16, 
+            MediaQuery.of(context).viewInsets.bottom > 0 ? 12 : 24
+          ),
           decoration: BoxDecoration(
             color: const Color(0xFF25284B).withOpacity(0.8),
             border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),

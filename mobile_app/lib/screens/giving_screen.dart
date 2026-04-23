@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/donation_provider.dart';
 import '../providers/auth_provider.dart';
+import 'package:flutter_paystack/flutter_paystack.dart';
 
 class GivingScreen extends StatefulWidget {
   const GivingScreen({super.key});
@@ -16,12 +17,21 @@ class GivingScreen extends StatefulWidget {
 class _GivingScreenState extends State<GivingScreen> {
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
-  String _selectedMethod = 'card';
-  String _selectedProvider = 'stripe';
+  String _selectedMethod = 'paystack';
+  String _selectedProvider = 'paystack';
   int? _selectedCampaignId;
   String? _selectedCategory;
-  String _selectedCurrency = 'USD';
+  String _selectedCurrency = 'NGN';
   XFile? _receiptFile;
+
+  final plugin = PaystackPlugin();
+  bool _isPaystackInitialized = false;
+
+  String _getReference() {
+    String platform = (Platform.isIOS) ? 'iOS' : 'Android';
+    final date = DateTime.now().millisecondsSinceEpoch;
+    return 'LCMTV_${platform}_$date';
+  }
 
   final List<Map<String, String>> _currencies = [
     {'code': 'USD', 'symbol': '\$'},
@@ -296,6 +306,7 @@ class _GivingScreenState extends State<GivingScreen> {
           spacing: 10,
           runSpacing: 10,
           children: [
+            _buildMethodChip('paystack', 'Paystack', Icons.payment),
             _buildMethodChip('card', 'Credit Card', Icons.credit_card),
             _buildMethodChip('paypal', 'PayPal', Icons.paypal),
             _buildMethodChip('bank_transfer', 'Bank', Icons.account_balance),
@@ -428,8 +439,93 @@ class _GivingScreenState extends State<GivingScreen> {
       return;
     }
 
-    // Logic for Card/PayPal would go here (integrating Stripe/Paystack SDKs)
+    if (_selectedMethod == 'card' || _selectedMethod == 'paystack') {
+      final gateways = provider.paymentSettings['gateway'] as List? ?? [];
+      final paystackConfig = gateways.firstWhere((g) => g['setting_key'] == 'paystack_public_key', orElse: () => null);
+      
+      // Check if config exists and is active (handling both int and string from API)
+      bool isActive = paystackConfig != null && 
+                     (paystackConfig['is_active'].toString() == '1' || paystackConfig['is_active'] == true);
+
+      if (isActive) {
+        _processPaystack(provider, auth, amount, paystackConfig['setting_value']);
+        return;
+      } else {
+        String msg = _selectedMethod == 'paystack' 
+          ? 'Paystack gateway is not currently configured or active.' 
+          : 'Credit Card gateway is not currently configured.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        return;
+      }
+    }
+
+    // Logic for PayPal / others would go here
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gateway integration coming soon. Use Bank/Crypto for now.')));
+  }
+
+  Future<void> _processPaystack(DonationProvider provider, AuthProvider auth, double amount, String publicKey) async {
+    try {
+      if (!_isPaystackInitialized) {
+        await plugin.initialize(publicKey: publicKey);
+        _isPaystackInitialized = true;
+      }
+
+      Charge charge = Charge()
+        ..amount = (amount * 100).toInt()
+        ..reference = _getReference()
+        ..email = auth.user?.email ?? 'guest@lcmtv.com'
+        ..currency = _selectedCurrency
+        ..putCustomField('donation_purpose', _selectedCategory ?? 'General');
+
+      CheckoutResponse response = await plugin.checkout(
+        context,
+        method: CheckoutMethod.card, // Defaults to card
+        charge: charge,
+        fullscreen: false,
+        logo: const Icon(Icons.favorite, color: Color(0xFFFFB800), size: 40),
+      );
+
+      if (response.status == true) {
+        final data = {
+          'user_id': auth.user?.id,
+          'donor_name': auth.user?.fullName ?? 'Guest',
+          'donor_email': auth.user?.email ?? 'guest@lcmtv.com',
+          'amount': amount.toString(),
+          'currency': _selectedCurrency,
+          'payment_method': 'card',
+          'payment_provider': 'paystack',
+          'transaction_id': response.reference,
+          'transaction_status': 'completed',
+          'donation_purpose': _selectedCategory ?? 'General',
+          'campaign_id': _selectedCampaignId?.toString() ?? '',
+          'notes': _notesController.text,
+        };
+        
+        bool success = await provider.submitDonation(data);
+        if (success) {
+          if (!mounted) return;
+          _amountController.clear();
+          _notesController.clear();
+          setState(() { _selectedCategory = null; });
+          _showSuccessDialog();
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(provider.error ?? 'Failed to record transaction.')),
+          );
+        }
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Transaction ${response.message}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment Error: $e')),
+      );
+    }
   }
 
   void _showReportDialog(DonationProvider provider, AuthProvider auth, double amount) {
@@ -438,111 +534,127 @@ class _GivingScreenState extends State<GivingScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF25284B),
-          title: const Text('Upload Receipt', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Please upload a screenshot or photo of your transfer receipt for verification.', 
-                style: TextStyle(color: Colors.white70, fontSize: 13)),
-              const SizedBox(height: 20),
-              if (_receiptFile != null)
-                Stack(
-                  children: [
-                    Container(
-                      height: 150,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        image: DecorationImage(
-                          image: FileImage(File(_receiptFile!.path)),
-                          fit: BoxFit.cover,
+      builder: (context) => Consumer<DonationProvider>(
+        builder: (context, provider, child) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            backgroundColor: const Color(0xFF25284B),
+            title: const Text('Upload Receipt', style: TextStyle(color: Colors.white)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Please upload a screenshot or photo of your transfer receipt for verification.', 
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 20),
+                if (_receiptFile != null)
+                  Stack(
+                    children: [
+                      Container(
+                        height: 150,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          image: DecorationImage(
+                            image: FileImage(File(_receiptFile!.path)),
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      right: 5,
-                      top: 5,
-                      child: GestureDetector(
-                        onTap: () => setDialogState(() => _receiptFile = null),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      Positioned(
+                        right: 5,
+                        top: 5,
+                        child: GestureDetector(
+                          onTap: provider.isLoading ? null : () => setDialogState(() => _receiptFile = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildPickerOption(
-                        icon: Icons.camera_alt,
-                        label: 'Camera',
-                        onTap: () async {
-                          final file = await picker.pickImage(source: ImageSource.camera);
-                          if (file != null) setDialogState(() => _receiptFile = file);
-                        },
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPickerOption(
+                          icon: Icons.camera_alt,
+                          label: 'Camera',
+                          onTap: () async {
+                            final file = await picker.pickImage(source: ImageSource.camera);
+                            if (file != null) setDialogState(() => _receiptFile = file);
+                          },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildPickerOption(
-                        icon: Icons.photo_library,
-                        label: 'Gallery',
-                        onTap: () async {
-                          final file = await picker.pickImage(source: ImageSource.gallery);
-                          if (file != null) setDialogState(() => _receiptFile = file);
-                        },
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildPickerOption(
+                          icon: Icons.photo_library,
+                          label: 'Gallery',
+                          onTap: () async {
+                            final file = await picker.pickImage(source: ImageSource.gallery);
+                            if (file != null) setDialogState(() => _receiptFile = file);
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: provider.isLoading ? null : () => Navigator.pop(context),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+              ),
+              ElevatedButton(
+                onPressed: _receiptFile == null || provider.isLoading
+                    ? null
+                    : () async {
+                        final data = {
+                          'user_id': auth.user?.id,
+                          'donor_name': auth.user?.fullName ?? 'Guest',
+                          'donor_email': auth.user?.email ?? '',
+                          'amount': amount.toString(),
+                          'currency': _selectedCurrency,
+                          'payment_method': _selectedMethod,
+                          'donation_purpose': _selectedCategory ?? 'General',
+                          'campaign_id': _selectedCampaignId?.toString() ?? '',
+                          'notes': _notesController.text,
+                        };
+                        
+                        final success = await provider.reportManualTransfer(data, receiptFile: _receiptFile);
+                        if (success) {
+                          if (!mounted) return;
+                          Navigator.pop(context); // Close upload dialog
+                          _showSuccessDialog();   // Show success dialog
+                          _amountController.clear();
+                          _notesController.clear();
+                          setState(() {
+                            _selectedCategory = null;
+                            _receiptFile = null;
+                          });
+                        } else {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(provider.error ?? 'Failed to upload receipt. Please try again.'),
+                              backgroundColor: Colors.redAccent,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFB800),
+                  minimumSize: const Size(100, 45),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
+                child: provider.isLoading 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                  : const Text('Upload', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
-            ),
-            ElevatedButton(
-              onPressed: _receiptFile == null || provider.isLoading
-                  ? null
-                  : () async {
-                      final data = {
-                        'user_id': auth.user?.id,
-                        'donor_name': auth.user?.fullName ?? 'Guest',
-                        'donor_email': auth.user?.email ?? '',
-                        'amount': amount.toString(),
-                        'currency': _selectedCurrency,
-                        'payment_method': _selectedMethod,
-                        'donation_purpose': _selectedCategory ?? 'General',
-                        'campaign_id': _selectedCampaignId?.toString() ?? '',
-                        'notes': _notesController.text,
-                      };
-                      
-                      final success = await provider.reportManualTransfer(data, receiptFile: _receiptFile);
-                      if (success) {
-                        Navigator.pop(context);
-                        _showSuccessDialog();
-                        _amountController.clear();
-                        _notesController.clear();
-                        setState(() {
-                          _selectedCategory = null;
-                          _receiptFile = null;
-                        });
-                      }
-                    },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFB800)),
-              child: provider.isLoading 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                : const Text('Upload', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-            ),
-          ],
         ),
       ),
     );
